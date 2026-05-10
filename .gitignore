@@ -100,3 +100,13 @@ reports/
 # OBSIDIAN
 # =============================================================================
 .obsidian/
+
+# === Caches Python adicionais (auditoria K2.6) ===
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+# === Histórico de CLI e testmon ===
+.cli_history
+.testmondata
+logs/.cli_history
+logs/.testmondata
