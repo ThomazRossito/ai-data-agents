@@ -104,6 +104,7 @@ def build_failover_options(primary_options: ClaudeAgentOptions) -> ClaudeAgentOp
 def build_supervisor_options(
     platforms: list[str] | None = None,
     enable_thinking: bool = False,
+    agent_names: list[str] | None = None,
 ) -> ClaudeAgentOptions:
     """
     Constrói e retorna o ClaudeAgentOptions para o Agent Supervisor.
@@ -120,19 +121,46 @@ def build_supervisor_options(
                          Use apenas para DOMA Full (/plan) — tarefas de planejamento complexo.
                          False por padrão para economizar custo e latência.
                          Compatível com Opus 4.7 (que rejeita a sintaxe antiga budget_tokens).
+        agent_names: Se passado, carrega APENAS esses agentes (Two-Stage Routing).
+                     Reduz drasticamente o tamanho do system prompt do Supervisor
+                     (~80K tokens fixos → ~20K tokens com 3 agentes).
+                     Use em conjunto com agents.dispatcher.select_agents() para
+                     fazer routing inteligente antes da chamada principal.
+                     None (default): carrega todos os 14 agentes do registry
+                     (comportamento legado, compatível mas caro em modelos
+                     com throughput menor que Sonnet — ex: Kimi K2.6 trava).
 
     Returns:
         ClaudeAgentOptions configurado e pronto para uso com query() ou ClaudeSDKClient.
     """
-    # Thinking no Kimi K2.6 funciona igual ao Claude Sonnet:
-    # mesmo modelo (`kimi-k2.6`) com parâmetro `thinking` controlando o modo.
-    #   - {"type": "adaptive", "effort": "high"}  → reasoning estendido (DOMA Full / /plan)
-    #   - {"type": "disabled"}                    → resposta direta (default)
-    # A Moonshot expõe esse parâmetro no endpoint compatível com Anthropic, então
-    # o claude-agent-sdk envia exatamente o mesmo payload que enviaria pro Claude.
-    thinking_config: Any = (
-        {"type": "adaptive", "effort": "high"} if enable_thinking else {"type": "disabled"}
-    )
+    # Thinking no Kimi K2.6 (Moonshot):
+    #   ⚠️ Verificado em produção: o endpoint Anthropic-compat da Moonshot ACEITA
+    #   o parâmetro thinking={"type":"adaptive"} mas NÃO emite events streaming
+    #   durante o raciocínio (pode travar 5+ min sem qualquer feedback ou jamais
+    #   completar). Diferente do Claude Sonnet que streama text_delta em tempo real.
+    #
+    #   Por isso, quando rodando contra Moonshot (anthropic_base_url contém
+    #   "moonshot"), forçamos thinking=disabled mesmo com enable_thinking=True.
+    #   O /plan continua funcionando — só sem o reasoning estendido extra.
+    #
+    #   Se a Moonshot habilitar streaming de thinking no futuro, basta remover
+    #   essa detecção e voltar ao comportamento Claude-style.
+    is_moonshot = "moonshot" in (settings.anthropic_base_url or "").lower()
+
+    if enable_thinking and is_moonshot:
+        import logging as _log
+
+        _log.getLogger("data_agents.supervisor").warning(
+            "thinking adaptive solicitado (/plan) mas endpoint é Moonshot — "
+            "thinking não streama lá. Usando thinking=disabled para evitar travada."
+        )
+        thinking_config: Any = {"type": "disabled"}
+    elif enable_thinking:
+        # Endpoint Anthropic original (ou outro compat. com streaming): usa adaptive
+        thinking_config = {"type": "adaptive", "effort": "high"}
+    else:
+        thinking_config = {"type": "disabled"}
+
     supervisor_model = settings.default_model
 
     # Servidores MCP (plataformas com credenciais disponíveis)
@@ -158,6 +186,35 @@ def build_supervisor_options(
         inject_kb_index=settings.inject_kb_index,
         inject_cache_prefix=True,
     )
+
+    # ── Two-Stage Routing: filtra agentes carregados ─────────────────────────
+    # Se `agent_names` foi passado (vem do dispatcher), carrega APENAS esses.
+    # Reduz tamanho do system prompt do Supervisor de ~80K para ~15-25K tokens.
+    # Sem isso, modelos como Kimi K2.6 travam processando o prompt gigante.
+    if agent_names is not None:
+        import logging as _log
+
+        _logger = _log.getLogger("data_agents.supervisor")
+        before = len(agents)
+        agents = {name: agents[name] for name in agent_names if name in agents}
+        after = len(agents)
+        if not agents:
+            _logger.warning(
+                f"agent_names={agent_names} resultou em 0 agentes válidos — "
+                f"recarregando todos como fallback"
+            )
+            agents = load_all_agents(
+                available_mcp_servers=set(mcp_registry.keys()),
+                tier_model_map=settings.tier_model_map if settings.tier_model_map else None,
+                tier_turns_map=settings.tier_turns_map if settings.tier_turns_map else None,
+                tier_effort_map=settings.tier_effort_map if settings.tier_effort_map else None,
+                inject_kb_index=settings.inject_kb_index,
+                inject_cache_prefix=True,
+            )
+        else:
+            _logger.info(
+                f"Lazy load ativo: {after}/{before} agentes carregados → {list(agents)}"
+            )
 
     # Raiz do projeto — garante que agentes resolvam caminhos relativos
     # corretamente independente do cwd do processo (ex: Chainlit vs main.py).

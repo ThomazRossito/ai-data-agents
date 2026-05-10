@@ -52,6 +52,12 @@ from claude_agent_sdk import (
 from claude_agent_sdk.types import StreamEvent
 
 from agents.supervisor import build_supervisor_options, build_failover_options, is_rate_limit_error
+from agents.dispatcher import (
+    select_agents as dispatcher_select_agents,
+    apply_fallback_policy as dispatcher_apply_fallback,
+    format_dispatcher_log as dispatcher_format_log,
+)
+from agents.loader import preload_registry
 from commands.parser import parse_command, get_help_text
 from config.exceptions import (
     BudgetExceededError,
@@ -268,25 +274,86 @@ async def _stream_response(
     _step_start: float = time.monotonic()
     _current_agent: str | None = None  # nome do agente em delegação ativa
 
+    # Estado para o ticker dinâmico do spinner inicial (mostra tempo decorrido).
+    # Usado quando o agente fica em thinking adaptive sem emitir tool calls
+    # — sem isso o usuário acha que travou.
+    _spinner_meta: dict = {
+        "start_time": None,
+        "base_msg": "",
+        "live": None,
+        "tokens_streamed": 0,  # incrementado via text_delta events
+    }
+
     def _start_spinner(message: str) -> Live:
         """Inicia um spinner animado com a mensagem fornecida."""
         spinner = Spinner("dots", text=Text(message, style="dim"))
-        live = Live(spinner, console=console, refresh_per_second=10, transient=True)
+        live = Live(spinner, console=console, refresh_per_second=4, transient=True)
         live.start()
+        # Registra metadata pro ticker
+        _spinner_meta["start_time"] = time.monotonic()
+        _spinner_meta["base_msg"] = message
+        _spinner_meta["live"] = live
+        _spinner_meta["tokens_streamed"] = 0
         return live
 
     def _stop_spinner(live: Live | None) -> None:
         """Para o spinner se estiver ativo."""
         if live and live.is_started:
             live.stop()
+        if _spinner_meta.get("live") is live:
+            _spinner_meta["live"] = None
+            _spinner_meta["start_time"] = None
+
+    def _refresh_spinner_text() -> None:
+        """Atualiza o spinner com tempo decorrido + tokens raciocinados (se houver)."""
+        live = _spinner_meta.get("live")
+        start = _spinner_meta.get("start_time")
+        if live is None or start is None or not live.is_started:
+            return
+        elapsed = int(time.monotonic() - start)
+        base = _spinner_meta["base_msg"]
+        tokens = _spinner_meta["tokens_streamed"]
+        # Suffix com tempo decorrido (e tokens raciocinados se streaming detectado)
+        if tokens > 0:
+            suffix = f" [⏱ {elapsed}s · {tokens} tokens raciocinados]"
+        elif elapsed >= 90:
+            suffix = f" [⏱ {elapsed}s — operação demorada, Ctrl+C cancela]"
+        elif elapsed >= 5:
+            suffix = f" [⏱ {elapsed}s]"
+        else:
+            suffix = ""
+        new_text = Text(base + suffix, style="dim")
+        live.update(Spinner("dots", text=new_text))
+
+    async def _spinner_ticker():
+        """Task assíncrona que atualiza o texto do spinner a cada segundo."""
+        try:
+            while True:
+                await asyncio.sleep(1)
+                _refresh_spinner_text()
+        except asyncio.CancelledError:
+            pass
 
     def _elapsed() -> str:
         """Retorna o tempo decorrido desde o início do passo atual."""
         secs = time.monotonic() - _step_start
         return f"{secs:.1f}s"
 
-    # Inicia o spinner de "pensando"
-    live_status = _start_spinner("Agente pensando...")
+    # Inicia o spinner de "pensando" com mensagem contextual.
+    # No /plan (DOMA Full), checamos se thinking adaptive está realmente ativo
+    # (depende do endpoint — Moonshot não suporta streaming de thinking).
+    is_plan_mode = "/plan" in (prompt or "").lower() or session_type == "plan"
+    is_moonshot = "moonshot" in (settings.anthropic_base_url or "").lower()
+    if is_plan_mode and is_moonshot:
+        initial_msg = "🧠 Agente em /plan (thinking desabilitado — Moonshot não suporta streaming)"
+    elif is_plan_mode:
+        initial_msg = "🧠 Agente raciocinando em modo /plan (thinking adaptive)"
+    else:
+        initial_msg = "🧠 Agente analisando sua solicitação"
+    live_status = _start_spinner(initial_msg)
+
+    # Task que atualiza o spinner com [⏱ Xs] enquanto o agente "pensa"
+    _ticker_task = asyncio.create_task(_spinner_ticker())
 
     async for message in client.receive_response():
         # ── StreamEvent: feedback em tempo real ──────────────────────
@@ -310,7 +377,20 @@ async def _stream_response(
             # Acumulando input da tool (para detectar nome do agente)
             elif event_type == "content_block_delta":
                 delta = event.get("delta", {})
-                if delta.get("type") == "input_json_delta":
+                delta_type = delta.get("type", "")
+
+                # Captura tokens de thinking/text para mostrar atividade real
+                # no spinner — quando o agente está raciocinando sem chamar
+                # tools, ainda assim emite text_delta/thinking_delta events.
+                if delta_type in ("text_delta", "thinking_delta"):
+                    text_chunk = delta.get("text") or delta.get("thinking") or ""
+                    if text_chunk:
+                        # Estimativa grosseira: 1 token ≈ 4 chars
+                        _spinner_meta["tokens_streamed"] += max(1, len(text_chunk) // 4)
+                        # Refresh imediato ao receber tokens (sem esperar o ticker)
+                        _refresh_spinner_text()
+
+                if delta_type == "input_json_delta":
                     tool_input_buffer += delta.get("partial_json", "")
                     # Quando for Agent tool, mostra o nome do agente assim que disponível
                     if current_tool == "Agent" and _current_agent is None:
@@ -358,15 +438,32 @@ async def _stream_response(
                         _stop_spinner(live_status)
 
                     _was_agent = current_tool == "Agent"
+                    _last_tool_name = current_tool  # preserva pra mensagem contextual
                     current_tool = None
                     tool_input_buffer = ""
                     _current_agent = None
                     turn_count += 1
                     _step_start = time.monotonic()
+                    # Mensagem contextual baseada na última tool — evita o
+                    # genérico "Processando... (etapa N)" que não diz nada.
                     if _was_agent:
-                        live_status = _start_spinner("⚙️  Supervisor sintetizando...")
+                        next_msg = "⚙️  Supervisor sintetizando resposta do agente..."
+                    elif _last_tool_name in ("Read", "Glob", "Grep"):
+                        next_msg = f"📖 Refletindo sobre o que leu (etapa {turn_count})..."
+                    elif _last_tool_name == "Write":
+                        next_msg = f"✍️  Decidindo próximo passo após escrita (etapa {turn_count})..."
+                    elif _last_tool_name == "Bash":
+                        next_msg = f"⚡ Analisando saída do comando (etapa {turn_count})..."
+                    elif _last_tool_name == "AskUserQuestion":
+                        next_msg = "💭 Aguardando sua resposta..."
+                    elif _last_tool_name and _last_tool_name.startswith("mcp__"):
+                        # Extrai server (ex: mcp__databricks__list_tables → databricks)
+                        parts = _last_tool_name.split("__")
+                        server = parts[1] if len(parts) >= 2 else "MCP"
+                        next_msg = f"🔌 Processando resposta do {server} (etapa {turn_count})..."
                     else:
-                        live_status = _start_spinner(f"Processando... (etapa {turn_count})")
+                        next_msg = f"🧠 Raciocinando próximo passo (etapa {turn_count})..."
+                    live_status = _start_spinner(next_msg)
 
         # ── AssistantMessage: resposta final completa ─────────────────
         elif isinstance(message, AssistantMessage):
@@ -393,7 +490,7 @@ async def _stream_response(
 
             # Reinicia spinner para próximo turn se não for a mensagem final
             if not response_started:
-                live_status = _start_spinner("Agente processando resultado...")
+                live_status = _start_spinner("📝 Agente formulando resposta...")
 
         # ── ResultMessage: métricas finais ────────────────────────────
         elif isinstance(message, ResultMessage):
@@ -424,6 +521,14 @@ async def _stream_response(
 
     # Garante que o spinner seja parado em qualquer caso
     _stop_spinner(live_status)
+
+    # Cancela o ticker do spinner dinâmico (se ainda rodando)
+    if not _ticker_task.done():
+        _ticker_task.cancel()
+        try:
+            await _ticker_task
+        except (asyncio.CancelledError, Exception):
+            pass
 
     # Consolida texto + tools para o transcript
     assistant_text = "\n\n".join(p for p in _assistant_text_parts if p.strip())
@@ -1456,9 +1561,34 @@ async def run_single_query(prompt: str) -> None:
         await _stream_analyze(prompt)
         return
 
+    # ── Two-Stage Routing: dispatcher leve antes do Supervisor ───────────────
+    # Para /plan e queries livres (sem slash command direto), faz roteamento
+    # leve antes de carregar o Supervisor. Reduz de ~80K → ~20K tokens fixos.
+    # Slash commands diretos (/sql, /fabric, etc.) já têm agente alvo definido
+    # via DOMA Express e pulam o dispatcher.
+    is_plan_or_free = (command_result is None) or (
+        command_result.command in ("/plan", None) or command_result.doma_mode == "full"
+    )
+    selected_agents: list[str] | None = None
+    if is_plan_or_free:
+        try:
+            available = preload_registry()
+            selected, confidence, reason = await dispatcher_select_agents(
+                prompt, available
+            )
+            selected_agents = dispatcher_apply_fallback(selected, confidence, available)
+            log_line = dispatcher_format_log(
+                selected, selected_agents, confidence, reason, len(available)
+            )
+            console.print(f"[dim]{log_line}[/dim]")
+        except Exception as e:
+            logger.warning(f"Dispatcher falhou, carregando todos os agentes: {e}")
+            selected_agents = None  # fallback safe
+
     # ── Fluxo padrão: Supervisor (com thinking se /plan) ─────────────────────
     options = build_supervisor_options(
-        enable_thinking=bool(command_result and command_result.doma_mode == "full")
+        enable_thinking=bool(command_result and command_result.doma_mode == "full"),
+        agent_names=selected_agents,
     )
     options.include_partial_messages = True
 
