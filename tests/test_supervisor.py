@@ -79,8 +79,16 @@ class TestBuildSupervisorOptions:
                 build_supervisor_options(enable_thinking=False)
                 assert captured_kwargs.get("thinking") == {"type": "disabled"}
 
-    def test_build_thinking_enabled(self):
-        """T0.1: thinking adaptive (Opus 4.7 compat) quando enable_thinking=True."""
+    def test_build_thinking_enabled(self, monkeypatch):
+        """T0.1: thinking adaptive quando enable_thinking=True e backend NÃO é Moonshot.
+
+        Moonshot não suporta streaming de thinking — o supervisor força disabled
+        nesse caso (testado em test_build_thinking_disabled_on_moonshot).
+        Aqui validamos o caminho Anthropic original com adaptive/high.
+        """
+        from config.settings import settings
+
+        monkeypatch.setattr(settings, "anthropic_base_url", "")  # força Anthropic, não Moonshot
         mock_class, _ = self._make_mock_options_class()
         captured_kwargs = {}
 
@@ -99,6 +107,34 @@ class TestBuildSupervisorOptions:
                 # Opus 4.7 rejeita budget_tokens; o projeto padronizou em adaptive.
                 assert thinking["type"] == "adaptive"
                 assert thinking["effort"] == "high"
+
+    def test_build_thinking_disabled_on_moonshot(self, monkeypatch):
+        """Mesmo com enable_thinking=True, Moonshot força thinking=disabled.
+
+        Backend Moonshot (api.moonshot.ai/anthropic) não suporta streaming
+        de thinking. O supervisor detecta via anthropic_base_url e desabilita
+        explicitamente para evitar trava no endpoint.
+        """
+        from config.settings import settings
+
+        monkeypatch.setattr(
+            settings, "anthropic_base_url", "https://api.moonshot.ai/anthropic"
+        )
+        mock_class, _ = self._make_mock_options_class()
+        captured_kwargs = {}
+
+        def capture(**kwargs):
+            captured_kwargs.update(kwargs)
+            return MagicMock()
+
+        mock_class.side_effect = capture
+        with patch("agents.supervisor.ClaudeAgentOptions", mock_class):
+            with patch("agents.supervisor.build_mcp_registry", return_value={}):
+                from agents.supervisor import build_supervisor_options
+
+                build_supervisor_options(enable_thinking=True)
+                # Moonshot override vence o enable_thinking=True
+                assert captured_kwargs.get("thinking") == {"type": "disabled"}
 
     def test_build_uses_bypass_permissions(self):
         """Verifica que permission_mode é bypassPermissions."""
