@@ -1,0 +1,82 @@
+# ═══════════════════════════════════════════════════════════════════
+# Databricks Asset Bundles — Data Agents
+# Multi-environment: dev, staging, production
+# ═══════════════════════════════════════════════════════════════════
+
+bundle:
+  name: data_agents
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    default: "dev_vendas"
+  schema:
+    default: "vendas"
+
+workspace:
+  host: ${workspace.host}
+
+# ─── Shared Resources ────────────────────────────────────────────
+
+resources:
+  jobs:
+    health_check_job:
+      name: "[${bundle.target}] Databricks Agents Health Check"
+      tasks:
+        - task_key: run_health_check
+          new_cluster:
+            spark_version: "14.3.x-scala2.12"
+            node_type_id: "Standard_DS3_v2"
+            num_workers: 0
+          spark_python_task:
+            python_file: ./tools/databricks_health_check.py
+
+# ─── Sync Configuration ──────────────────────────────────────────
+
+sync:
+  include:
+    - "skills/**"
+    - "agents/**"
+    - "config/**"
+    - "hooks/**"
+    - "commands/**"
+    - "mcp_servers/**"
+    - "main.py"
+    - "pyproject.toml"
+  exclude:
+    - "tests/**"
+    - ".github/**"
+    - "**/*.pyc"
+    - "**/__pycache__"
+
+# ─── Targets (Environments) ──────────────────────────────────────
+
+targets:
+  # ─── Development ──────────────────────────────────────────────
+  dev:
+    mode: development
+    default: true
+
+  # ─── Staging ──────────────────────────────────────────────────
+  staging:
+    workspace:
+      root_path: /Shared/data-agents-staging
+    permissions:
+      - level: CAN_VIEW
+        group_name: data-agents-viewers
+      - level: CAN_MANAGE
+        group_name: data-agents-admins
+
+  # ─── Production ──────────────────────────────────────────────
+  production:
+    workspace:
+      root_path: /Shared/data-agents-prod
+    permissions:
+      - level: CAN_VIEW
+        group_name: data-agents-viewers
+      - level: CAN_MANAGE
+        group_name: data-agents-admins
+    run_as:
+      service_principal_name: data-agents-sp
