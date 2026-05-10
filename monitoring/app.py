@@ -35,10 +35,62 @@ def to_sp(ts: str) -> str:
 
 # ── Configuração da página ────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Data Agents — Monitoramento",
-    page_icon="🤖",
+    page_title="Data Agents API · Kimi K2.6",
+    page_icon="🌙",  # lua = Moonshot
     layout="wide",
     initial_sidebar_state="expanded",
+)
+
+# ── Custom CSS — paleta inspirada no tema Moonshot (azul-noite + ciano) ──────
+st.markdown(
+    """
+<style>
+    /* Header faixa K2.6 */
+    .k2-header {
+        background: linear-gradient(135deg, #1a2942 0%, #0f4c75 50%, #3282b8 100%);
+        padding: 12px 20px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        border-left: 4px solid #00d4ff;
+    }
+    .k2-header h3 {
+        color: #ffffff;
+        margin: 0;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    .k2-header p {
+        color: #a8d5e2;
+        margin: 4px 0 0 0;
+        font-size: 0.85rem;
+    }
+    .k2-badge {
+        display: inline-block;
+        background: rgba(0, 212, 255, 0.15);
+        color: #00d4ff;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-family: monospace;
+        margin-left: 8px;
+    }
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+# ── Header global — identidade do projeto ─────────────────────────────────────
+st.markdown(
+    """
+<div class="k2-header">
+    <h3>🌙 Data Agents API · Powered by Kimi K2.6 (Moonshot)
+        <span class="k2-badge">api.moonshot.ai/anthropic</span>
+    </h3>
+    <p>Sistema multi-agente sobre Claude Agent SDK + endpoint compatível Anthropic ·
+       Custos calculados com preços reais Moonshot ($0.55/M input · $2.65/M output)</p>
+</div>
+""",
+    unsafe_allow_html=True,
 )
 
 ROOT = Path(__file__).parent.parent
@@ -198,80 +250,83 @@ def analyse_app(records: list[dict]) -> dict:
     }
 
 
+#: Metadados visuais de cada MCP (label exibido + ícone). A lista de chaves
+#: vem dinamicamente de settings.validate_platform_credentials() — não há
+#: hardcode aqui. Quando um novo MCP for adicionado ao registry, basta
+#: incluir um entry aqui para o dashboard exibir bonito.
+_MCP_DISPLAY: dict[str, dict[str, str]] = {
+    "databricks":         {"label": "Databricks",                     "icon": "🟠"},
+    "databricks_genie":   {"label": "Databricks Genie",               "icon": "🧞"},
+    "fabric":             {"label": "Microsoft Fabric",               "icon": "🔵"},
+    "fabric_official":    {"label": "Fabric Official",                "icon": "🟦"},
+    "fabric_sql":         {"label": "Fabric SQL Analytics Endpoint",  "icon": "🔷"},
+    "fabric_rti":         {"label": "Fabric Real-Time Intelligence",  "icon": "🟣"},
+    "fabric_semantic":    {"label": "Fabric Semantic Models",         "icon": "💎"},
+    "fabric_ontology":    {"label": "Fabric IQ Ontology",             "icon": "🦉"},
+    "context7":           {"label": "Context7 (docs)",                "icon": "📚"},
+    "tavily":             {"label": "Tavily (web search)",            "icon": "🔍"},
+    "github":             {"label": "GitHub",                         "icon": "🐙"},
+    "firecrawl":          {"label": "Firecrawl (web scrape)",         "icon": "🔥"},
+    "postgres":           {"label": "PostgreSQL",                     "icon": "🐘"},
+    "migration_source":   {"label": "Migration Source",               "icon": "🛤️"},
+    "memory_mcp":         {"label": "Memory (knowledge graph)",       "icon": "🧠"},
+}
+
+
 def infer_mcp_status(audit: dict, app_records: list[dict]) -> dict:
     """
-    Status real = se houver chamadas MCP para a plataforma → Configurado.
-    Fallback: lê warnings do app.jsonl apenas se NUNCA houve chamada.
+    Constrói o status de cada MCP server combinando 3 fontes:
+
+    1. settings.validate_platform_credentials() — verdade canônica sobre
+       quais credenciais estão configuradas (.env). Cobre os 14+ MCPs.
+    2. audit.mcp_by_platform — contagem real de chamadas observadas no
+       audit.jsonl. Se calls > 0, o MCP foi efetivamente usado.
+    3. _MCP_DISPLAY — apenas visual (label e ícone).
+
+    Estrutura de retorno por MCP:
+      {
+        "label": str,
+        "icon": str,
+        "configured": True | False | None,  # True = pronto, False = falta cred, None = sem dados
+        "calls": int,                         # chamadas registradas no audit
+        "missing": list[str],                 # vars de env ausentes
+      }
     """
-    platforms = {
-        "databricks": {
-            "label": "Databricks",
-            "icon": "🟠",
-            "configured": False,
-            "calls": audit["mcp_by_platform"].get("databricks", 0),
-            "missing": [],
-        },
-        "fabric": {
-            "label": "Microsoft Fabric",
-            "icon": "🔵",
-            "configured": False,
-            "calls": audit["mcp_by_platform"].get("fabric", 0),
-            "missing": [],
-        },
-        "fabric_rti": {
-            "label": "Fabric Real-Time Intelligence",
-            "icon": "🟣",
-            "configured": False,
-            "calls": audit["mcp_by_platform"].get("fabric_rti", 0),
-            "missing": [],
-        },
-        "fabric_community": {
-            "label": "Fabric Community",
-            "icon": "🟢",
-            "configured": False,
-            "calls": audit["mcp_by_platform"].get("fabric_community", 0),
-            "missing": [],
-        },
-    }
+    # Importação local para não falhar caso settings tenha erro de carga.
+    try:
+        from config.settings import settings as _settings
 
-    # Se houve chamadas reais → configurado (fonte mais confiável)
-    for key, plat in platforms.items():
-        if plat["calls"] > 0:
-            plat["configured"] = True
+        cred_status = _settings.validate_platform_credentials()
+    except Exception:
+        cred_status = {}
 
-    # Para plataformas sem chamadas, checa warnings mais recentes do app.jsonl
-    recent_warns = [r.get("message", "") for r in app_records[-500:] if r.get("level") == "WARNING"]
-    warn_text = "\n".join(recent_warns)
+    platforms: dict[str, dict] = {}
+    for mcp_key, display in _MCP_DISPLAY.items():
+        cred_info = cred_status.get(mcp_key, {})
+        ready = cred_info.get("ready")
+        calls = audit["mcp_by_platform"].get(mcp_key, 0)
 
-    if not platforms["databricks"]["configured"]:
-        if "DATABRICKS: variáveis ausentes:" in warn_text:
-            for line in recent_warns:
-                if "DATABRICKS: variáveis ausentes:" in line:
-                    missing = line.split("variáveis ausentes:")[-1].split(".")[0].strip()
-                    platforms["databricks"]["missing"] = [v.strip() for v in missing.split(",")]
+        # Lógica de "configured":
+        #   - calls > 0  → True (foi usado nesta sessão, comprovado)
+        #   - ready=True → True (credenciais OK, nunca foi usado mas pronto)
+        #   - ready=False com missing → False (configuração incompleta)
+        #   - sem info     → None (estado desconhecido)
+        if calls > 0:
+            configured = True
+        elif ready is True:
+            configured = True
+        elif ready is False:
+            configured = False
         else:
-            # Sem warning recente e sem chamadas → estado desconhecido
-            platforms["databricks"]["configured"] = None  # type: ignore
+            configured = None
 
-    if not platforms["fabric"]["configured"]:
-        if "FABRIC: variáveis ausentes:" in warn_text:
-            for line in recent_warns:
-                if "FABRIC: variáveis ausentes:" in line and "FABRIC_RTI" not in line:
-                    missing = line.split("variáveis ausentes:")[-1].split(".")[0].strip()
-                    platforms["fabric"]["missing"] = [v.strip() for v in missing.split(",")]
-        else:
-            # Sem warning e sem chamadas → ainda não foi utilizado nesta sessão
-            platforms["fabric"]["configured"] = None  # type: ignore
-
-    if not platforms["fabric_rti"]["configured"]:
-        if "FABRIC_RTI: variáveis ausentes:" in warn_text:
-            for line in recent_warns:
-                if "FABRIC_RTI: variáveis ausentes:" in line:
-                    missing = line.split("variáveis ausentes:")[-1].split(".")[0].strip()
-                    platforms["fabric_rti"]["missing"] = [v.strip() for v in missing.split(",")]
-        else:
-            # Sem warning e sem chamadas → ainda não foi utilizado nesta sessão
-            platforms["fabric_rti"]["configured"] = None  # type: ignore
+        platforms[mcp_key] = {
+            "label": display["label"],
+            "icon": display["icon"],
+            "configured": configured,
+            "calls": calls,
+            "missing": cred_info.get("missing", []),
+        }
 
     return platforms
 
@@ -447,33 +502,53 @@ if page == "📊 Overview":
     c4.metric("Warnings", app["by_level"].get("WARNING", 0), help="app.jsonl")
     c5.metric("Errors", app["by_level"].get("ERROR", 0), help="app.jsonl")
 
-    # Custo total das sessões registradas + Cache Hit Rate
+    # Custo total das sessões registradas + Cache Hit Rate + Economia vs Sonnet
     if session_records:
         total_session_cost = sum(r.get("total_cost_usd", 0) or 0 for r in session_records)
+        # SDK reportou (Anthropic prices) — útil pra ver "fator de inflação"
+        total_sdk_reported = sum(
+            r.get("sdk_reported_cost_usd", 0) or 0 for r in session_records
+        )
+        # Se não temos sdk_reported, estimamos via fator 5.45x (Sonnet/K2.6 input ratio)
+        if total_sdk_reported == 0 and total_session_cost > 0:
+            total_sdk_reported = total_session_cost * 5.45
+        savings = total_sdk_reported - total_session_cost
+        savings_pct = (savings / total_sdk_reported * 100) if total_sdk_reported > 0 else 0
 
-        # Cache hit rate (campos da API Anthropic: cache_read_input_tokens / input_tokens)
+        # Cache hit rate (campos da API: cache_read_input_tokens / input_tokens)
         total_input = sum(r.get("total_input_tokens", 0) or 0 for r in session_records)
         total_cache_read = sum(r.get("cache_read_input_tokens", 0) or 0 for r in session_records)
         cache_hit_rate = (total_cache_read / total_input * 100) if total_input > 0 else None
 
-        cost_cols = st.columns([2, 1])
+        cost_cols = st.columns(3)
         with cost_cols[0]:
-            st.info(
-                f"💰 Custo total acumulado: **${total_session_cost:.4f}** em **{len(session_records)}** sessões registradas"
+            st.metric(
+                "💰 Custo Total (Moonshot real)",
+                f"${total_session_cost:.4f}",
+                help=f"Soma do que foi cobrado pela Moonshot em {len(session_records)} sessões",
             )
         with cost_cols[1]:
+            st.metric(
+                "🌙 Economia vs Sonnet",
+                f"${savings:.4f}",
+                delta=f"-{savings_pct:.1f}% vs Claude Sonnet",
+                delta_color="inverse",  # green when negative (economia)
+                help="Quanto teria gasto se rodasse no Claude Sonnet 4.6 (input $3/M, output $15/M)",
+            )
+        with cost_cols[2]:
             if cache_hit_rate is not None:
-                color = (
-                    "green" if cache_hit_rate >= 40 else "orange" if cache_hit_rate >= 15 else "red"
-                )
                 st.metric(
                     "🗃️ Cache Hit Rate",
                     f"{cache_hit_rate:.1f}%",
-                    help="Tokens reutilizados do prompt cache Anthropic. >40% = excelente, >15% = bom.",
-                    delta=f"{'✅' if cache_hit_rate >= 40 else '⚠️' if cache_hit_rate >= 15 else '❌'} {'Excelente' if cache_hit_rate >= 40 else 'Baixo'}",
+                    delta=f"{'✅ Excelente' if cache_hit_rate >= 40 else '⚠️ Médio' if cache_hit_rate >= 15 else '❌ Baixo'}",
+                    help="Tokens reutilizados do prompt cache. >40% = excelente, >15% = bom.",
                 )
             else:
-                st.info("🗃️ Cache Hit Rate: sem dados (sessions log não contém token breakdown)")
+                st.metric(
+                    "🗃️ Cache Hit Rate",
+                    "—",
+                    help="Sem dados (token breakdown não disponível)",
+                )
 
     st.divider()
 
@@ -496,16 +571,34 @@ if page == "📊 Overview":
         import pandas as pd
 
         top10 = dict(list(audit["by_tool"].items())[:10])
-        st.bar_chart(pd.Series(top10), color="#22c55e")
+        if top10:
+            st.bar_chart(pd.Series(top10), color="#22c55e")
+        else:
+            st.info("📭 Nenhuma ferramenta usada ainda.")
 
     with col_right:
-        st.subheader("🔌 MCP Servers")
+        # ── Resumo agregado dos MCPs (igual ao /mcp do CLI) ───────────────────
+        active = sum(1 for p in mcp_status.values() if p["configured"] is True)
+        inactive = sum(1 for p in mcp_status.values() if p["configured"] is False)
+        unknown = sum(1 for p in mcp_status.values() if p["configured"] is None)
+        total = len(mcp_status)
+
+        st.subheader(f"🔌 MCP Servers · {active}/{total} ativos")
+        st.caption(
+            f"✅ {active} ativos &nbsp;·&nbsp; ❌ {inactive} sem credenciais "
+            f"&nbsp;·&nbsp; 🔘 {unknown} não utilizados nesta sessão"
+        )
+
         for key, plat in mcp_status.items():
             configured = plat["configured"]
             if configured is True:
-                st.success(f"{plat['icon']} **{plat['label']}** — {plat['calls']} chamadas")
+                # Diferencia "usado nesta sessão" (calls > 0) de "pronto mas idle"
+                if plat["calls"] > 0:
+                    st.success(f"{plat['icon']} **{plat['label']}** — {plat['calls']} chamadas")
+                else:
+                    st.success(f"{plat['icon']} **{plat['label']}** — credenciais ok (idle)")
             elif configured is False:
-                missing_str = ", ".join(plat["missing"])
+                missing_str = ", ".join(plat["missing"]) if plat["missing"] else "credenciais"
                 st.warning(f"{plat['icon']} **{plat['label']}** — ausentes: `{missing_str}`")
             else:
                 st.info(f"{plat['icon']} **{plat['label']}** — não utilizado nesta sessão")
@@ -1131,14 +1224,21 @@ elif page == "⚡ Execuções":
         df_tools = pd.DataFrame(
             [{"Ferramenta": k, "Chamadas": v} for k, v in audit["by_tool"].items()]
         )
-        st.dataframe(
-            df_tools,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Chamadas": st.column_config.ProgressColumn(max_value=df_tools["Chamadas"].max())
-            },
-        )
+        # Quando ainda não há tool calls registradas, df_tools fica vazio (sem colunas)
+        # — st.column_config.ProgressColumn quebraria com KeyError. Usa render simples.
+        if df_tools.empty or "Chamadas" not in df_tools.columns:
+            st.info("Nenhuma chamada de ferramenta registrada ainda. Use o sistema para popular este audit log.")
+        else:
+            st.dataframe(
+                df_tools,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Chamadas": st.column_config.ProgressColumn(
+                        max_value=int(df_tools["Chamadas"].max())
+                    )
+                },
+            )
 
     with col2:
         st.subheader("Chamadas MCP por Plataforma")
@@ -1164,19 +1264,41 @@ elif page == "⚡ Execuções":
 
     st.divider()
     st.subheader("📅 Atividade por Data")
-    df_date = pd.DataFrame(
-        [{"Data": k, "Tool Calls": v} for k, v in audit["by_date"].items()]
-    ).set_index("Data")
-    st.bar_chart(df_date, color="#6366f1")
+    if audit["by_date"]:
+        df_date = pd.DataFrame(
+            [{"Data": k, "Tool Calls": v} for k, v in audit["by_date"].items()]
+        ).set_index("Data")
+        st.bar_chart(df_date, color="#6366f1")
+    else:
+        st.info(
+            "📭 Sem atividade registrada ainda. "
+            "Use o sistema (Chainlit ou CLI) para popular o audit log."
+        )
 
 
 # ── MCP SERVERS ───────────────────────────────────────────────────────────────
 elif page == "🔌 MCP Servers":
     st.title("🔌 MCP Servers")
     st.caption(
-        "Status baseado em chamadas reais no `audit.jsonl` "
-        "(mais confiável que os logs de inicialização)"
+        "Status combinado: credenciais do `.env` (`settings.validate_platform_credentials`) "
+        "+ chamadas reais no `audit.jsonl`."
     )
+
+    # ── KPI agregado no topo (igual ao /mcp do CLI) ──
+    active = sum(1 for p in mcp_status.values() if p["configured"] is True)
+    inactive = sum(1 for p in mcp_status.values() if p["configured"] is False)
+    unknown = sum(1 for p in mcp_status.values() if p["configured"] is None)
+    total = len(mcp_status)
+    used = sum(1 for p in mcp_status.values() if p["calls"] > 0)
+
+    k1, k2, k3, k4, k5 = st.columns(5)
+    k1.metric("Total MCPs", total)
+    k2.metric("✅ Ativos", active, help="Credenciais OK ou já usados nesta sessão")
+    k3.metric("❌ Sem credenciais", inactive, help="Faltam variáveis no .env")
+    k4.metric("🔘 Idle", unknown, help="Estado desconhecido (sem credenciais detectadas, sem uso)")
+    k5.metric("📞 Usados", used, help="MCPs com pelo menos 1 chamada no audit.jsonl")
+
+    st.divider()
 
     for key, plat in mcp_status.items():
         configured = plat["configured"]
@@ -1404,23 +1526,51 @@ elif page == "💰 Custo & Tokens":
         df_sessions["cost_per_turn"] = df_sessions["cost_per_turn"].fillna(0).astype(float)
         df_sessions["date"] = df_sessions["timestamp"].str[:10]
 
+        # SDK reported (Anthropic prices) — campo novo gravado pelo session_logger.py
+        # Se ausente em sessões antigas, estima via fator 5.45x (ratio Sonnet/K2.6 input)
+        if "sdk_reported_cost_usd" in df_sessions.columns:
+            df_sessions["sdk_reported_cost_usd"] = (
+                df_sessions["sdk_reported_cost_usd"].fillna(0).astype(float)
+            )
+            # Onde for 0 (sessões antigas), estima via fator
+            mask = df_sessions["sdk_reported_cost_usd"] == 0
+            df_sessions.loc[mask, "sdk_reported_cost_usd"] = (
+                df_sessions.loc[mask, "total_cost_usd"] * 5.45
+            )
+        else:
+            df_sessions["sdk_reported_cost_usd"] = df_sessions["total_cost_usd"] * 5.45
+
+        df_sessions["savings_usd"] = (
+            df_sessions["sdk_reported_cost_usd"] - df_sessions["total_cost_usd"]
+        )
+
         st.caption(
             f"Baseado em **{len(session_records)}** sessões registradas em `logs/sessions.jsonl`"
         )
 
         # ── KPIs ──
         total_cost = df_sessions["total_cost_usd"].sum()
+        total_sdk_cost = df_sessions["sdk_reported_cost_usd"].sum()
+        total_savings = total_sdk_cost - total_cost
         avg_cost = df_sessions["total_cost_usd"].mean()
         total_turns = df_sessions["num_turns"].sum()
-        avg_turns = df_sessions["num_turns"].mean()
         total_duration = df_sessions["duration_s"].sum()
-        total_sessions = len(df_sessions)
 
         c1, c2, c3, c4, c5 = st.columns(5)
-        c1.metric("Custo Total", f"${total_cost:.4f}", help="Soma de total_cost_usd")
-        c2.metric("Custo Médio/Sessão", f"${avg_cost:.4f}", help="Média por sessão")
-        c3.metric("Total de Turns", f"{total_turns:,}", help="Soma de num_turns")
-        c4.metric("Média Turns/Sessão", f"{avg_turns:.1f}", help="Média por sessão")
+        c1.metric(
+            "💰 Custo Total (Moonshot)",
+            f"${total_cost:.4f}",
+            help="Soma do que foi cobrado pela Moonshot — preços Kimi K2.6 reais",
+        )
+        c2.metric(
+            "🌙 Economia vs Sonnet",
+            f"${total_savings:.4f}",
+            delta=f"-{(total_savings / total_sdk_cost * 100) if total_sdk_cost > 0 else 0:.1f}%",
+            delta_color="inverse",
+            help="Quanto teria sido cobrado se rodasse no Claude Sonnet 4.6",
+        )
+        c3.metric("Custo Médio/Sessão", f"${avg_cost:.5f}", help="Média Moonshot por sessão")
+        c4.metric("Total de Turns", f"{total_turns:,}", help="Soma de num_turns")
         c5.metric("Tempo Total", f"{total_duration:.0f}s", help="Soma de duration_s")
 
         st.divider()
@@ -1475,6 +1625,10 @@ elif page == "💰 Custo & Tokens":
 
         # ── Tabela de Sessões (histórico completo) ──
         st.subheader("📋 Histórico de Sessões")
+        st.caption(
+            "Coluna **Moonshot** mostra o que você pagou de fato. Coluna **Sonnet (hipot.)** "
+            "mostra quanto teria custado se a chamada fosse direta ao Claude Sonnet 4.6."
+        )
 
         # Formatar para exibição
         df_display = df_sessions[
@@ -1482,19 +1636,21 @@ elif page == "💰 Custo & Tokens":
                 "timestamp",
                 "session_type",
                 "total_cost_usd",
+                "sdk_reported_cost_usd",
+                "savings_usd",
                 "num_turns",
                 "duration_s",
-                "cost_per_turn",
                 "prompt_preview",
             ]
         ].copy()
         df_display.columns = [
             "Timestamp",
             "Tipo",
-            "Custo (USD)",
+            "Moonshot ($)",
+            "Sonnet hipot. ($)",
+            "Economia ($)",
             "Turns",
             "Duração (s)",
-            "Custo/Turn",
             "Prompt",
         ]
         df_display = df_display.sort_values("Timestamp", ascending=False)
@@ -1505,8 +1661,9 @@ elif page == "💰 Custo & Tokens":
             use_container_width=True,
             hide_index=True,
             column_config={
-                "Custo (USD)": st.column_config.NumberColumn(format="$%.4f"),
-                "Custo/Turn": st.column_config.NumberColumn(format="$%.5f"),
+                "Moonshot ($)": st.column_config.NumberColumn(format="$%.5f"),
+                "Sonnet hipot. ($)": st.column_config.NumberColumn(format="$%.4f"),
+                "Economia ($)": st.column_config.NumberColumn(format="$%.4f"),
                 "Duração (s)": st.column_config.NumberColumn(format="%.1f"),
                 "Tipo": st.column_config.TextColumn(width="small"),
                 "Turns": st.column_config.NumberColumn(format="%d"),

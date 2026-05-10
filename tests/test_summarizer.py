@@ -97,14 +97,14 @@ class TestEstimateCost:
 
         assert _estimate_cost_usd(0, 0) == 0.0
 
-    def test_haiku_pricing(self):
-        """Haiku 4.5: $1/Mtok input + $5/Mtok output."""
+    def test_kimi_k2_6_pricing(self):
+        """Kimi K2.6 (Moonshot): $0.55/Mtok input + $2.65/Mtok output."""
         from utils.summarizer import _estimate_cost_usd
 
-        # 1M input + 0 output = $1.00
-        assert _estimate_cost_usd(1_000_000, 0) == 1.0
-        # 0 input + 1M output = $5.00
-        assert _estimate_cost_usd(0, 1_000_000) == 5.0
+        # 1M input + 0 output = $0.55
+        assert _estimate_cost_usd(1_000_000, 0) == 0.55
+        # 0 input + 1M output = $2.65
+        assert _estimate_cost_usd(0, 1_000_000) == 2.65
 
     def test_rounded_to_six_decimals(self):
         from utils.summarizer import _estimate_cost_usd
@@ -168,8 +168,8 @@ class TestSummarizeSession:
         assert "Objetivo" in result["summary"]
         assert result["input_tokens"] == 100
         assert result["output_tokens"] == 50
-        # Haiku: 100/1M * $1 + 50/1M * $5 = $0.00035
-        assert result["cost_usd"] == pytest.approx(0.00035, abs=1e-6)
+        # Kimi K2.6: 100/1M * $0.55 + 50/1M * $2.65 = 0.000055 + 0.0001325 = 0.0001875
+        assert result["cost_usd"] == pytest.approx(0.0001875, abs=1e-6)
         assert result["model"]
         assert result["turns_summarized"] == 2
 

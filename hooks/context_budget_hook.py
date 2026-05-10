@@ -3,7 +3,7 @@ Context Budget Hook — Monitoramento e compactação autônoma do context windo
 
 Estratégia em 3 limiares:
   70%  → WARNING: avisa o usuário preventivamente.
-  80%  → COMPACTAR: gera summary via Haiku, seta flag de compactação.
+  80%  → COMPACTAR: gera summary via Kimi K2.6, seta flag de compactação.
          O entry point (main.py / chainlit_app.py) detecta o flag após a resposta,
          injeta o summary no base system_prompt e reconecta o cliente — transparente.
   95%  → ERROR: se a compactação falhou por algum motivo, loga critical.
@@ -116,7 +116,7 @@ async def track_context_budget(
 
 
 async def _schedule_compaction(usage_ratio: float) -> None:
-    """Gera summary via Haiku, persiste em disco e seta o flag de compactação.
+    """Gera summary via Kimi K2.6, persiste em disco e seta o flag de compactação.
 
     O entry point (main.py / chainlit_app.py) chama check_and_consume_compaction()
     após cada resposta do Supervisor e, se o flag estiver ativo, injeta o summary

@@ -17,7 +17,7 @@ cp .env.example .env   # preencher credenciais
 python main.py                        # CLI interativo
 python main.py "liste tabelas silver" # single-query
 ./start.sh                            # Web UI (Chat + Monitoring)
-./start.sh --chat-only                # Só o chat Chainlit (porta 8503)
+./start.sh --chat-only                # Só o chat Chainlit (porta 8513)
 
 # Qualidade
 make test        # pytest com cobertura (mínimo 80%)

@@ -367,8 +367,12 @@ def _sonnet_check_contradiction(new_memory: Memory, candidate: Memory) -> bool:
         }
     ).encode("utf-8")
 
+    # Constrói a URL com base no anthropic_base_url do settings (Moonshot ou Anthropic).
+    base = (settings.anthropic_base_url or "https://api.anthropic.com").rstrip("/")
+    url = f"{base}/v1/messages"
+
     req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
+        url,
         data=payload,
         headers={
             "x-api-key": settings.anthropic_api_key,

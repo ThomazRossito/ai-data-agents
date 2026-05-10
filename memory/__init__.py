@@ -12,7 +12,7 @@ Tipos de memória com taxonomia fechada (7 tipos, decay por tipo):
 
 Pipeline:
   Sessão → memory_hook captura → ShortTermMemory (SQLite)
-  → flush → extractor (Haiku) → daily logs
+  → flush → extractor (Kimi K2.6) → daily logs
   → compiler → MemoryStore (arquivos .md) + LongTermMemory (índice FTS5)
   → MemoryManager.inject_context() → contexto injetado no prompt do Supervisor
 """

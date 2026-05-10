@@ -1,5 +1,5 @@
 """
-Memory Extractor — Extrai memórias de conversas via Sonnet.
+Memory Extractor — Extrai memórias de conversas via Kimi K2.6 (Moonshot).
 
 Após cada sessão (ou periodicamente durante a sessão), o extractor
 analisa a conversa e identifica informações que devem ser memorizadas.
@@ -110,7 +110,7 @@ def extract_memories_from_conversation(
     existing_summaries: list[str] | None = None,
 ) -> list[Memory]:
     """
-    Extrai memórias de um texto de conversa via Sonnet.
+    Extrai memórias de um texto de conversa via Kimi K2.6.
 
     Args:
         conversation_text: Texto da conversa (user + assistant messages).
@@ -149,8 +149,14 @@ def extract_memories_from_conversation(
         }
     ).encode("utf-8")
 
+    # Constrói a URL com base no anthropic_base_url do settings.
+    # Suporta tanto Moonshot (https://api.moonshot.ai/anthropic) quanto
+    # Anthropic original (vazio → usa api.anthropic.com).
+    base = (settings.anthropic_base_url or "https://api.anthropic.com").rstrip("/")
+    url = f"{base}/v1/messages"
+
     req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
+        url,
         data=payload,
         headers={
             "x-api-key": settings.anthropic_api_key,
@@ -167,11 +173,11 @@ def extract_memories_from_conversation(
 
         text = data["content"][0]["text"] if data.get("content") else "[]"
 
-        # Log de custo
+        # Log de custo — Kimi K2.6 (Moonshot): $0.55/M input + $2.65/M output
         usage = data.get("usage", {})
         input_tok = usage.get("input_tokens", 0)
         output_tok = usage.get("output_tokens", 0)
-        cost = (input_tok * 3.00 + output_tok * 15.00) / 1_000_000
+        cost = (input_tok * 0.55 + output_tok * 2.65) / 1_000_000
         logger.info(f"Extração: {input_tok} in / {output_tok} out = ${cost:.5f}")
 
         # Parse da resposta

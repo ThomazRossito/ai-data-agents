@@ -450,9 +450,14 @@ async def run_refresh(
             _build_batch_request(skill_path, custom_id, model, upstream_map.get(skill_path))
         )
 
-    print(f"\nSubmetendo batch com {len(requests)} skills ao Anthropic...\n")
+    print(f"\nSubmetendo batch com {len(requests)} skills ao Anthropic-compat endpoint...\n")
 
-    client = AsyncAnthropic()
+    # base_url Moonshot (ou Anthropic original se vazio). Note que a Moonshot
+    # pode não suportar /messages/batches — neste caso o submit cai com 404.
+    client = AsyncAnthropic(
+        api_key=settings.anthropic_api_key or None,
+        base_url=settings.anthropic_base_url or None,
+    )
     try:
         batch_id = await _submit_and_poll_batch(client, requests)
     except Exception as e:

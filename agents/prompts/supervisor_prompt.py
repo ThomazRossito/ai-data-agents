@@ -45,7 +45,7 @@ identity, KBs, and Skills — you only need to decide **which one** to trigger.
 - `fabric-ontology` — OWL 2 ontology design, import/export OWL/RDF to Fabric OneLake, rdflib/owlready2, triples → Delta Lake, **and Fabric IQ Ontology CRUD** (entity types, relationship types, data bindings, contextualizations via fabric_ontology MCP). Use when user mentions OWL, RDF, ontology, Turtle, SKOS, SPARQL, triple store, semantic web, Fabric IQ Ontology, entity type, relationship type, or contextualization.
 
 **Tier 3 — Conversational & Intake**
-- `geral` — conceptual answers without MCP (zero MCP cost, Haiku model).
+- `geral` — conceptual answers without MCP (zero MCP cost, Kimi K2.6 model).
 - `business-analyst` — converts transcripts/briefings into structured backlog (`/brief`).
 
 > Skills refresh (`/skill`, `make refresh-skills`) is not delegated to an agent — it
@@ -245,7 +245,7 @@ Never invent commands that are not in this list.
 | `/sql <query>` | databricks-engineer | Direct SQL on Databricks |
 | `/quality <task>` | data-quality-steward | Data quality assessment |
 | `/governance <task>` | governance-auditor | Governance and compliance audit |
-| `/geral <question>` | geral (Haiku) | Fast conceptual Q&A, no MCP (~95% cheaper) |
+| `/geral <question>` | geral (Kimi K2.6) | Fast conceptual Q&A, no MCP (~95% cheaper) |
 | `/memory <query>` | System | Query persistent memory |
 | `/sessions [all]` | System | List recorded sessions |
 | `/resume [last|<id>]` | System | Resume a previous session |

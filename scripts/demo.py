@@ -2,7 +2,7 @@
 Demo canônico do Data Agents.
 
 Executa uma query que requer apenas `ANTHROPIC_API_KEY` — roteia para o
-agente `geral` (Haiku 4.5, zero MCP, zero Supervisor). Serve de smoke
+agente `geral` (Kimi K2.6, zero MCP, zero Supervisor). Serve de smoke
 test end-to-end para novos usuários que ainda não configuraram
 Databricks nem Fabric.
 
@@ -10,7 +10,7 @@ Uso:
     python scripts/demo.py
     make demo
 
-Custo aproximado: ~$0.005 por execução (Haiku 4.5, prompt curto).
+Custo aproximado: ~$0.001-0.003 por execução (Kimi K2.6, prompt curto).
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ async def _run_demo() -> int:
     from commands.geral import run_geral_query
 
     print("━" * 60)
-    print(" Data Agents — Demo (Haiku 4.5, zero MCP)")
+    print(" Data Agents — Demo (Kimi K2.6, zero MCP)")
     print("━" * 60)
     print(f"\nQuery: {DEMO_QUERY}\n")
     print("Executando… (costuma levar 3-8s)\n")

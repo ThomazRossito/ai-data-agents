@@ -11,15 +11,38 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def _make_result_message(cost=1.5, turns=5, duration_ms=3000):
+def _make_result_message(cost=1.5, turns=5, duration_ms=3000, usage=None):
+    """
+    Mock de ResultMessage com `usage` dict que produz `cost` quando
+    recalculado via preços Kimi K2.6 ($0.55/$2.65 por M tokens).
+
+    Para gerar custo X em USD, calcula output_tokens = X / 2.65 * 1M.
+    `total_cost_usd` recebe um valor "Anthropic-inflado" (cost*5.45) só
+    para simular o que o SDK reportaria — o session_logger ignora esse
+    valor e recalcula via tokens.
+    """
     msg = MagicMock()
-    msg.total_cost_usd = cost
+    if usage is None:
+        # Constrói tokens que produzem aproximadamente `cost` em K2.6 prices
+        output_tokens = round((cost / 2.65) * 1_000_000) if cost else 0
+        msg.usage = {
+            "input_tokens": 0,
+            "output_tokens": output_tokens,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+        }
+    else:
+        msg.usage = usage
+    msg.model_usage = None
+    msg.total_cost_usd = (cost * 5.45) if cost else 0.0  # simula SDK reporting (Anthropic)
     msg.num_turns = turns
     msg.duration_ms = duration_ms
     return msg
@@ -64,12 +87,17 @@ class TestLogSessionResult:
                 )
 
         entry = json.loads(sessions_path.read_text().strip())
-        assert entry["total_cost_usd"] == 2.0
+        # Custo é recalculado via tokens (preços Kimi K2.6) — usa approx.
+        assert entry["total_cost_usd"] == pytest.approx(2.0, rel=1e-4)
         assert entry["num_turns"] == 4
         assert entry["duration_ms"] == 5000
         assert entry["prompt_preview"] == "analisar vendas"
         assert entry["session_type"] == "interactive"
         assert "timestamp" in entry
+        # Novos campos: tokens e o cost original do SDK (Anthropic-prices).
+        assert "input_tokens" in entry
+        assert "output_tokens" in entry
+        assert "sdk_reported_cost_usd" in entry
 
     def test_log_appends_multiple_entries(self, tmp_path):
         mock_settings = _make_mock_settings(tmp_path)
@@ -106,7 +134,8 @@ class TestLogSessionResult:
                 log_session_result(_make_result_message(cost=2.0, turns=4))
 
         entry = json.loads(sessions_path.read_text().strip())
-        assert entry["cost_per_turn"] == round(2.0 / 4, 6)
+        # cost_per_turn = recalc(tokens) / turns. Usa approx por arredondamento.
+        assert entry["cost_per_turn"] == pytest.approx(2.0 / 4, rel=1e-4)
 
     def test_log_cost_per_turn_none_when_zero_turns(self, tmp_path):
         mock_settings = _make_mock_settings(tmp_path)
@@ -139,6 +168,13 @@ class TestLogSessionResult:
         msg.total_cost_usd = None
         msg.num_turns = None
         msg.duration_ms = None
+        # IMPORTANTE: explicita usage=None e model_usage=None para impedir que
+        # o MagicMock auto-crie atributos virando "tokens fantasma" no recompute.
+        msg.usage = None
+        msg.model_usage = None
+        msg.input_tokens = None
+        msg.output_tokens = None
+        msg.cache_read_input_tokens = None
         with patch("hooks.session_logger.settings", mock_settings):
             with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
                 from hooks.session_logger import log_session_result

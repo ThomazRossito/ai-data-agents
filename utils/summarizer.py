@@ -3,7 +3,7 @@ Session Summarizer — Sumariza um transcript de sessão via Kimi K2.6 (Moonshot
 
 Motivação (T4.4): quando a sessão se aproxima do limite de contexto (≥80%),
 compactamos o histórico em 7 campos estruturados. O resumo é emitido por
-Claude Haiku (modelo barato e rápido) via Anthropic Messages API diretamente
+Kimi K2.6 (Moonshot) via endpoint compatível Anthropic Messages API
 — sem passar pelo Claude Agent SDK nem pelo Supervisor.
 
 O prompt segue o template GAPS G3 (Goal / Actions / Plan / State), adaptado
@@ -171,7 +171,8 @@ async def summarize_lesson(
 
     user_message += "\nGere a lição estruturada nos 3 campos definidos no system prompt."
 
-    client = AsyncAnthropic(api_key=key)
+    # base_url é obrigatório para apontar pro endpoint Moonshot (compat. Anthropic).
+    client = AsyncAnthropic(api_key=key, base_url=settings.anthropic_base_url or None)
     try:
         response = await client.messages.create(
             model=model,
@@ -235,7 +236,7 @@ async def summarize_session(
     api_key: str | None = None,
 ) -> dict[str, Any]:
     """
-    Sumariza um transcript chamando Anthropic Messages API direta (Haiku).
+    Sumariza um transcript chamando endpoint Anthropic-compat da Moonshot (Kimi K2.6).
 
     A função é `async` para se integrar facilmente ao event loop do `main.py`
     e ao fluxo existente em `scripts/refresh_skills.py`.
@@ -281,7 +282,8 @@ async def summarize_session(
         "===== FIM =====\n"
     )
 
-    client = AsyncAnthropic(api_key=key)
+    # base_url é obrigatório para apontar pro endpoint Moonshot (compat. Anthropic).
+    client = AsyncAnthropic(api_key=key, base_url=settings.anthropic_base_url or None)
 
     try:
         response = await client.messages.create(

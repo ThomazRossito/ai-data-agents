@@ -212,7 +212,7 @@ def print_banner() -> None:
         "[bold]/ontology[/bold] | "
         "[bold]/health[/bold] | [bold]/status[/bold] | [bold]/review[/bold] | "
         "[bold magenta]/party[/bold magenta] [magenta](multi-agente paralelo)[/magenta] | "
-        "[bold cyan]/geral[/bold cyan] [cyan](Haiku)[/cyan] | "
+        "[bold cyan]/geral[/bold cyan] [cyan](Kimi K2.6)[/cyan] | "
         "[bold cyan]/memory[/bold cyan] [cyan](memória persistente)[/cyan][/dim]\n"
     )
 

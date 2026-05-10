@@ -398,7 +398,7 @@ class MemoryStore:
         """
         Gera o index.md com resumos de todas as memórias ativas.
 
-        Este index é lido pelo Sonnet lateral durante o retrieval.
+        Este index é lido pelo Kimi K2.6 lateral durante o retrieval.
         Formato compacto: uma linha por memória para maximizar a
         quantidade de context que o modelo consegue processar.
         """

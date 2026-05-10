@@ -340,7 +340,10 @@ class WorkflowRunner:
                         if isinstance(block, TextBlock) and block.text.strip():
                             output_text += block.text
                 elif isinstance(message, ResultMessage):
-                    cost = float(message.total_cost_usd or 0)
+                    # Recalcula custo com preços reais Moonshot K2.6
+                    from utils.pricing import real_cost_from_message
+
+                    cost = real_cost_from_message(message)
 
             duration = time.monotonic() - t0
             logger.info(

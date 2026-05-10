@@ -159,7 +159,7 @@ class Settings(BaseSettings):
     # Modelo padrão do Supervisor (orquestrador). Kimi K2.6 é o flagship unificado da
     # Moonshot (lançado em abr/2026), substituindo a série K2 que será descontinuada
     # em 25/05/2026. Thinking é ligado/desligado via parâmetro `thinking` (igual ao
-    # Claude Sonnet), não via modelo dedicado.
+    # Claude Sonnet — protocolo idêntico), não via modelo dedicado.
     default_model: str = "kimi-k2.6"
     max_budget_usd: float = 5.0
     max_turns: int = 50
@@ -195,7 +195,7 @@ class Settings(BaseSettings):
 
     # --- Effort por Tier (Ch. 5 — Agent Loop) ---
     # Mapeamento tier -> effort: controla o nível de "esforço" do modelo por agente.
-    # T0: "low" — Haiku respondendo perguntas conceituais, sem raciocínio profundo necessário.
+    # T0: "low" — Kimi K2.6 respondendo perguntas conceituais, sem raciocínio profundo necessário.
     # "high": raciocínio mais profundo, maior custo e latência — para tarefas complexas T1.
     # "medium": balanceado — para tarefas especializadas T2.
     # "low": rápido e eficiente — para tarefas conversacionais T3.
@@ -214,10 +214,10 @@ class Settings(BaseSettings):
 
     # --- Memory System ---
     # Se True, habilita o sistema de memória persistente (captura + retrieval).
-    # Desabilite para economizar custo do Sonnet lateral (~$0.003-0.01 por query).
+    # Desabilite para economizar custo do Kimi K2.6 lateral (~$0.003-0.01 por query).
     memory_enabled: bool = True
     # Se True, injeta memórias relevantes no system prompt antes de cada query.
-    # Requer memory_enabled=True. Cada injeção custa ~$0.003-0.01 (Sonnet lateral).
+    # Requer memory_enabled=True. Cada injeção custa ~$0.0003-0.001 (Kimi K2.6 lateral).
     memory_retrieval_enabled: bool = True
     # Se True, captura automaticamente contexto da sessão via hook PostToolUse.
     memory_capture_enabled: bool = True
@@ -349,7 +349,7 @@ class Settings(BaseSettings):
     # Limiares: 70% → WARNING, 80% → compactação automática, 95% → ERROR.
     context_budget_warn_threshold: float = 0.70
     context_budget_critical_threshold: float = 0.95
-    # Limiar para disparar compactação autônoma: gera summary via Haiku, reconecta
+    # Limiar para disparar compactação autônoma: gera summary via Kimi K2.6, reconecta
     # o cliente com o summary injetado no system prompt — transparente ao usuário.
     context_budget_summarize_threshold: float = 0.80
 
@@ -577,6 +577,15 @@ class Settings(BaseSettings):
                 "fields": {"_no_credentials_required": "true"},
                 "required": [],
             },
+            # Fabric IQ Ontology: auth via Azure CLI (`az login`) — sem env vars
+            # adicionais. Considerado sempre "ready" porque está em
+            # ALWAYS_ACTIVE_MCPS (config/mcp_servers.py); a autenticação real
+            # acontece na primeira tool call e falha graciosamente se faltar
+            # `az login`.
+            "fabric_ontology": {
+                "fields": {"_no_credentials_required": "true"},
+                "required": [],
+            },
         }
 
         results: dict[str, dict] = {}
@@ -643,7 +652,15 @@ class Settings(BaseSettings):
                 )
 
         # MCPs externos (sem plataforma de dados própria)
-        external_mcps = ["context7", "memory_mcp", "tavily", "github", "firecrawl", "postgres"]
+        external_mcps = [
+            "context7",
+            "memory_mcp",
+            "fabric_ontology",
+            "tavily",
+            "github",
+            "firecrawl",
+            "postgres",
+        ]
         for mcp in external_mcps:
             info = status[mcp]
             if info["ready"]:

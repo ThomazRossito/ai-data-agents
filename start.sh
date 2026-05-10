@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# Data Agents — start.sh
-# Inicia a UI de Chat (Chainlit, porta 8503) e o App de Monitoramento
-# (Streamlit, porta 8501) juntos em segundo plano, com shutdown limpo ao
+# Data Agents API (Kimi K2.6) — start.sh
+# Inicia a UI de Chat (Chainlit, porta 8513) e o App de Monitoramento
+# (Streamlit, porta 8511) juntos em segundo plano, com shutdown limpo ao
 # pressionar Ctrl+C.
+#
+# Portas escolhidas para NÃO conflitar com o projeto data-agents original
+# (que usa 8503/8501). Override via .env: CHAINLIT_PORT=8513, MONITOR_PORT=8511.
 #
 # Uso:
 #   ./start.sh                # Chat (Chainlit) + Monitoring
@@ -22,8 +25,10 @@ BOLD="\033[1m"
 RESET="\033[0m"
 
 # ── Portas ────────────────────────────────────────────────────────────────────
-CHAINLIT_PORT="${CHAINLIT_PORT:-8503}"
-MONITOR_PORT=8501
+# Defaults distintos do projeto original (8503/8501) para permitir rodar os
+# dois lado a lado. Override via env: CHAINLIT_PORT=... MONITOR_PORT=...
+CHAINLIT_PORT="${CHAINLIT_PORT:-8513}"
+MONITOR_PORT="${MONITOR_PORT:-8511}"
 
 # ── Raiz do projeto (diretório deste script) ──────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,10 +61,11 @@ done
 
 # ── Banner ────────────────────────────────────────────────────────────────────
 echo ""
-echo -e "${BOLD}${CYAN}╔══════════════════════════════════════════╗${RESET}"
-echo -e "${BOLD}${CYAN}║       Data Agents — UI Local             ║${RESET}"
-echo -e "${BOLD}${CYAN}║       Chat: Chainlit (porta $CHAINLIT_PORT)       ║${RESET}"
-echo -e "${BOLD}${CYAN}╚══════════════════════════════════════════╝${RESET}"
+echo -e "${BOLD}${CYAN}╔════════════════════════════════════════════╗${RESET}"
+echo -e "${BOLD}${CYAN}║   Data Agents API · Kimi K2.6 (Moonshot)   ║${RESET}"
+echo -e "${BOLD}${CYAN}║   Chat:    porta ${CHAINLIT_PORT}                       ║${RESET}"
+echo -e "${BOLD}${CYAN}║   Monitor: porta ${MONITOR_PORT}                       ║${RESET}"
+echo -e "${BOLD}${CYAN}╚════════════════════════════════════════════╝${RESET}"
 echo ""
 
 # ── Carrega .env se existir ───────────────────────────────────────────────────

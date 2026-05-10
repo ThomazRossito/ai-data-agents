@@ -311,7 +311,7 @@ Para projetos end-to-end, o Supervisor encadeia agentes automaticamente com pass
 
 ## 6. Interfaces de Uso
 
-### 6.1. Web UI Chainlit (recomendada — porta 8503)
+### 6.1. Web UI Chainlit (recomendada — porta 8513)
 
 Interface moderna com steps expandíveis em tempo real mostrando cada delegação e tool call enquanto acontecem. Dois modos disponíveis:
 
@@ -326,11 +326,11 @@ Interface moderna com steps expandíveis em tempo real mostrando cada delegaçã
 - **`/export`:** exporta o histórico completo da sessão como arquivo HTML com formatação profissional — markdown renderizado, código com syntax highlighting, separação visual de usuário (azul) vs. assistente (verde), e métricas de custo removidas automaticamente. Abra no browser e use Cmd+P (macOS) ou Ctrl+P (Windows/Linux) para salvar como PDF.
 
 ```bash
-./start.sh              # Chainlit (8503) + Monitoring (8501)
+./start.sh              # Chainlit (8513) + Monitoring (8511)
 ./start.sh --chat-only  # somente Chainlit
 ```
 
-### 6.2. Dashboard de Monitoramento (porta 8501)
+### 6.2. Dashboard de Monitoramento (porta 8511)
 
 9 páginas: Overview, Agentes, Workflows, Execuções, MCP Servers, Logs, Configurações, Custo e Tokens. Inclui tier badge nos cards de agentes, todos os workflows (WF-01 a WF-05), download CSV de logs, timezone configurável e indicador de freshness dos dados.
 
@@ -865,7 +865,7 @@ python tools/fabric_health_check.py
 
 ```bash
 # Interface web Chainlit + Monitoring
-./start.sh                     # acesse http://localhost:8503
+./start.sh                     # acesse http://localhost:8513
 
 # Terminal
 python main.py

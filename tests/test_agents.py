@@ -188,10 +188,10 @@ class TestDatabricksEngineer:
             f"databricks-engineer não deve ter tools do Fabric: {fabric_tools}"
         )
 
-    def test_databricks_engineer_model_is_sonnet(self):
+    def test_databricks_engineer_model_is_kimi_k2_6(self):
         agents = load_all_agents()
         agent = agents["databricks-engineer"]
-        assert "sonnet" in agent.model.lower()
+        assert agent.model == "kimi-k2.6"
 
 
 class TestDatabricksAi:
@@ -244,10 +244,10 @@ class TestDatabricksAi:
             f"databricks-ai não deve ter tools do MCP databricks_genie: {genie_mcp_tools}"
         )
 
-    def test_databricks_ai_model_is_sonnet(self):
+    def test_databricks_ai_model_is_kimi_k2_6(self):
         agents = load_all_agents()
         agent = agents["databricks-ai"]
-        assert "sonnet" in agent.model.lower()
+        assert agent.model == "kimi-k2.6"
 
 
 # ─── Testes dos Agentes T2 (Especializados) ──────────────────────────────────
@@ -318,10 +318,10 @@ class TestGovernanceAuditor:
 class TestDbtExpert:
     """Testes específicos para o dbt-expert."""
 
-    def test_dbt_expert_model_is_sonnet(self):
+    def test_dbt_expert_model_is_kimi_k2_6(self):
         agents = load_all_agents()
         agent = agents["dbt-expert"]
-        assert "sonnet" in agent.model.lower()
+        assert agent.model == "kimi-k2.6"
 
     def test_dbt_expert_has_no_platform_mcp_tools(self):
         """dbt-expert não executa queries em Databricks/Fabric diretamente."""
@@ -387,10 +387,10 @@ class TestFabricEngineer:
         db_tools = [t for t in (agent.tools or []) if "mcp__databricks__" in t]
         assert len(db_tools) == 0, f"fabric-engineer não deve ter tools do Databricks: {db_tools}"
 
-    def test_fabric_engineer_model_is_sonnet(self):
+    def test_fabric_engineer_model_is_kimi_k2_6(self):
         agents = load_all_agents()
         agent = agents["fabric-engineer"]
-        assert "sonnet" in agent.model.lower()
+        assert agent.model == "kimi-k2.6"
 
 
 # ─── Testes de Arquivos de Registry ──────────────────────────────────────────
@@ -558,10 +558,10 @@ class TestFabricRti:
             f"fabric-rti deve ter tier: T2, mas tem: {meta.get('tier')}"
         )
 
-    def test_fabric_rti_model_is_sonnet(self):
+    def test_fabric_rti_model_is_kimi_k2_6(self):
         agents = load_all_agents()
         agent = agents["fabric-rti"]
-        assert "sonnet" in agent.model.lower()
+        assert agent.model == "kimi-k2.6"
 
     def test_fabric_rti_has_kusto_query_tool(self):
         """fabric-rti precisa de kusto_query para consultas KQL no Eventhouse."""
@@ -962,10 +962,10 @@ class TestFabricOntology:
             f"fabric-ontology deve ter tier: T2, mas tem: {meta.get('tier')}"
         )
 
-    def test_fabric_ontology_model_is_sonnet(self):
+    def test_fabric_ontology_model_is_kimi_k2_6(self):
         agents = load_all_agents()
         agent = agents["fabric-ontology"]
-        assert "sonnet" in agent.model.lower()
+        assert agent.model == "kimi-k2.6"
 
     def test_fabric_ontology_has_context7(self):
         """fabric-ontology precisa de context7 para docs atualizadas de rdflib/owlready2."""

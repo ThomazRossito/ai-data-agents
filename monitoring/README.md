@@ -20,7 +20,7 @@ conda activate multi_agents
 streamlit run monitoring/app.py
 ```
 
-Abre automaticamente em **http://localhost:8501**
+Abre automaticamente em **http://localhost:8511**
 
 ## O que o dashboard mostra
 

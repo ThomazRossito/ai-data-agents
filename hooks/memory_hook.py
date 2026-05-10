@@ -13,7 +13,7 @@ Estratégia de captura (para minimizar custo):
     3. Quando o usuário executa /memory flush
     4. No checkpoint (budget_exceeded, idle_timeout, user_reset)
 
-Além disso, captura instantaneamente (sem Sonnet) padrões simples:
+Além disso, captura instantaneamente (sem chamada LLM) padrões simples:
   - Correções explícitas do usuário ("não faça X", "prefiro Y")
   - Decisões arquiteturais marcadas com #decision ou #pattern
 """
@@ -105,7 +105,7 @@ async def capture_session_context(
 
     Acumula o contexto no buffer e detecta padrões de captura instantânea.
     NÃO chama LLM na path principal — apenas acumula texto para flush posterior.
-    Quando detecta um trigger de lesson, chama Haiku assíncronamente para capturar.
+    Quando detecta um trigger de lesson, chama Kimi K2.6 assíncronamente para capturar.
 
     Assinatura alinhada com o SDK: (input_data, tool_use_id, context).
     input_data contém: tool_name, tool_input, tool_output.
@@ -310,7 +310,7 @@ async def _maybe_capture_lesson(
     Verifica se algum trigger está ativo e captura LESSON_LEARNED diretamente.
 
     Fire-and-forget: erros são logados mas não propagados para não bloquear a pipeline.
-    Usa Haiku para sumarização (~$0.001 por lesson).
+    Usa Kimi K2.6 para sumarização (~$0.0003 por lesson).
     """
     from config.settings import settings
 
@@ -521,7 +521,7 @@ def flush_session_memories(session_id: str = "") -> int:
 
     store = MemoryStore()
 
-    # Extrai memórias via Sonnet
+    # Extrai memórias via Kimi K2.6
     existing = store.list_all(active_only=True)
     existing_summaries = [m.summary for m in existing]
 

@@ -267,7 +267,10 @@ async def _query_single_agent(  # pragma: no cover
                     if isinstance(block, TextBlock) and block.text.strip():
                         response_text += block.text
             elif isinstance(message, ResultMessage):
-                cost = float(message.total_cost_usd or 0)
+                # Recalcula custo com preços reais Moonshot K2.6
+                from utils.pricing import real_cost_from_message
+
+                cost = real_cost_from_message(message)
     except Exception as e:
         logger.error("Party Mode — erro no agente %s: %s", agent_name, e, exc_info=True)
         response_text = f"_Erro ao consultar agente: {e}_"

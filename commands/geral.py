@@ -121,7 +121,13 @@ async def run_geral_query(
     prompt = build_prompt_with_history(user_message, history)
     model = _geral_model()
 
-    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    # base_url é OBRIGATÓRIO quando rodamos contra Moonshot (compat. Anthropic).
+    # Sem ele, o anthropic SDK aponta para api.anthropic.com e a chave Moonshot
+    # vira "invalid x-api-key" (HTTP 401).
+    client = anthropic.AsyncAnthropic(
+        api_key=settings.anthropic_api_key,
+        base_url=settings.anthropic_base_url or None,
+    )
     t0 = time.monotonic()
 
     response_text = ""
@@ -161,7 +167,7 @@ async def run_geral_query(
     duration = time.monotonic() - t0
 
     # Calcula custo estimado (Kimi K2.6: $0.55/M input, $2.65/M output)
-    cost = (input_tokens * 0.80 + output_tokens * 4.00) / 1_000_000
+    cost = (input_tokens * 0.55 + output_tokens * 2.65) / 1_000_000
 
     metrics: dict[str, float] = {
         "cost": cost,

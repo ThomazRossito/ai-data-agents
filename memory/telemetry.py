@@ -8,7 +8,7 @@ Eventos registrados:
   - store.save / store.load / store.delete
   - store.list_all / store.build_index / store.append_daily_log
   - retrieval.query  (hits, misses, duração, custo estimado)
-  - compiler.contradiction_check (custo Sonnet estimado, resultado)
+  - compiler.contradiction_check (custo Kimi K2.6 estimado, resultado)
 
 Decisão de Sprint 0 (T0.5): estes dados alimentam T1.7 — decidir entre
 remover memory/ (Caminho A) ou fazer enxugamento cirúrgico (Caminho B).

@@ -38,13 +38,26 @@ from typing import Any
 
 import chainlit as cl
 
-# Chainlit chama load_dotenv() ao ser importado e injeta ANTHROPIC_API_KEY no
-# os.environ a partir do .env. Isso força o subprocess `claude` (do SDK) a usar
-# a chave de API em vez do OAuth do Claude Code — quebrando o fluxo quando a
-# chave pertence a uma org sem saldo. Removemos aqui para que o CLI caia no
-# OAuth, igual ao main.py (que não importa chainlit).
-os.environ.pop("ANTHROPIC_API_KEY", None)
-os.environ.pop("ANTHROPIC_BASE_URL", None)
+# IMPORTANTE — Chainlit + Moonshot:
+# A versão original deste arquivo removia ANTHROPIC_API_KEY e ANTHROPIC_BASE_URL
+# do os.environ para forçar o subprocess `claude` (do claude-agent-sdk) a usar
+# OAuth do Claude Code em vez de chave de API. Isso fazia sentido quando a chave
+# era da Anthropic.
+#
+# COM A MIGRAÇÃO PARA MOONSHOT (Kimi K2.6), precisamos do oposto: o subprocess
+# `claude` PRECISA enxergar ANTHROPIC_BASE_URL=https://api.moonshot.ai/anthropic
+# e ANTHROPIC_API_KEY=<chave Moonshot>. Sem essas vars o bundled CLI tenta
+# api.anthropic.com e devolve "There's an issue with the selected model
+# (kimi-k2.6). It may not exist or you may not have access to it."
+#
+# Aqui carregamos o .env explicitamente para o caso do start.sh não ter exportado
+# (ex: rodar chainlit run direto). Não removemos nada do environ.
+try:
+    from dotenv import load_dotenv as _load_dotenv
+
+    _load_dotenv(Path(__file__).parent.parent / ".env")
+except ImportError:
+    pass
 
 from claude_agent_sdk import (
     AssistantMessage,
@@ -63,6 +76,7 @@ sys.path.insert(0, str(ROOT))
 
 from agents.loader import preload_registry  # noqa: E402
 from commands.parser import parse_command  # noqa: E402
+from utils.pricing import real_cost_from_message  # noqa: E402
 from ui.ui_config import (  # noqa: E402
     COMMAND_GROUPS as _COMMAND_GROUPS,
     agent_display_name as _agent_author_fn,
@@ -359,8 +373,9 @@ Specialist Data & AI Solutions Architect | Center of Excellence CoE @CI&T
 **GitHub:** https://github.com/ThomazRossito/
 """
 
-# Porta do dashboard de monitoramento (Streamlit — start.sh)
-_MONITOR_PORT = 8501
+# Porta do dashboard de monitoramento (Streamlit — start.sh).
+# Respeita MONITOR_PORT do .env quando definida, com default 8511 (esse projeto).
+_MONITOR_PORT = int(os.getenv("MONITOR_PORT", "8511"))
 
 
 async def _show_mode_selection() -> None:
@@ -733,7 +748,9 @@ async def _handle_supervisor(user_input: str) -> None:
                 if not streamed_text and final_text:
                     await response_msg.stream_token(final_text)
 
-                _result_cost = float(message.total_cost_usd or 0)
+                # Recalcula custo com preços reais Moonshot K2.6
+                # (SDK reporta usando preços Anthropic Sonnet — inflado ~10x).
+                _result_cost = real_cost_from_message(message)
                 _result_turns = int(message.num_turns or 0)
                 duration = float(message.duration_ms or 0) / 1000
 
@@ -742,7 +759,7 @@ async def _handle_supervisor(user_input: str) -> None:
                     response_msg.author = _agent_author(last_agent)
 
                 # Rodapé com métricas
-                metrics_str = f"\n\n---\n*💰 `${_result_cost:.4f}` · 🔄 `{_result_turns} turns` · ⏱️ `{duration:.1f}s`*"
+                metrics_str = f"\n\n---\n*💰 `${_result_cost:.5f}` · 🔄 `{_result_turns} turns` · ⏱️ `{duration:.1f}s`*"
                 await response_msg.stream_token(metrics_str)
 
                 # --- Compactação autônoma: reconecta se o hook atingiu 80% ---
@@ -931,7 +948,8 @@ async def _handle_dev(user_input: str) -> None:
                     await response_msg.stream_token(final_text)
                     streamed_text = final_text
 
-                cost = float(message.total_cost_usd or 0)
+                # Recalcula custo com preços reais Moonshot K2.6
+                cost = real_cost_from_message(message)
                 turns = int(message.num_turns or 0)
                 duration = float(message.duration_ms or 0) / 1000
 
@@ -939,7 +957,7 @@ async def _handle_dev(user_input: str) -> None:
                     message, prompt_preview=user_input[:100], session_type="dev-assistant"
                 )
 
-                footer = f"\n\n---\n*💰 `${cost:.4f}` · 🔄 `{turns} turns` · ⏱️ `{duration:.1f}s`*"
+                footer = f"\n\n---\n*💰 `${cost:.5f}` · 🔄 `{turns} turns` · ⏱️ `{duration:.1f}s`*"
                 await response_msg.stream_token(footer)
 
     except Exception as exc:
@@ -1260,12 +1278,13 @@ async def _handle_party(user_input: str) -> None:
         cl.user_session.set("chat_history", _hist)
 
 
-# ── /geral — resposta direta via Haiku sem Supervisor ────────────────────────
+# ── /geral — resposta direta via Kimi K2.6 sem Supervisor ────────────────────────
 
 
 async def _handle_geral(user_input: str) -> None:
     """
-    Executa /geral diretamente via Haiku (anthropic.AsyncAnthropic), sem Supervisor.
+    Executa /geral diretamente via Kimi K2.6 (anthropic.AsyncAnthropic apontando
+    para Moonshot via base_url compat. Anthropic), sem Supervisor.
 
     ~95% mais barato que roteamento pelo Supervisor. Mantém histórico de conversa
     na sessão Chainlit para suporte a follow-ups. Tokens são exibidos progressivamente
@@ -1286,7 +1305,7 @@ async def _handle_geral(user_input: str) -> None:
     geral_history: list[dict] = cl.user_session.get("_geral_history") or []
     geral_history.append({"role": "user", "content": query})
 
-    response_msg = cl.Message(content="", author="💬 Geral (Haiku)")
+    response_msg = cl.Message(content="", author="💬 Geral (Kimi K2.6)")
     await response_msg.send()
 
     try:
@@ -1306,7 +1325,7 @@ async def _handle_geral(user_input: str) -> None:
 
     cost = metrics.get("cost", 0.0)
     duration = metrics.get("duration", 0.0)
-    footer = f"\n\n---\n*💰 `${cost:.5f}` · ⏱️ `{duration:.1f}s` · Haiku (T0, zero MCP)*"
+    footer = f"\n\n---\n*💰 `${cost:.5f}` · ⏱️ `{duration:.1f}s` · Kimi K2.6 (T0, zero MCP)*"
 
     # Text already streamed via callback — only append footer and empty-response fallback
     if not text.strip():
@@ -1326,7 +1345,7 @@ async def _handle_geral(user_input: str) -> None:
         _hist.append(
             {
                 "role": "assistant",
-                "author": "Geral (Haiku)",
+                "author": "Geral (Kimi K2.6)",
                 "content": text,
                 "timestamp": _dt.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
@@ -1961,7 +1980,7 @@ async def on_message(message: cl.Message) -> None:
         await _handle_party(user_input)
         return
 
-    # Comando /geral — resposta direta via Haiku sem Supervisor (~95% mais barato)
+    # Comando /geral — resposta direta via Kimi K2.6 sem Supervisor (~95% mais barato vs Sonnet)
     if user_input.lower().startswith("/geral"):
         await _handle_geral(user_input)
         return
