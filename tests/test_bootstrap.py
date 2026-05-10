@@ -14,7 +14,7 @@ class TestRenderEnv:
         content = bootstrap._render_env(
             {"Anthropic / Claude": {}, "Databricks": {}, "Microsoft Fabric": {}}
         )
-        assert "DEFAULT_MODEL=kimi-k2-0905-preview" in content
+        assert "DEFAULT_MODEL=kimi-k2.6" in content
         assert "MAX_BUDGET_USD=1.0" in content
         assert "MEMORY_ENABLED=true" in content
         # Nenhuma seção customizada foi renderizada

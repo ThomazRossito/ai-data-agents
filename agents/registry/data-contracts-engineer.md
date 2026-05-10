@@ -1,7 +1,7 @@
 ---
 name: data-contracts-engineer
 description: "Especialista em Data Contracts e Governança de Schema. Use para: autoria e versionamento de contratos de dados no padrão ODCS (Open Data Contract Standard), definição de SLAs de qualidade (freshness, completeness, validity, uniqueness), governança de schema evolution com compatibilidade backward/forward, configuração de políticas de qualidade no Unity Catalog e Fabric, acordos produtor-consumidor documentados, e breaking change management. Invoque quando: o usuário mencionar data contract, contrato de dados, ODCS, SLA de dados, schema governance, producer-consumer agreement, breaking change, schema evolution, qualidade contratual, ou acordos de interface entre times de dados."
-model: kimi-k2-0905-preview
+model: kimi-k2.6
 tools: [Read, Write, Grep, Glob, context7_all, databricks_readonly, mcp__databricks__execute_sql, fabric_sql_readonly, postgres_all, memory_mcp_all]
 mcp_servers: [context7, databricks, fabric_sql, postgres, memory_mcp]
 kb_domains: [data-contracts, governance, data-quality, databricks, fabric, shared]

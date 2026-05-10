@@ -128,10 +128,11 @@ class TestLoadAllAgents:
 
     def test_all_agents_have_model(self):
         agents = load_all_agents()
+        # Família Kimi K2.6 (Moonshot, abr/2026): modelo único na API.
+        # kimi-k2.5 é mantido como variante alternativa válida (visão+texto).
         valid_models = {
-            "kimi-k2-0905-preview",        # T1/T2 — flagship, ~Sonnet
-            "kimi-k2-turbo-preview",       # T0/T3 — rápido/barato, ~Haiku
-            "kimi-thinking-preview",       # /plan — chain-of-thought
+            "kimi-k2.6",   # modelo padrão — todos os tiers
+            "kimi-k2.5",   # variante alternativa (vision support)
         }
         for name, agent in agents.items():
             assert agent.model in valid_models, f"Agente '{name}' com model inválido: {agent.model}"
@@ -595,17 +596,19 @@ class TestGeral:
         meta, _ = _parse_frontmatter(content_md)
         assert meta.get("tier") == "T0", f"geral deve ter tier: T0, mas tem: {meta.get('tier')}"
 
-    def test_geral_agent_uses_turbo(self):
-        """geral deve usar kimi-k2-turbo-preview — mesmo com TIER_MODEL_MAP cobrindo outros tiers."""
+    def test_geral_agent_uses_frontmatter_model(self):
+        """geral (T0) usa o modelo declarado no frontmatter — TIER_MODEL_MAP em outros tiers não afeta."""
+        # Configura T1/T2/T3 com placeholder distinto pra garantir que NENHUM vaza para o T0.
         tier_map = {
-            "T1": "kimi-k2-0905-preview",
-            "T2": "kimi-k2-0905-preview",
-            "T3": "kimi-k2-0905-preview",
+            "T1": "kimi-test-override",
+            "T2": "kimi-test-override",
+            "T3": "kimi-test-override",
         }
         agents = load_all_agents(tier_model_map=tier_map)
         agent = agents["geral"]
-        assert "turbo" in agent.model.lower(), (
-            f"geral deve usar K2 turbo independente do TIER_MODEL_MAP, mas usa: {agent.model}"
+        # Frontmatter de geral.md declara kimi-k2.6 (modelo único da família K2.6).
+        assert agent.model == "kimi-k2.6", (
+            f"geral deve usar kimi-k2.6 independente do TIER_MODEL_MAP, mas usa: {agent.model}"
         )
 
     def test_geral_agent_has_no_mcp_servers(self):
@@ -638,36 +641,37 @@ class TestModelRoutingByTier:
     def test_load_without_tier_map_uses_frontmatter_model(self):
         """Sem tier_model_map, cada agente usa o model do seu frontmatter."""
         agents = load_all_agents(tier_model_map=None)
-        # databricks-engineer e fabric-engineer são T1 — frontmatter declara kimi-k2-0905-preview
-        assert "0905" in agents["databricks-engineer"].model.lower()
-        assert "0905" in agents["fabric-engineer"].model.lower()
-        # geral é T0 — frontmatter declara kimi-k2-turbo-preview
-        assert "turbo" in agents["geral"].model.lower()
+        # Todos os agentes do registry declaram kimi-k2.6 no frontmatter.
+        assert agents["databricks-engineer"].model == "kimi-k2.6"
+        assert agents["fabric-engineer"].model == "kimi-k2.6"
+        assert agents["geral"].model == "kimi-k2.6"
 
     def test_load_with_empty_tier_map_uses_frontmatter_model(self):
         """Com tier_model_map vazio, comportamento idêntico a None."""
         agents = load_all_agents(tier_model_map={})
-        assert "0905" in agents["databricks-engineer"].model.lower()
-        assert "0905" in agents["fabric-engineer"].model.lower()
-        assert "turbo" in agents["geral"].model.lower()
+        assert agents["databricks-engineer"].model == "kimi-k2.6"
+        assert agents["fabric-engineer"].model == "kimi-k2.6"
+        assert agents["geral"].model == "kimi-k2.6"
 
     def test_load_with_tier_map_overrides_model(self):
         """Com tier_model_map populado, o modelo do tier sobrescreve o do frontmatter."""
-        tier_map = {"T1": "kimi-thinking-preview", "T2": "kimi-k2-turbo-preview"}
+        # Usa placeholders distintos para verificar que o override realmente
+        # acontece — sem confundir com o modelo padrão kimi-k2.6.
+        tier_map = {"T1": "kimi-test-t1-override", "T2": "kimi-test-t2-override"}
         agents = load_all_agents(tier_model_map=tier_map)
-        # databricks-engineer é T1 → deve receber kimi-thinking-preview
-        assert agents["databricks-engineer"].model == "kimi-thinking-preview"
-        # data-quality-steward é T2 → deve receber kimi-k2-turbo-preview
-        assert agents["data-quality-steward"].model == "kimi-k2-turbo-preview"
+        # databricks-engineer é T1 → deve receber o override
+        assert agents["databricks-engineer"].model == "kimi-test-t1-override"
+        # data-quality-steward é T2 → deve receber o override
+        assert agents["data-quality-steward"].model == "kimi-test-t2-override"
 
     def test_load_with_partial_tier_map(self):
         """Se o tier_model_map não cobre todos os tiers, apenas os cobertos são roteados."""
-        tier_map = {"T2": "kimi-k2-turbo-preview"}
+        tier_map = {"T2": "kimi-test-t2-override"}
         agents = load_all_agents(tier_model_map=tier_map)
-        # databricks-engineer é T1, não está no mapa → mantém frontmatter (kimi-k2-0905-preview)
-        assert "0905" in agents["databricks-engineer"].model.lower()
-        # data-quality-steward é T2 → recebe turbo
-        assert agents["data-quality-steward"].model == "kimi-k2-turbo-preview"
+        # databricks-engineer é T1, não está no mapa → mantém frontmatter (kimi-k2.6)
+        assert agents["databricks-engineer"].model == "kimi-k2.6"
+        # data-quality-steward é T2 → recebe o override
+        assert agents["data-quality-steward"].model == "kimi-test-t2-override"
 
     def test_all_t1_agents_have_tier_field(self):
         """Todos os agentes T1 devem declarar tier no frontmatter."""

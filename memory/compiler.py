@@ -33,7 +33,7 @@ from config.settings import settings
 logger = logging.getLogger("data_agents.memory.compiler")
 
 # ── Configuração Kimi K2 0905 para detecção de contradições ──────────────────
-_CONTRADICTION_MODEL = "kimi-k2-0905-preview"
+_CONTRADICTION_MODEL = "kimi-k2.6"
 _CONTRADICTION_MAX_TOKENS = 256
 
 _CONTRADICTION_SYSTEM = """\
@@ -69,7 +69,7 @@ def compile_daily_logs(
         store: MemoryStore para salvar as memórias compiladas.
         apply_decay_on_compile: Se True, aplica decay em todas as memórias
             existentes durante a compilação.
-        use_sonnet_contradiction: Se True, usa Sonnet para confirmar contradições
+        use_sonnet_contradiction: Se True, usa o modelo principal (kimi-k2.6) para confirmar contradições
             (mais preciso). Se False, usa apenas heurística word-overlap (sem custo).
 
     Returns:
@@ -262,14 +262,14 @@ def _find_contradiction(
 
     Estratégia em duas etapas:
       1. Pré-filtro barato (sem LLM): mesmo tipo + pelo menos 1 tag em comum.
-         Reduz o conjunto de candidatos antes de chamar o Sonnet.
-      2. Confirmação via Sonnet (se use_sonnet=True): verifica semântica real.
+         Reduz o conjunto de candidatos antes de chamar o modelo (kimi-k2.6).
+      2. Confirmação via modelo principal (se use_sonnet=True): verifica semântica real.
          Fallback para heurística word-overlap se a chamada falhar.
 
     Args:
         new_memory: Memória recém-extraída do daily log.
         existing: Lista de memórias ativas no store.
-        use_sonnet: Se True, usa Sonnet para confirmação (padrão). Se False,
+        use_sonnet: Se True, usa o modelo principal (kimi-k2.6) para confirmação (padrão). Se False,
             usa apenas heurística (sem custo, menos preciso).
 
     Returns:
@@ -302,8 +302,8 @@ def _filter_contradiction_candidates(
       - Mesmo tipo de memória (USER, ARCHITECTURE, etc.)
       - Pelo menos 1 tag em comum (mesmo domínio de assunto)
 
-    A intenção é reduzir o espaço de candidatos antes do Sonnet.
-    É propositalmente generoso (1 tag basta) — o Sonnet confirma a seguir.
+    A intenção é reduzir o espaço de candidatos antes da confirmação semântica.
+    É propositalmente generoso (1 tag basta) — o modelo confirma a seguir.
     """
     if not new_memory.tags:
         # Sem tags: compara apenas pelo tipo e verifica sobreposição de palavras-chave
@@ -336,13 +336,13 @@ def _filter_contradiction_candidates(
 
 def _sonnet_check_contradiction(new_memory: Memory, candidate: Memory) -> bool:
     """
-    Usa Sonnet para determinar se duas memórias são contraditórias.
+    Usa o modelo principal (kimi-k2.6) para determinar se duas memórias são contraditórias.
 
     Retorna True se Kimi K2 0905 confirmar contradição com confidence >= 0.7.
     Em caso de erro na chamada API, faz fallback para a heurística.
 
     Custo típico: ~$0.0003–0.0006 por par verificado
-    (input ~400 tokens + output ~60 tokens @ kimi-k2-0905-preview)
+    (input ~400 tokens + output ~60 tokens @ kimi-k2.6)
     """
     user_message = (
         f"## Memória EXISTENTE\n"
@@ -399,7 +399,7 @@ def _sonnet_check_contradiction(new_memory: Memory, candidate: Memory) -> bool:
         ) / 1_000_000
 
         logger.debug(
-            f"Sonnet contradiction check: {candidate.id[:8]} ↔ {new_memory.id[:8]} "
+            f"Contradiction check (kimi-k2.6): {candidate.id[:8]} ↔ {new_memory.id[:8]} "
             f"→ {is_contra} (conf={confidence:.2f}) — {reason[:80]}  [${cost:.5f}]"
         )
         _telemetry(
@@ -415,7 +415,7 @@ def _sonnet_check_contradiction(new_memory: Memory, candidate: Memory) -> bool:
 
     except Exception as e:
         logger.warning(
-            f"Sonnet contradiction check falhou ({candidate.id[:8]} ↔ {new_memory.id[:8]}): {e}. "
+            f"Contradiction check (kimi-k2.6) falhou ({candidate.id[:8]} ↔ {new_memory.id[:8]}): {e}. "
             f"Usando fallback heurístico."
         )
         return _heuristic_contradiction(new_memory, candidate)
@@ -425,7 +425,7 @@ def _heuristic_contradiction(new_memory: Memory, candidate: Memory) -> bool:
     """
     Fallback: heurística word-overlap para detecção de contradição.
 
-    Usada quando Sonnet não está disponível (sem API key, timeout, etc.)
+    Usada quando o modelo não está disponível (sem API key, timeout, etc.)
     ou quando use_sonnet=False.
 
     Critério: >50% das palavras significativas do summary coincidem

@@ -84,6 +84,7 @@ from commands.analyze import (
     parse_analyze_args,
     save_report,
 )
+from utils.pricing import real_cost_from_message
 
 logger = logging.getLogger("data_agents.main")
 console = Console()
@@ -399,9 +400,13 @@ async def _stream_response(
             _stop_spinner(live_status)
             live_status = None
 
+            # Recalcula custo com preços reais Moonshot Kimi K2.6
+            # (o SDK reporta com base em prices Anthropic Sonnet — inflado ~5x).
+            real_cost = real_cost_from_message(message)
+
             parts = []
-            if message.total_cost_usd:
-                parts.append(f"Custo: ${message.total_cost_usd:.4f}")
+            if real_cost > 0:
+                parts.append(f"Custo: ${real_cost:.5f}")
             if message.num_turns:
                 parts.append(f"Turns: {message.num_turns}")
             if message.duration_ms:
@@ -412,8 +417,8 @@ async def _stream_response(
             # Persistir métricas da sessão para o dashboard de monitoramento
             log_session_result(message, prompt_preview=prompt[:100], session_type=session_type)
 
-            # Capturar métricas para checkpoint
-            metrics["cost"] = float(message.total_cost_usd or 0)
+            # Capturar métricas para checkpoint (usando o custo real)
+            metrics["cost"] = real_cost
             metrics["turns"] = int(message.num_turns or 0)
             metrics["duration_ms"] = int(message.duration_ms or 0)
 
@@ -1420,18 +1425,48 @@ async def run_interactive() -> None:
 
 
 async def run_single_query(prompt: str) -> None:
-    """Executa uma única solicitação e exibe o resultado."""
+    """Executa uma única solicitação e exibe o resultado.
+
+    Suporta os mesmos atalhos de slash command do loop interativo:
+      - /geral  → resposta direta sem Supervisor (Kimi K2.6, zero MCP)
+      - /party  → DOMA Party Mode (múltiplos agentes em paralelo)
+      - /analyze-project → análise multi-perspectiva do projeto
+    Demais prompts (incluindo /plan, /sql, /pipeline, etc.) seguem o
+    fluxo do Supervisor com thinking adaptive ativado quando aplicável.
+    """
     setup_logging(log_level=settings.log_level, enable_console=False)
 
-    options = build_supervisor_options()
+    # ── Dispatch de slash commands (paridade com loop interativo) ────────────
+    command_result = parse_command(prompt)
+
+    if command_result and command_result.command == "/geral":
+        await _stream_geral(prompt, session_type="geral")
+        return
+
+    if command_result and command_result.command == "/party":
+        await _stream_party(prompt)
+        return
+
+    if command_result and command_result.command == "/analyze-project":
+        await _stream_analyze(prompt)
+        return
+
+    # ── Fluxo padrão: Supervisor (com thinking se /plan) ─────────────────────
+    options = build_supervisor_options(
+        enable_thinking=bool(command_result and command_result.doma_mode == "full")
+    )
     options.include_partial_messages = True
+
+    # Se o command_result existe, usa o doma_prompt (já formatado pra delegação).
+    # Senão, usa o prompt original (entrada livre pro Supervisor).
+    effective_prompt = command_result.doma_prompt if command_result else prompt
 
     current_tool: str | None = None
     tool_input_buffer: str = ""
     current_agent: str | None = None
     _step_start: float = time.monotonic()
 
-    async for message in query(prompt=prompt, options=options):
+    async for message in query(prompt=effective_prompt, options=options):
         if isinstance(message, StreamEvent):
             event = message.event
             event_type = event.get("type", "")
@@ -1493,9 +1528,11 @@ async def run_single_query(prompt: str) -> None:
                     console.print(Markdown(block.text))
 
         elif isinstance(message, ResultMessage):
-            if message.total_cost_usd:
+            # Recalcula com preços reais Moonshot K2.6 (SDK reporta com prices Anthropic)
+            real_cost = real_cost_from_message(message)
+            if real_cost > 0:
                 console.print(
-                    f"\n[dim]Custo: ${message.total_cost_usd:.4f} | "
+                    f"\n[dim]Custo: ${real_cost:.5f} | "
                     f"Turns: {message.num_turns or 0}[/dim]"
                 )
             log_session_result(message, prompt_preview=prompt[:100], session_type="single_query")

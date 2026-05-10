@@ -12,7 +12,7 @@ class TestSettingsValidation:
         # Instancia com valores explícitos para ignorar .env do ambiente CI
         s = Settings(
             anthropic_api_key="test-key",
-            default_model="kimi-thinking-preview",
+            default_model="kimi-k2.6",
             max_budget_usd=5.0,
             max_turns=50,
             log_level="INFO",
@@ -20,7 +20,7 @@ class TestSettingsValidation:
         assert s.max_budget_usd == 5.0
         assert s.max_turns == 50
         assert s.log_level == "INFO"
-        assert s.default_model == "kimi-thinking-preview"
+        assert s.default_model == "kimi-k2.6"
 
     def test_budget_must_be_positive(self):
         """Verifica que budget negativo ou zero é rejeitado."""

@@ -8,7 +8,7 @@ Formato esperado de cada arquivo de agente:
 ---
 name: agent-name
 description: "Descrição do agente."
-model: kimi-k2-0905-preview
+model: kimi-k2.6
 tools: [Read, Grep, Glob, Write]
 mcp_servers: [databricks, fabric]
 kb_domains: [sql-patterns, data-modeling]

@@ -45,13 +45,13 @@ GERAL_SYSTEM = (
 
 def _geral_model() -> str:
     """
-    Modelo para /geral — sempre kimi-k2-turbo-preview (T0).
+    Modelo para /geral — sempre kimi-k2.6 (T0).
 
     T0 é intencionalmente excluído do TIER_MODEL_MAP para que o turbo
     não seja sobrescrito acidentalmente por um override global de T1/T2/T3.
     """
     tier_map: dict = getattr(settings, "tier_model_map", {}) or {}
-    return tier_map.get("T0") or "kimi-k2-turbo-preview"
+    return tier_map.get("T0") or "kimi-k2.6"
 
 
 def build_prompt_with_history(user_message: str, history: list[dict]) -> str:
@@ -160,7 +160,7 @@ async def run_geral_query(
 
     duration = time.monotonic() - t0
 
-    # Calcula custo estimado (Haiku: $0.80/MTok input, $4.00/MTok output)
+    # Calcula custo estimado (Kimi K2.6: $0.55/M input, $2.65/M output)
     cost = (input_tokens * 0.80 + output_tokens * 4.00) / 1_000_000
 
     metrics: dict[str, float] = {

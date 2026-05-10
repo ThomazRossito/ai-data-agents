@@ -1,5 +1,5 @@
 """
-Session Summarizer — Sumariza um transcript de sessão via Claude Haiku.
+Session Summarizer — Sumariza um transcript de sessão via Kimi K2.6 (Moonshot).
 
 Motivação (T4.4): quando a sessão se aproxima do limite de contexto (≥80%),
 compactamos o histórico em 7 campos estruturados. O resumo é emitido por
@@ -25,13 +25,13 @@ from typing import Any
 
 logger = logging.getLogger("data_agents.summarizer")
 
-_DEFAULT_MODEL = "kimi-k2-turbo-preview"
+_DEFAULT_MODEL = "kimi-k2.6"
 _MAX_OUTPUT_TOKENS = 2048
 
-# Preços Kimi K2 turbo (USD por 1M tokens) — Moonshot, 2026.
+# Preços Kimi K2.6 (USD por 1M tokens) — Moonshot, 2026.
 # Referência: https://platform.moonshot.ai/docs/pricing
-_PRICE_INPUT_PER_MTOK = 0.15
-_PRICE_OUTPUT_PER_MTOK = 2.50
+_PRICE_INPUT_PER_MTOK = 0.55
+_PRICE_OUTPUT_PER_MTOK = 2.65
 
 _SYSTEM_PROMPT = """Você é o Session Summarizer do projeto data-agents. Sua tarefa: dado um
 transcript (pares usuário↔assistente) de uma sessão de engenharia de dados, emitir
@@ -89,7 +89,7 @@ def _format_transcript(
 
 
 def _estimate_cost_usd(input_tokens: int, output_tokens: int) -> float:
-    """Calcula o custo em USD com base nos preços do modelo Haiku."""
+    """Calcula o custo em USD com base nos preços do modelo Kimi K2.6."""
     cost_in = (input_tokens / 1_000_000) * _PRICE_INPUT_PER_MTOK
     cost_out = (output_tokens / 1_000_000) * _PRICE_OUTPUT_PER_MTOK
     return round(cost_in + cost_out, 6)
@@ -128,7 +128,7 @@ async def summarize_lesson(
     api_key: str | None = None,
 ) -> dict[str, Any]:
     """
-    Sumariza um evento de erro/baixa performance em uma LESSON_LEARNED via Haiku.
+    Sumariza um evento de erro/baixa performance em uma LESSON_LEARNED via Kimi K2.6.
 
     Args:
         agent: Nome do agente que gerou o evento (ex: "databricks-engineer").
@@ -136,7 +136,7 @@ async def summarize_lesson(
         tool_name: Tool que gerou o evento (ex: "mcp__databricks__run_job_now").
         error_text: Texto do erro ou contexto do evento (truncado internamente).
         context_snippet: Trecho adicional de contexto da sessão (opcional).
-        model: Modelo Anthropic. Padrão: Claude Haiku 4.5.
+        model: Identificador do modelo. Padrão: kimi-k2.6 via endpoint compat. Anthropic.
         api_key: ANTHROPIC_API_KEY. Se None, usa settings.
 
     Returns:
@@ -243,7 +243,7 @@ async def summarize_session(
     Args:
         transcript: Lista de entries no formato do transcript_hook
             (dicts com role, content, timestamp, ...).
-        model: Identificador do modelo Anthropic. Padrão: Claude Haiku 4.5.
+        model: Identificador do modelo. Padrão: kimi-k2.6 via endpoint compat. Anthropic.
         max_turns: Quantidade máxima de pares user/assistant a enviar.
         max_chars_per_turn: Teto de caracteres por turno.
         api_key: ANTHROPIC_API_KEY. Se None, usa `settings.anthropic_api_key`.

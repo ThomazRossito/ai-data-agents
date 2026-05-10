@@ -42,23 +42,21 @@ from hooks.security_hook import block_destructive_commands, check_sql_cost
 from hooks.workflow_tracker import pre_track_workflow_events, track_workflow_events
 
 
-# ─── Three-Layer Model Failover ──────────────────────────────────────────────
+# ─── Model Failover ──────────────────────────────────────────────────────────
 
 #: Mapa primary → fallback para degradação de modelo em rate-limit / overload.
-#: Kimi K2 cascade: thinking → 0905 (flagship) → turbo.
+#:
+#: A família K2.6 da Moonshot expõe um modelo único na API (`kimi-k2.6`), com
+#: thinking ligado/desligado via parâmetro — não há mais cascata por nome de
+#: modelo. Mantemos o map para compatibilidade da função build_failover_options
+#: e para permitir fallback futuro a um modelo lateral (ex: kimi-k2.5) caso a
+#: Moonshot adicione variantes leves.
 FAILOVER_MODEL_MAP: dict[str, str] = {
-    "kimi-thinking-preview": "kimi-k2-0905-preview",
-    "kimi-k2-0905-preview": "kimi-k2-turbo-preview",
-    "kimi-k2-turbo-preview": "kimi-k2-turbo-preview",  # já no nível mais baixo
+    "kimi-k2.6": "kimi-k2.6",  # modelo único — fallback é retry no mesmo modelo
 }
 
 #: Modelo de fallback padrão quando o primary não está no FAILOVER_MODEL_MAP.
-_DEFAULT_FALLBACK_MODEL = "kimi-k2-turbo-preview"
-
-#: Modelo usado pelo Supervisor quando enable_thinking=True (DOMA Full /plan).
-#: Diferente do Claude: Moonshot expõe thinking como modelo dedicado, não como
-#: parâmetro adaptive — por isso aqui trocamos o nome do modelo, não o config.
-_THINKING_MODEL = "kimi-thinking-preview"
+_DEFAULT_FALLBACK_MODEL = "kimi-k2.6"
 
 #: Padrões de mensagem de erro que indicam sobrecarga ou rate-limit do modelo.
 _OVERLOAD_PATTERNS: list[re.Pattern] = [
@@ -86,8 +84,9 @@ def build_failover_options(primary_options: ClaudeAgentOptions) -> ClaudeAgentOp
     """
     Retorna uma cópia de ClaudeAgentOptions com modelo de fallback.
 
-    Aplica o FAILOVER_MODEL_MAP para degradar o modelo do Supervisor para
-    o próximo nível disponível (kimi-thinking → kimi-k2-0905 → kimi-k2-turbo).
+    Aplica o FAILOVER_MODEL_MAP. Como K2.6 é modelo único na API, o fallback
+    atual é retry no mesmo modelo (útil pra rate limit transitório). O mapa
+    está pronto para receber um modelo lateral de fallback no futuro.
 
     Args:
         primary_options: Opções originais com o modelo primário.
@@ -95,7 +94,7 @@ def build_failover_options(primary_options: ClaudeAgentOptions) -> ClaudeAgentOp
     Returns:
         Nova instância de ClaudeAgentOptions com modelo de fallback configurado.
     """
-    primary_model = primary_options.model or "kimi-k2-0905-preview"
+    primary_model = primary_options.model or _DEFAULT_FALLBACK_MODEL
     fallback_model = FAILOVER_MODEL_MAP.get(primary_model, _DEFAULT_FALLBACK_MODEL)
     fallback_opts = copy.copy(primary_options)
     fallback_opts.model = fallback_model
@@ -125,14 +124,16 @@ def build_supervisor_options(
     Returns:
         ClaudeAgentOptions configurado e pronto para uso com query() ou ClaudeSDKClient.
     """
-    # Thinking no Kimi/Moonshot funciona diferente do Claude:
-    # - Claude: mesmo modelo + parâmetro thinking={"type": "adaptive"}.
-    # - Moonshot: modelo dedicado (kimi-thinking-preview) — config adaptive
-    #   é ignorada/rejeitada pelo endpoint compatível.
-    # Por isso aqui trocamos o NOME do modelo quando enable_thinking=True
-    # e mantemos o config thinking sempre desabilitado.
-    thinking_config: Any = {"type": "disabled"}
-    supervisor_model = _THINKING_MODEL if enable_thinking else settings.default_model
+    # Thinking no Kimi K2.6 funciona igual ao Claude Sonnet:
+    # mesmo modelo (`kimi-k2.6`) com parâmetro `thinking` controlando o modo.
+    #   - {"type": "adaptive", "effort": "high"}  → reasoning estendido (DOMA Full / /plan)
+    #   - {"type": "disabled"}                    → resposta direta (default)
+    # A Moonshot expõe esse parâmetro no endpoint compatível com Anthropic, então
+    # o claude-agent-sdk envia exatamente o mesmo payload que enviaria pro Claude.
+    thinking_config: Any = (
+        {"type": "adaptive", "effort": "high"} if enable_thinking else {"type": "disabled"}
+    )
+    supervisor_model = settings.default_model
 
     # Servidores MCP (plataformas com credenciais disponíveis)
     mcp_registry = build_mcp_registry(platforms)
@@ -166,7 +167,8 @@ def build_supervisor_options(
         # --- Working Directory: âncora todos os agentes na raiz do projeto ---
         cwd=project_root,
         # --- Modelo e System Prompt ---
-        # supervisor_model troca para kimi-thinking-preview quando enable_thinking=True (/plan).
+        # supervisor_model = settings.default_model (kimi-k2.6 por padrão).
+        # Thinking é controlado via thinking_config, não trocando o modelo.
         model=supervisor_model,
         system_prompt=SUPERVISOR_SYSTEM_PROMPT,
         # --- Tools do Supervisor (planejamento e delegação apenas) ---

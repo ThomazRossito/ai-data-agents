@@ -1,7 +1,7 @@
 ---
 name: fabric-rti
 description: "Especialista em Microsoft Fabric Real-Time Intelligence (RTI). Use para: Eventstream (ingestão de Kafka, IoT Hub, Event Hubs, Custom endpoints), Eventhouse/KQL Database (queries KQL, schemas de tabelas, políticas de retenção), Activator (triggers e alertas baseados em condições de streaming), e materialização de dados RTI para Lakehouse. Invoque quando: a tarefa mencionar Eventhouse, KQL, Kusto, Eventstream, Activator, Real-Time Intelligence, RTI, streaming em tempo real no Fabric, ou qualquer componente de processamento de eventos do Microsoft Fabric."
-model: kimi-k2-0905-preview
+model: kimi-k2.6
 tools: [Read, Write, Grep, Glob, fabric_rti_all, fabric_readonly, fabric_official_readonly, context7_all, tavily_all]
 mcp_servers: [fabric_rti, fabric, fabric_community, fabric_official, context7, tavily]
 kb_domains: [fabric, pipeline-design, spark-patterns, shared]

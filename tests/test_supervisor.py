@@ -176,10 +176,10 @@ class TestModelRoutingIntegration:
             with patch("agents.supervisor.load_all_agents") as mock_load:
                 mock_load.return_value = {}
                 with patch("agents.supervisor.settings") as mock_settings:
-                    mock_settings.default_model = "kimi-k2-0905-preview"
+                    mock_settings.default_model = "kimi-k2.6"
                     mock_settings.max_turns = 50
                     mock_settings.max_budget_usd = 5.0
-                    mock_settings.tier_model_map = {"T1": "kimi-k2-0905-preview"}
+                    mock_settings.tier_model_map = {"T1": "kimi-k2.6"}
                     from agents.supervisor import build_supervisor_options
 
                     build_supervisor_options()
@@ -194,7 +194,7 @@ class TestModelRoutingIntegration:
             with patch("agents.supervisor.load_all_agents") as mock_load:
                 mock_load.return_value = {}
                 with patch("agents.supervisor.settings") as mock_settings:
-                    mock_settings.default_model = "kimi-k2-0905-preview"
+                    mock_settings.default_model = "kimi-k2.6"
                     mock_settings.max_turns = 50
                     mock_settings.max_budget_usd = 5.0
                     mock_settings.tier_model_map = {}

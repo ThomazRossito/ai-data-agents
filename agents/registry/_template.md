@@ -1,7 +1,7 @@
 ---
 name: agent-name
 description: "Descrição do agente. Use para: [casos de uso]. Invoque quando: [condições de trigger]."
-model: kimi-k2-0905-preview  # ou kimi-thinking-preview para tarefas com chain-of-thought; kimi-k2-turbo-preview para T0/T3
+model: kimi-k2.6  # modelo único da família K2.6 — thinking ligado/desligado via parâmetro
 tools: [Read, Grep, Glob, Write]
 mcp_servers: []
 kb_domains: []
@@ -67,7 +67,7 @@ Antes de qualquer ação, consulte as Knowledge Bases relevantes.
 |---------------|-------------|---------------------------------------------------------------------------|
 | `name`        | Sim         | Identificador único do agente (kebab-case)                                |
 | `description` | Sim         | Descrição para o Supervisor usar no roteamento                            |
-| `model`       | Sim         | Modelo Kimi K2: `kimi-k2-0905-preview` (T1/T2) ou `kimi-k2-turbo-preview` (T0/T3) |
+| `model`       | Sim         | Modelo Moonshot Kimi: `kimi-k2.6` (modelo único da família K2.6 — thinking via parâmetro) |
 | `tools`       | Sim         | Lista de tools. Aliases: `databricks_all`, `databricks_readonly`, `fabric_all`, `fabric_readonly`, `fabric_rti_all`, `fabric_rti_readonly` |
 | `mcp_servers` | Não         | Lista de MCP servers: `databricks`, `fabric`, `fabric_community`, `fabric_rti` |
 | `kb_domains`  | Não         | Domínios de KB do agente. Quando `INJECT_KB_INDEX=true` (padrão), o loader injeta o `index.md` de cada domínio no prompt do agente automaticamente |

@@ -20,10 +20,10 @@ COMPRESSION_LOG_PATH: str = os.path.join(
 )
 
 # Pricing de referência (input tokens, pois é o que o compressor economiza).
-# kimi-k2-0905-preview: $0.60/1M input, kimi-k2-turbo-preview: $0.15/1M input.
-# T1/T2 usam 0905 (flagship); T0/T3 usam turbo (geral, business-analyst).
-# Mix conservador estimado: ~85% 0905 + 15% turbo = ~$0.53/M tokens.
-AVG_INPUT_PRICE_PER_TOKEN: float = 0.53 / 1_000_000  # ~$0.53/1M tokens (mix Kimi K2)
+# kimi-k2.6 (Moonshot, abr/2026): $0.55/1M input, $2.65/1M output.
+# Modelo único na API — todos os tiers (T0/T1/T2/T3) compartilham o mesmo preço.
+# Diferenciação de custo entre tiers vem do tier_turns_map e tier_effort_map.
+AVG_INPUT_PRICE_PER_TOKEN: float = 0.55 / 1_000_000  # ~$0.55/1M tokens (kimi-k2.6)
 
 
 def _limits() -> tuple[int, int, int, int, int]:

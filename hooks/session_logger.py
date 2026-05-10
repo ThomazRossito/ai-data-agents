@@ -43,7 +43,14 @@ def log_session_result(
             ou "single_query" para execuções via argumento CLI.
     """
     try:
-        total_cost_usd: float = float(getattr(result_message, "total_cost_usd", None) or 0.0)
+        # Recalcula custo com preços reais Moonshot (SDK reporta com prices Anthropic).
+        # Importação local pra evitar circular com config.settings.
+        from utils.pricing import recompute_cost_from_message
+
+        breakdown = recompute_cost_from_message(result_message)
+        total_cost_usd: float = breakdown.total_cost_usd
+        sdk_reported_cost: float | None = breakdown.sdk_reported_cost_usd
+
         num_turns: int = int(getattr(result_message, "num_turns", None) or 0)
         duration_ms: int = int(getattr(result_message, "duration_ms", None) or 0)
 
@@ -56,7 +63,11 @@ def log_session_result(
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "session_type": session_type,
             "prompt_preview": _redact_secrets(prompt_preview[:100]),
-            "total_cost_usd": total_cost_usd,
+            "total_cost_usd": total_cost_usd,            # custo real Moonshot K2.6
+            "sdk_reported_cost_usd": sdk_reported_cost,  # o que o SDK disse (Anthropic prices)
+            "input_tokens": breakdown.input_tokens,
+            "output_tokens": breakdown.output_tokens,
+            "cache_read_tokens": breakdown.cache_read_tokens,
             "num_turns": num_turns,
             "duration_ms": duration_ms,
             "duration_s": duration_s,

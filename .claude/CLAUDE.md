@@ -34,7 +34,7 @@ make health-fabric
 
 ```
 Usuário → main.py / ui/chainlit_app.py
-  └─► Supervisor (kimi-k2-0905-preview, sem MCP direto)
+  └─► Supervisor (kimi-k2.6, sem MCP direto)
         ├─► Tier 1 — Engineering Core
         │   ├─► databricks-engineer  [T1] — SQL, PySpark, LakeFlow/DLT, CDC, Jobs, diagnóstico Spark, Genie, AI/BI, KA/MAS
         │   ├─► databricks-ai        [T1] — RAG, Vector Search, LLMOps, Kafka/Flink, Spark Streaming, AI Functions
@@ -106,7 +106,7 @@ tests/            ← pytest — atualizar quando adicionar agentes/MCPs
 ---
 name: nome-do-agente
 description: "Descrição objetiva. Use para: [casos de uso]. Invoque quando: [trigger]."
-model: kimi-k2-0905-preview     # T0/T3 usam kimi-k2-turbo-preview; T1/T2 usam kimi-k2-0905-preview
+model: kimi-k2.6                # modelo único da família K2.6 — thinking via parâmetro
 tools: [Read, Write, Grep, Glob, databricks_readonly, context7_all]
 mcp_servers: [databricks, context7]
 kb_domains: [databricks, sql-patterns]   # injeta index.md automaticamente
@@ -122,10 +122,10 @@ tier: T2                                  # T0 | T1 | T2 | T3
 **Tiers:**
 | Tier | Modelo padrão | maxTurns | Effort | Uso |
 |------|---------------|----------|--------|-----|
-| T0 | kimi-k2-turbo-preview | 3 | low | Conversacional puro, zero MCP — somente `geral` |
-| T1 | kimi-k2-0905-preview | 20 | high | Core: pipelines complexos, multi-platform |
-| T2 | kimi-k2-0905-preview | 12 | medium | Especializados: qualidade, governança, semântica |
-| T3 | kimi-k2-turbo-preview | 5 | low | Conversacionais com tools limitadas |
+| T0 | kimi-k2.6 | 3 | low | Conversacional puro, zero MCP — somente `geral` |
+| T1 | kimi-k2.6 | 20 | high | Core: pipelines complexos, multi-platform |
+| T2 | kimi-k2.6 | 12 | medium | Especializados: qualidade, governança, semântica |
+| T3 | kimi-k2.6 | 5 | low | Conversacionais com tools limitadas |
 
 **Após criar o agente:**
 1. Adicionar ao `SUPERVISOR_SYSTEM_PROMPT` em `agents/prompts/supervisor_prompt.py`
@@ -357,7 +357,7 @@ def get_mcp_config() -> dict:
 **Novos campos em `Settings`:** Adicionar com default `""` e documentar com comentário
 explicando: o que é, como obter, plano gratuito se houver.
 
-**Agentes:** Tier T0 (geral) e T3 (business-analyst) usam `kimi-k2-turbo-preview` (frontmatter direto). Tiers T1/T2 usam `kimi-k2-0905-preview` por padrão (sobrescrito via `TIER_MODEL_MAP` no `.env`). O Supervisor troca para `kimi-thinking-preview` automaticamente em `/plan` (DOMA Full).
+**Agentes:** Todos os 14 agentes do registry usam `kimi-k2.6` (modelo único da família K2.6 da Moonshot, abr/2026). Diferenciação por tier acontece via `TIER_TURNS_MAP` (T0=3, T1=20, T2=12, T3=5) e `TIER_EFFORT_MAP` (low/high/medium/low). Para `/plan` (DOMA Full), o Supervisor envia `thinking={"type":"adaptive","effort":"high"}` — mesmo modelo, modo de raciocínio estendido.
 
 **Testes:** Ao adicionar um agente, verificar se algum teste em `test_agents.py` precisa
 de atualização. Ao adicionar um MCP sem credenciais, adicionar ao `CREDENTIAL_FREE_MCPS`

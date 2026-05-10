@@ -1,6 +1,6 @@
 # Data Agents — Evals canônicos
 #
-# Queries representativas executadas contra o agente `geral` (Haiku 4.5,
+# Queries representativas executadas contra o agente `geral` (Kimi K2.6,
 # zero MCP). Usadas pra detectar regressão de qualidade sem precisar de
 # Databricks/Fabric reais.
 #
@@ -17,7 +17,7 @@
 #         OU length fora do intervalo
 
 version: 1
-model: kimi-k2-turbo-preview      # executa via run_geral_query
+model: kimi-k2.6      # executa via run_geral_query
 
 queries:
   # ─── Conceitos: arquitetura Medallion ───────────────────────────

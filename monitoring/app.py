@@ -631,7 +631,7 @@ elif page == "🗺️ Knowledge Graph":
         "Supervisor",
         COLOR["supervisor"],
         SIZE["supervisor"],
-        "Supervisor — orquestra todos os agentes\nModelo: kimi-k2-0905-preview\nRegras S1–S7",
+        "Supervisor — orquestra todos os agentes\nModelo: kimi-k2.6\nRegras S1–S7",
     )
 
     # ── Agentes ───────────────────────────────────────────────────────────────
@@ -714,7 +714,7 @@ elif page == "🗺️ Knowledge Graph":
             st.markdown("#### 🟣 Supervisor")
             c1, c2 = st.columns(2)
             with c1:
-                st.markdown("**Modelo:** `kimi-k2-0905-preview`")
+                st.markdown("**Modelo:** `kimi-k2.6`")
                 st.markdown(f"**Agentes gerenciados:** {len(agent_meta_map)}")
             with c2:
                 st.markdown("**Regras:** S1 – S7 (`kb/constitution.md`)")
@@ -783,7 +783,7 @@ elif page == "🗺️ Knowledge Graph":
         ("🟡", "T1 — Core"),
         ("🟠", "T2 — Especialistas"),
         ("🔵", "T3 — Conversacional"),
-        ("⚫", "T0 — Haiku"),
+        ("⚫", "T0 — K2.6 / conversacional"),
         ("🟢", "MCPs"),
         ("🩵", "Slash Commands"),
     ]
@@ -917,7 +917,7 @@ elif page == "🤖 Agentes":
                     st.caption(agent.get("description", "")[:200])
                     c1, c2, c3, c4 = st.columns(4)
                     c1.metric("Tier", tier)
-                    c2.metric("Modelo", model.replace("claude-", "").replace("-", " "))
+                    c2.metric("Modelo", model.replace("kimi-", "").replace("-", " ").replace(".", " "))
                     c3.metric("Delegações", deleg_count)
                     c4.metric("Em Workflows", wf_count)
                     if tools:
@@ -1516,31 +1516,26 @@ elif page == "💰 Custo & Tokens":
         st.divider()
 
         # ── Estimativa de pricing ──
-        st.subheader("💡 Referência de Pricing (Moonshot API — Kimi K2)")
-        st.caption("Valores de referência — o custo real é calculado pelo SDK")
+        st.subheader("💡 Referência de Pricing (Moonshot API — Kimi K2.6)")
+        st.caption(
+            "Modelo único na API. Thinking ligado/desligado via parâmetro — sem variantes."
+        )
 
         pricing_data = pd.DataFrame(
             [
                 {
-                    "Modelo": "kimi-thinking-preview",
-                    "Input ($/1M tokens)": "$1.00",
-                    "Output ($/1M tokens)": "$5.00",
-                    "Cache Read": "$0.10",
-                    "Cache Write": "—",
+                    "Modelo": "kimi-k2.6",
+                    "Modo": "thinking={\"type\":\"adaptive\"} — /plan",
+                    "Input ($/1M tokens)": "$0.55",
+                    "Output ($/1M tokens)": "$2.65",
+                    "Cache Read": "$0.055",
                 },
                 {
-                    "Modelo": "kimi-k2-0905-preview",
-                    "Input ($/1M tokens)": "$0.60",
-                    "Output ($/1M tokens)": "$2.50",
-                    "Cache Read": "$0.06",
-                    "Cache Write": "—",
-                },
-                {
-                    "Modelo": "kimi-k2-turbo-preview",
-                    "Input ($/1M tokens)": "$0.15",
-                    "Output ($/1M tokens)": "$2.50",
-                    "Cache Read": "$0.015",
-                    "Cache Write": "—",
+                    "Modelo": "kimi-k2.6",
+                    "Modo": "thinking={\"type\":\"disabled\"} — default",
+                    "Input ($/1M tokens)": "$0.55",
+                    "Output ($/1M tokens)": "$2.65",
+                    "Cache Read": "$0.055",
                 },
             ]
         )
@@ -2431,7 +2426,7 @@ elif page == "ℹ️ Sobre":
         Data Mesh Architect · Fabric RTI · Fabric Ontology
 
         **Tier 3/0 — Conversacionais:**
-        Business Analyst · Geral (Haiku, zero MCP)
+        Business Analyst · Geral (Kimi K2.6, zero MCP)
 
         Os **hooks** interceptam cada execução de ferramenta:
         `security_hook` bloqueia comandos destrutivos e queries SQL custosas,

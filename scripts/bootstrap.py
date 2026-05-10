@@ -128,7 +128,7 @@ def _render_env(sections: dict[str, dict[str, str]]) -> str:
     lines.extend(
         [
             "# ─── Sistema ───",
-            "DEFAULT_MODEL=kimi-k2-0905-preview",
+            "DEFAULT_MODEL=kimi-k2.6",
             "MAX_BUDGET_USD=1.0",
             "MAX_TURNS=50",
             "LOG_LEVEL=INFO",
@@ -156,7 +156,7 @@ def _next_steps(has_databricks: bool, has_fabric: bool) -> None:
     if has_fabric:
         print("  3. make health-fabric       # valida conexão com Fabric")
     if not (has_databricks or has_fabric):
-        print("\n💡 Sem Databricks/Fabric o agente `/geral` (Haiku) funciona 100%.")
+        print("\n💡 Sem Databricks/Fabric o agente `/geral` (Kimi K2.6, zero MCP) funciona 100%.")
         print("   Para configurar plataformas depois, edite .env manualmente.")
     print()
 

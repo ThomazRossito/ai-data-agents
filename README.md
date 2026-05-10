@@ -528,10 +528,10 @@ make health-fabric
 
 | Variável | Default | Descrição |
 |----------|---------|-----------|
-| `DEFAULT_MODEL` | `kimi-k2-0905-preview` | Modelo do Supervisor (Kimi K2 via Moonshot) |
+| `DEFAULT_MODEL` | `kimi-k2.6` | Modelo do Supervisor (Kimi K2.6 via Moonshot) |
 | `MAX_BUDGET_USD` | 5.0 | Limite de custo por sessão (USD) |
 | `MAX_TURNS` | 50 | Limite de turnos por sessão |
-| `TIER_MODEL_MAP` | `{}` | Override de modelo por tier — ex: `{"T1": "kimi-k2-0905-preview", "T2": "kimi-k2-0905-preview", "T3": "kimi-k2-turbo-preview"}` (T0 não deve constar — protege o `kimi-k2-turbo-preview` do `geral`) |
+| `TIER_MODEL_MAP` | `{}` | Override de modelo por tier. Como K2.6 é modelo único na API, deixar vazio mantém todos em `kimi-k2.6`. Use apenas para apontar um tier para variante alternativa (ex: `{"T2": "kimi-k2.5"}` para vision support) |
 | `TIER_TURNS_MAP` | T0=3, T1=20, T2=12, T3=5 | Override de número máximo de turns por tier |
 | `TIER_EFFORT_MAP` | high/medium/low | Nível de raciocínio por tier (high, medium, low) |
 | `INJECT_KB_INDEX` | true | Injeção automática de KBs nos agentes |

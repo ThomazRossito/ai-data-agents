@@ -12,42 +12,44 @@ import pytest
 
 
 class TestGeralModel:
-    def test_default_is_kimi_turbo(self):
-        """Sem tier_model_map, retorna kimi-k2-turbo-preview."""
+    def test_default_is_kimi_k2_6(self):
+        """Sem tier_model_map, retorna kimi-k2.6 (modelo padrão da família K2.6)."""
         from commands.geral import _geral_model
 
         with patch("commands.geral.settings") as mock_settings:
             mock_settings.tier_model_map = {}
-            assert _geral_model() == "kimi-k2-turbo-preview"
+            assert _geral_model() == "kimi-k2.6"
 
     def test_t0_override_respected(self):
         """Se T0 estiver no tier_map (raro, mas possível), usa o valor configurado."""
         from commands.geral import _geral_model
 
         with patch("commands.geral.settings") as mock_settings:
-            mock_settings.tier_model_map = {"T0": "kimi-k2-0905-preview"}
-            assert _geral_model() == "kimi-k2-0905-preview"
+            # Usa kimi-k2.5 como placeholder distinto pra verificar que o override funciona.
+            mock_settings.tier_model_map = {"T0": "kimi-k2.5"}
+            assert _geral_model() == "kimi-k2.5"
 
     def test_t1_t2_t3_in_tier_map_does_not_affect_geral(self):
         """T1/T2/T3 no tier_map não afetam /geral — T0 não está no mapa por padrão."""
         from commands.geral import _geral_model
 
         with patch("commands.geral.settings") as mock_settings:
+            # Configura T1/T2/T3 com placeholders distintos pra garantir que NENHUM deles
+            # vaza para o /geral (que é T0). T0 ausente → fallback para kimi-k2.6.
             mock_settings.tier_model_map = {
-                "T1": "kimi-thinking-preview",
-                "T2": "kimi-k2-0905-preview",
-                "T3": "kimi-k2-turbo-preview",
+                "T1": "kimi-test-t1",
+                "T2": "kimi-test-t2",
+                "T3": "kimi-test-t3",
             }
-            # T0 ausente → fallback para K2 turbo
-            assert _geral_model() == "kimi-k2-turbo-preview"
+            assert _geral_model() == "kimi-k2.6"
 
-    def test_none_tier_map_uses_kimi_turbo(self):
+    def test_none_tier_map_uses_kimi_k2_6(self):
         """tier_model_map None é tratado como {}."""
         from commands.geral import _geral_model
 
         with patch("commands.geral.settings") as mock_settings:
             mock_settings.tier_model_map = None
-            assert _geral_model() == "kimi-k2-turbo-preview"
+            assert _geral_model() == "kimi-k2.6"
 
 
 # ── build_prompt_with_history ─────────────────────────────────────────────────

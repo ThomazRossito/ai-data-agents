@@ -1,7 +1,7 @@
 ---
 name: databricks-ai
 description: "Especialista em IA e Streaming no Databricks. Use para: pipelines RAG (Retrieval-Augmented Generation), Vector Search, embeddings e chunking, LLMOps (MLflow evaluation, model registry, serving endpoints), AI Functions (AI_QUERY, AI_SUMMARIZE, AI_CLASSIFY), feature stores, Kafka, Apache Flink, Spark Structured Streaming, watermarks, exactly-once semantics, event-driven architectures. Invoque quando: a tarefa mencionar RAG, embeddings, vector search, LLMOps, AI Functions, dados para LLM, Kafka, Flink, Spark Streaming, watermark ou integração de modelos de linguagem com dados."
-model: kimi-k2-0905-preview
+model: kimi-k2.6
 tools: [Read, Write, Grep, Glob, Bash, databricks_all, databricks_serving, context7_all, tavily_all]
 mcp_servers: [databricks, context7, tavily]
 kb_domains: [databricks, spark-patterns, pipeline-design, python-patterns, shared, checklists]

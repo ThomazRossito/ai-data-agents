@@ -19,7 +19,7 @@ Configuração via .env:
   SKILL_REFRESH_ENABLED=true
   SKILL_REFRESH_INTERVAL_DAYS=3      # pula skills atualizadas há menos de N dias
   SKILL_REFRESH_DOMAINS=databricks,fabric
-  SKILL_REFRESH_MODEL=kimi-k2-0905-preview   # opcional; padrão usa o memory_extractor_model
+  SKILL_REFRESH_MODEL=kimi-k2.6   # opcional; padrão usa o memory_extractor_model
 
 Notas sobre Batch API:
 - A Moonshot pode não suportar /messages/batches (endpoint Anthropic exclusivo).
@@ -58,10 +58,10 @@ _AIDEVKIT_API_URL = (
     "https://api.github.com/repos/databricks-solutions/ai-dev-kit/contents/databricks-skills"
 )
 
-# Preços Anthropic (USD por 1M tokens) — Sonnet 4.6 (ajuste quando mudar modelo).
-# Batch API aplica 50% de desconto sobre input e output.
-_PRICE_INPUT_PER_MTOK = 3.00
-_PRICE_OUTPUT_PER_MTOK = 15.00
+# Preços Moonshot (USD por 1M tokens) — Kimi K2.6 (ajuste quando mudar modelo).
+# Batch API: a Moonshot pode não expor; o script faz fallback síncrono se 404.
+_PRICE_INPUT_PER_MTOK = 0.55
+_PRICE_OUTPUT_PER_MTOK = 2.65
 _BATCH_DISCOUNT = 0.5
 
 # Polling do batch: a API tem SLA de 24h mas batches pequenos costumam concluir

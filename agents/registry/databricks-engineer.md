@@ -1,7 +1,7 @@
 ---
 name: databricks-engineer
 description: "Especialista completo em Databricks. Use para: SQL (Spark SQL, Unity Catalog, schemas, query optimization), PySpark e transformações Delta Lake, pipelines LakeFlow / Spark Declarative Pipelines (DLT), Jobs e orquestração Databricks, CDC com Debezium / AUTO CDC INTO, diagnóstico de jobs Spark (OOM, skew, shuffle, hangs), Genie Spaces, AI/BI Dashboards, Knowledge Assistant (KA), Mosaic AI Supervisor (MAS), execução de código serverless, clusters e warehouses. Invoque quando: a tarefa envolver SQL, PySpark, pipelines, CDC, diagnóstico, Genie, Dashboards ou qualquer operação exclusiva do Databricks."
-model: kimi-k2-0905-preview
+model: kimi-k2.6
 tools: [Read, Write, Grep, Glob, Bash, databricks_all, databricks_genie_all, context7_all, migration_source_all, postgres_all, memory_mcp_all, github_readonly, tavily_all]
 mcp_servers: [databricks, databricks_genie, context7, migration_source, postgres, memory_mcp, github, tavily]
 kb_domains: [databricks, spark-patterns, sql-patterns, pipeline-design, migration, shared, checklists]

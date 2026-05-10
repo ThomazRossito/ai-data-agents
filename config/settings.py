@@ -156,10 +156,11 @@ class Settings(BaseSettings):
     agent_permission_mode: str = "bypassPermissions"
 
     # --- Configurações do Sistema ---
-    # Modelo padrão do Supervisor (orquestrador). Kimi K2 0905 é o flagship da Moonshot
-    # — equivalente funcional ao Sonnet em raciocínio agêntico. Para /plan (DOMA Full),
-    # o supervisor.py automaticamente troca para kimi-thinking-preview.
-    default_model: str = "kimi-k2-0905-preview"
+    # Modelo padrão do Supervisor (orquestrador). Kimi K2.6 é o flagship unificado da
+    # Moonshot (lançado em abr/2026), substituindo a série K2 que será descontinuada
+    # em 25/05/2026. Thinking é ligado/desligado via parâmetro `thinking` (igual ao
+    # Claude Sonnet), não via modelo dedicado.
+    default_model: str = "kimi-k2.6"
     max_budget_usd: float = 5.0
     max_turns: int = 50
     log_level: str = "INFO"
@@ -170,15 +171,17 @@ class Settings(BaseSettings):
     audit_log_path: str = "./logs/audit.jsonl"
 
     # --- Model Routing por Tier ---
-    # Mapeamento tier -> modelo Kimi K2. Sobrescreve o `model:` do frontmatter de cada agente.
+    # Mapeamento tier -> modelo. Sobrescreve o `model:` do frontmatter de cada agente.
     # Se um tier não estiver no mapa, o agente usa o model declarado no seu próprio .md.
     #
-    # Variantes Kimi K2 (Moonshot):
-    #   kimi-k2-0905-preview     → flagship, ~Sonnet (T1/T2)
-    #   kimi-k2-turbo-preview    → rápido/barato, ~Haiku (T0/T3)
-    #   kimi-thinking-preview    → chain-of-thought explícito (apenas /plan)
+    # Família Kimi K2.6 (Moonshot — abr/2026):
+    #   kimi-k2.6  → modelo único da API (1T params MoE, 256k context).
+    #                Thinking é ligado/desligado via parâmetro `thinking` no
+    #                supervisor.py (não há modelo separado).
     #
-    # Override via .env: TIER_MODEL_MAP='{"T1": "kimi-k2-0905-preview", "T3": "kimi-k2-turbo-preview"}'
+    # Diferenciação por tier acontece via tier_turns_map e tier_effort_map abaixo,
+    # não mais via modelo. Se desejar usar outro modelo (ex: kimi-k2.5 visão+texto),
+    # configure aqui via .env: TIER_MODEL_MAP='{"T1": "kimi-k2.6", "T2": "kimi-k2.5"}'
     tier_model_map: dict[str, str] = {}
 
     # --- Token Budgets por Tier (Ch. 5 — Agent Loop) ---
@@ -313,9 +316,10 @@ class Settings(BaseSettings):
 
     # --- Memory Extraction Model ---
     # Modelo usado pelo extractor (flush de sessão) para chamadas laterais (sem SDK).
-    # kimi-k2-turbo-preview é suficiente para extração e bem mais barato que o 0905.
-    # Override via .env: MEMORY_EXTRACTOR_MODEL=kimi-k2-0905-preview
-    memory_extractor_model: str = "kimi-k2-turbo-preview"
+    # K2.6 é o único modelo da API atualmente; para chamadas leves de extração,
+    # passe `thinking={"type": "disabled"}` para reduzir latência e custo.
+    # Override via .env: MEMORY_EXTRACTOR_MODEL=kimi-k2.5  (se desejar variante mais leve)
+    memory_extractor_model: str = "kimi-k2.6"
     memory_extractor_max_tokens: int = 2048
     # Número máximo de memórias recuperadas por query (FTS5 long-term search).
     # Override via .env: MEMORY_RETRIEVAL_MAX=10
