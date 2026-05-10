@@ -543,8 +543,13 @@ async def _handle_memory_command(user_input: str) -> None:
                 )
                 return
 
+        # IMPORTANTE: usa prompt_async() porque estamos dentro de um event loop
+        # (_handle_memory_command é async). prompt() síncrono tenta asyncio.run()
+        # internamente e crasha com "cannot be called from a running event loop".
         confirm = (
-            _prompt_session.prompt(f"Tem certeza que deseja apagar {label}? (s/N) ").strip().lower()
+            (await _prompt_session.prompt_async(f"Tem certeza que deseja apagar {label}? (s/N) "))
+            .strip()
+            .lower()
         )
         if confirm not in ("s", "sim", "y", "yes"):
             console.print("[dim]Cancelado.[/dim]")
