@@ -19,6 +19,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
+def _lesson_dir() -> Path:
+    """Resolve diretório de lessons via settings (per-project isolation)."""
+    from config.settings import settings
+
+    return Path(settings.memory_data_dir) / "lesson_learned"
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
@@ -71,11 +78,11 @@ async def test_error_trigger() -> None:
         input_data=input_data,
     )
 
-    lesson_dir = Path("memory/data/lesson_learned")
+    lesson_dir = _lesson_dir()
     files = list(lesson_dir.iterdir()) if lesson_dir.exists() else []
 
     if files:
-        _ok(f"{len(files)} lesson(s) criada(s) em memory/data/lesson_learned/")
+        _ok(f"{len(files)} lesson(s) criada(s) em {lesson_dir}/")
         f = files[0]
         content = f.read_text(encoding="utf-8")
         _info(f"Arquivo: {f.name}")
@@ -128,7 +135,7 @@ async def test_high_cost_trigger() -> None:
         input_data=input_data,
     )
 
-    lesson_dir = Path("memory/data/lesson_learned")
+    lesson_dir = _lesson_dir()
     files = list(lesson_dir.iterdir()) if lesson_dir.exists() else []
     _ok(f"Total de lessons no store: {len(files)}")
 
@@ -212,7 +219,7 @@ async def main() -> None:
     show_summary()
 
     print(f"\n{'─' * 60}")
-    print("  Arquivos criados em memory/data/lesson_learned/")
+    print(f"  Arquivos criados em {_lesson_dir()}/")
     print("─" * 60)
 
 

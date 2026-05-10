@@ -33,7 +33,7 @@ _MAX_OUTPUT_TOKENS = 2048
 _PRICE_INPUT_PER_MTOK = 0.55
 _PRICE_OUTPUT_PER_MTOK = 2.65
 
-_SYSTEM_PROMPT = """Você é o Session Summarizer do projeto data-agents. Sua tarefa: dado um
+_SYSTEM_PROMPT = """Você é o Session Summarizer do projeto data-agents-api. Sua tarefa: dado um
 transcript (pares usuário↔assistente) de uma sessão de engenharia de dados, emitir
 um resumo estruturado em 7 campos para permitir retomada ou handoff.
 
@@ -95,7 +95,7 @@ def _estimate_cost_usd(input_tokens: int, output_tokens: int) -> float:
     return round(cost_in + cost_out, 6)
 
 
-_LESSON_SYSTEM_PROMPT = """Você é o Lesson Extractor do projeto data-agents.
+_LESSON_SYSTEM_PROMPT = """Você é o Lesson Extractor do projeto data-agents-api.
 Dado um evento de baixa performance ou erro em um agente de dados, gere uma lição
 estruturada em 3 seções curtas para evitar a repetição do problema.
 

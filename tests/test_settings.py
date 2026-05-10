@@ -236,3 +236,92 @@ class TestMcpRegistryCompleteness:
         ro_tools = set(MCP_TOOL_SETS["fabric_official_readonly"])
         assert ro_tools.issubset(all_tools)
         assert ro_tools != all_tools, "readonly deve ser estritamente menor que all"
+
+
+class TestProjectIdIsolation:
+    """Testes para o isolamento de memória por project_id (Nível 1)."""
+
+    def test_explicit_project_id_used_literally(self):
+        """Valor explícito não-'auto' deve ser usado como ID literal (após normalização)."""
+        s = Settings(project_id="meu-projeto-x")
+        assert s.project_id == "meu-projeto-x"
+        assert s.short_term_db_path == "memory/data/short_term__meu-projeto-x.db"
+        assert s.long_term_db_path == "memory/data/long_term__meu-projeto-x.db"
+
+    def test_auto_resolves_to_cwd_name(self, tmp_path, monkeypatch):
+        """project_id='auto' deve usar Path.cwd().name."""
+        monkeypatch.chdir(tmp_path)
+        s = Settings(project_id="auto")
+        # tmp_path.name é gerado pelo pytest e é sempre não-vazio
+        assert s.project_id == tmp_path.name
+        assert s.short_term_db_path == f"memory/data/short_term__{tmp_path.name}.db"
+
+    def test_empty_project_id_resolves_to_cwd_name(self, tmp_path, monkeypatch):
+        """project_id vazio também aciona auto-detect (não fica vazio)."""
+        monkeypatch.chdir(tmp_path)
+        s = Settings(project_id="")
+        assert s.project_id == tmp_path.name
+
+    def test_invalid_chars_are_normalized(self):
+        """Chars não-portáveis (espaços, /, !) viram hífen."""
+        s = Settings(project_id="Projeto Com Espaços / E Barras!")
+        # ç vira "" (não está em [A-Za-z0-9._-]), espaços/barras viram hífen
+        assert "/" not in s.project_id
+        assert " " not in s.project_id
+        assert "!" not in s.project_id
+        # Resultado deve ser usável como nome de arquivo
+        assert "/" not in s.short_term_db_path.split("/")[-1]
+
+    def test_path_override_wins_over_derived(self):
+        """LONG_TERM_DB_PATH explícito sobrescreve o path derivado de project_id."""
+        s = Settings(
+            project_id="meu-projeto",
+            long_term_db_path="/tmp/custom_long.db",
+        )
+        # long_term_db_path foi setado manualmente — vence o derive
+        assert s.long_term_db_path == "/tmp/custom_long.db"
+        # short_term continua sendo derivado de project_id
+        assert s.short_term_db_path == "memory/data/short_term__meu-projeto.db"
+
+    def test_different_project_ids_produce_isolated_paths(self):
+        """Garantia central do isolamento: IDs diferentes → arquivos diferentes."""
+        s1 = Settings(project_id="projeto-a")
+        s2 = Settings(project_id="projeto-b")
+        assert s1.long_term_db_path != s2.long_term_db_path
+        assert s1.short_term_db_path != s2.short_term_db_path
+        assert s1.memory_data_dir != s2.memory_data_dir
+        assert s1.embedder_cache_db_path != s2.embedder_cache_db_path
+
+    def test_memory_data_dir_derived_as_subdir(self):
+        """memory_data_dir vai como subdir (memory/data/<project_id>)."""
+        s = Settings(project_id="meu-projeto")
+        assert s.memory_data_dir == "memory/data/meu-projeto"
+
+    def test_embedder_cache_derived_with_suffix(self):
+        """embedder_cache_db_path segue mesmo padrão dos outros SQLites (sufixo)."""
+        s = Settings(project_id="meu-projeto")
+        assert s.embedder_cache_db_path == "memory/data/embedder_cache__meu-projeto.db"
+
+    def test_memory_data_dir_override_wins(self):
+        """MEMORY_DATA_DIR explícito sobrescreve o derive."""
+        s = Settings(
+            project_id="meu-projeto",
+            memory_data_dir="/tmp/custom/dir",
+        )
+        assert s.memory_data_dir == "/tmp/custom/dir"
+        # Outros paths continuam derivados normalmente
+        assert "meu-projeto" in s.long_term_db_path
+
+    def test_memory_store_uses_settings_memory_data_dir(self, tmp_path, monkeypatch):
+        """MemoryStore() sem args deve usar settings.memory_data_dir."""
+        from config.settings import settings
+        from memory.store import MemoryStore
+
+        custom_dir = tmp_path / "custom_memory"
+        monkeypatch.setattr(settings, "memory_data_dir", str(custom_dir))
+        store = MemoryStore()
+        assert store.data_dir == custom_dir
+        # Verifica que estrutura de subdirs foi criada
+        assert (custom_dir / "architecture").is_dir()
+        assert (custom_dir / "lesson_learned").is_dir()
+        assert (custom_dir / "daily").is_dir()

@@ -2,17 +2,24 @@
 Memory Store — CRUD de memórias em arquivos Markdown.
 
 Armazena cada memória como um arquivo .md individual em:
-  memory/data/{type}/{id}.md
+  <memory_data_dir>/{type}/{id}.md
 
-Estrutura:
-  memory/data/
-  ├── user/          # Preferências do usuário
-  ├── feedback/      # Correções e orientações
-  ├── architecture/  # Decisões e padrões
-  ├── progress/      # Estado de tarefas
-  └── daily/         # Logs diários brutos (antes da compilação)
+`memory_data_dir` é resolvido via settings (default: memory/data/<project_id>),
+garantindo isolamento entre projetos que compartilham o filesystem.
 
-O index.md é gerado pelo compiler e fica em memory/data/index.md.
+Estrutura típica (por projeto):
+  memory/data/<project_id>/
+  ├── user/              # Preferências do usuário
+  ├── feedback/          # Correções e orientações
+  ├── architecture/      # Decisões e padrões
+  ├── progress/          # Estado de tarefas
+  ├── data_asset/        # Tabelas, schemas, datasets
+  ├── platform_decision/ # Escolhas de tecnologia
+  ├── pipeline_status/   # Status operacional
+  ├── lesson_learned/    # Lições aprendidas (auto-captura)
+  └── daily/             # Logs diários brutos (antes da compilação)
+
+O index.md é gerado pelo compiler e fica em <memory_data_dir>/index.md.
 """
 
 from __future__ import annotations
@@ -29,8 +36,18 @@ from memory.types import Memory, MemoryType
 
 logger = logging.getLogger("data_agents.memory.store")
 
-# Diretório base dos dados de memória
-_DEFAULT_DATA_DIR = Path(__file__).parent.parent / "memory" / "data"
+
+def _resolve_default_data_dir() -> Path:
+    """
+    Resolve o diretório base lendo settings.memory_data_dir lazy (no momento
+    da instanciação do MemoryStore, não no import do módulo).
+
+    Lazy import + lazy lookup evitam ciclos de import e garantem que o
+    monkeypatch dos testes (conftest.py) seja respeitado.
+    """
+    from config.settings import settings
+
+    return Path(settings.memory_data_dir)
 
 
 def _atomic_write(path: Path, content: str) -> None:
@@ -49,7 +66,7 @@ class MemoryStore:
     """
 
     def __init__(self, data_dir: Path | str | None = None) -> None:
-        self.data_dir = Path(data_dir) if data_dir is not None else _DEFAULT_DATA_DIR
+        self.data_dir = Path(data_dir) if data_dir is not None else _resolve_default_data_dir()
         self._lock = threading.Lock()
         self._ensure_dirs()
 

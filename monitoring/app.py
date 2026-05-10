@@ -100,7 +100,19 @@ SESSIONS_LOG = ROOT / "logs" / "sessions.jsonl"
 COMPRESSION_LOG = ROOT / "logs" / "compression.jsonl"
 WORKFLOWS_LOG = ROOT / "logs" / "workflows.jsonl"
 REGISTRY = ROOT / "agents" / "registry"
-LESSONS_DIR = ROOT / "memory" / "data" / "lesson_learned"
+
+
+def _lessons_dir() -> Path:
+    """Resolve diretório de lessons via settings (per-project isolation)."""
+    from config.settings import settings
+
+    base = Path(settings.memory_data_dir)
+    if not base.is_absolute():
+        base = ROOT / base
+    return base / "lesson_learned"
+
+
+LESSONS_DIR = _lessons_dir()
 
 
 # ── Leitura dos logs ──────────────────────────────────────────────────────────
@@ -149,7 +161,7 @@ def load_agents() -> list[dict]:
 
 @st.cache_data(ttl=30)
 def load_lessons() -> list[dict]:
-    """Carrega todas as LESSON_LEARNED de memory/data/lesson_learned/*.md."""
+    """Carrega todas as LESSON_LEARNED de <memory_data_dir>/lesson_learned/*.md."""
     if not LESSONS_DIR.exists():
         return []
     lessons: list[dict] = []
@@ -2276,7 +2288,7 @@ elif page == "🧠 Lições Aprendidas":
     st.caption(
         "Lições capturadas automaticamente pelo loop de aprendizado autônomo (v2.1.0). "
         "Triggers: `error` · `high_cost` · `retries` · `slow_op`. "
-        "Decay: 30 dias. Dados lidos de `memory/data/lesson_learned/`."
+        f"Decay: 30 dias. Dados lidos de `{LESSONS_DIR.relative_to(ROOT)}/`."
     )
     st.divider()
 

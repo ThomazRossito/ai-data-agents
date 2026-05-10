@@ -9,7 +9,7 @@ import logging
 import warnings
 from typing import ClassVar, TypedDict
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
 
 logger = logging.getLogger("data_agents.config")
@@ -33,6 +33,18 @@ class Settings(BaseSettings):
     # URL base obrigatória para apontar o SDK para a Moonshot (Kimi K2).
     # Padrão: https://api.moonshot.ai/anthropic. Para Anthropic original, deixe vazio.
     anthropic_base_url: str = "https://api.moonshot.ai/anthropic"
+
+    # --- Project Identity ---
+    # Identificador único do projeto. Usado como sufixo nos nomes dos arquivos
+    # SQLite de memória (long_term, short_term) para garantir isolamento entre
+    # projetos que compartilham o mesmo filesystem.
+    #
+    # Comportamento:
+    #   - "auto" (default) → deriva do nome do diretório atual via Path.cwd().name
+    #   - qualquer outro valor → usado literalmente como ID
+    #
+    # Override via .env: PROJECT_ID=meu-projeto-x
+    project_id: str = "auto"
 
     # --- Databricks ---
     databricks_host: str = ""
@@ -170,6 +182,13 @@ class Settings(BaseSettings):
     console_log_level: str = "WARNING"
     audit_log_path: str = "./logs/audit.jsonl"
 
+    # --- UI / Monitoring Ports ---
+    # Portas distintas do projeto original (data-agents = 8503/8501) para
+    # permitir rodar os dois projetos lado a lado sem conflito.
+    # Override via .env: CHAINLIT_PORT=8513, MONITOR_PORT=8511
+    chainlit_port: int = 8513
+    monitor_port: int = 8511
+
     # --- Model Routing por Tier ---
     # Mapeamento tier -> modelo. Sobrescreve o `model:` do frontmatter de cada agente.
     # Se um tier não estiver no mapa, o agente usa o model declarado no seu próprio .md.
@@ -274,15 +293,34 @@ class Settings(BaseSettings):
     # Override via .env: MEMORY_KEEP_COMPILED_DAYS=30
     memory_keep_compiled_days: int = 30
 
+    # --- Memory Data Directory (raiz dos arquivos .md de memória) ---
+    # Diretório onde o MemoryStore persiste as memórias como arquivos .md
+    # organizados em subdiretórios por tipo (architecture/, data_asset/,
+    # lesson_learned/, daily/, etc.).
+    #
+    # Se vazio (default), é derivado automaticamente a partir de project_id:
+    #   "memory/data/<project_id>"
+    #
+    # Isso isola os arquivos .md entre projetos. Os SQLites de busca
+    # (long_term, short_term) ficam na raiz com sufixo no nome, mas os
+    # arquivos-fonte das memórias ficam num subdir por-projeto.
+    # Override via .env: MEMORY_DATA_DIR=memory/data/meu-projeto
+    memory_data_dir: str = ""
+
     # --- Short-term Memory (SQLite buffer com TTL) ---
     # Path do banco SQLite do buffer short-term. Relativo à raiz do projeto.
+    # Se vazio (default), é derivado automaticamente a partir de project_id:
+    #   "memory/data/short_term__<project_id>.db"
+    # Isso garante isolamento entre projetos que copiam o diretório.
     # Override via .env: SHORT_TERM_DB_PATH=memory/data/short_term.db
-    short_term_db_path: str = "memory/data/short_term.db"
+    short_term_db_path: str = ""
 
     # --- Long-term Memory (SQLite FTS5 + embeddings opcionais) ---
     # Path do banco SQLite do índice long-term. Relativo à raiz do projeto.
+    # Se vazio (default), é derivado automaticamente a partir de project_id:
+    #   "memory/data/long_term__<project_id>.db"
     # Override via .env: LONG_TERM_DB_PATH=memory/data/long_term.db
-    long_term_db_path: str = "memory/data/long_term.db"
+    long_term_db_path: str = ""
     # Número máximo de memórias retornadas por busca no long-term.
     # Override via .env: LONG_TERM_SEARCH_LIMIT=8
     long_term_search_limit: int = 8
@@ -301,8 +339,12 @@ class Settings(BaseSettings):
     # Override via .env: SHORT_TERM_EMBEDDER_MODEL=BAAI/bge-small-en-v1.5
     short_term_embedder_model: str = "BAAI/bge-small-en-v1.5"
     # Path do cache SQLite para embeddings (evita re-computação).
+    # Se vazio (default), é derivado automaticamente a partir de project_id:
+    #   "memory/data/embedder_cache__<project_id>.db"
+    # Mesmo padrão dos outros SQLites: nome na raiz, sufixo identifica o projeto
+    # (assim DBeaver consegue diferenciar caches de projetos distintos).
     # Override via .env: EMBEDDER_CACHE_DB_PATH=memory/data/embedder_cache.db
-    embedder_cache_db_path: str = "memory/data/embedder_cache.db"
+    embedder_cache_db_path: str = ""
 
     # --- Ledger (integridade do audit log) ---
     # Habilita assinatura HMAC-SHA256 de cada entrada do audit log.
@@ -375,6 +417,58 @@ class Settings(BaseSettings):
     _available_platforms: ClassVar[list[str]] = []
 
     # ─── Validators ───────────────────────────────────────────────
+
+    @field_validator("project_id", mode="before")
+    @classmethod
+    def resolve_project_id(cls, v: str) -> str:
+        """
+        Resolve project_id:
+          - "auto" ou vazio → deriva do nome do diretório atual (Path.cwd().name)
+          - qualquer outro valor → usado literalmente
+
+        Normaliza removendo caracteres não-portáteis para nome de arquivo
+        (espaços, separadores de path, etc.) para evitar quebra de SQLite paths.
+        """
+        from pathlib import Path
+        import re as _re
+
+        if not v or v.strip().lower() == "auto":
+            v = Path.cwd().name or "default"
+
+        # Normaliza: substitui qualquer caractere que não seja [A-Za-z0-9._-] por hífen
+        normalized = _re.sub(r"[^A-Za-z0-9._-]+", "-", v.strip()).strip("-")
+        return normalized or "default"
+
+    @model_validator(mode="after")
+    def derive_memory_db_paths(self) -> "Settings":
+        """
+        Deriva paths de memória a partir de project_id quando vazios.
+
+        Garante isolamento entre projetos que compartilham o filesystem (ex:
+        quando alguém copia data-agents/ → data-agents-api/, os arquivos não
+        ficam misturados).
+
+        Estrutura derivada:
+          - memory_data_dir            → memory/data/<project_id>      (subdir)
+          - long_term_db_path          → memory/data/long_term__<pid>.db  (raiz)
+          - short_term_db_path         → memory/data/short_term__<pid>.db (raiz)
+          - embedder_cache_db_path     → memory/data/embedder_cache__<pid>.db (raiz)
+
+        SQLites na raiz pra DBeaver diferenciar via sufixo. Arquivos .md em
+        subdir pra `rm -rf memory/data/<pid>/` apagar tudo de um projeto.
+
+        Override manual via .env tem precedência: se o usuário definir
+        explicitamente qualquer um desses paths, esse valor ganha.
+        """
+        if not self.memory_data_dir:
+            self.memory_data_dir = f"memory/data/{self.project_id}"
+        if not self.short_term_db_path:
+            self.short_term_db_path = f"memory/data/short_term__{self.project_id}.db"
+        if not self.long_term_db_path:
+            self.long_term_db_path = f"memory/data/long_term__{self.project_id}.db"
+        if not self.embedder_cache_db_path:
+            self.embedder_cache_db_path = f"memory/data/embedder_cache__{self.project_id}.db"
+        return self
 
     @field_validator(
         "fabric_community_command",

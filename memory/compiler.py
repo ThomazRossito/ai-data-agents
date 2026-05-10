@@ -398,8 +398,9 @@ def _sonnet_check_contradiction(new_memory: Memory, candidate: Memory) -> bool:
         reason: str = result.get("reason", "")
 
         usage = data.get("usage", {})
+        # Kimi K2.6 (Moonshot): $0.55/M input + $2.65/M output
         cost = (
-            usage.get("input_tokens", 0) * 3.00 + usage.get("output_tokens", 0) * 15.00
+            usage.get("input_tokens", 0) * 0.55 + usage.get("output_tokens", 0) * 2.65
         ) / 1_000_000
 
         logger.debug(

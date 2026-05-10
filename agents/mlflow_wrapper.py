@@ -48,7 +48,7 @@ class ClaudeDataAgent(PythonModel):
         except ImportError as e:
             self._init_error = (
                 f"Dependência ausente no ambiente MLflow: {e}. "
-                f"Verifique se 'claude-agent-sdk' e o pacote 'data-agents' "
+                f"Verifique se 'claude-agent-sdk' e o pacote 'data-agents-api' "
                 f"estão listados no conda_env do modelo."
             )
             logger.error(self._init_error)

@@ -9,17 +9,17 @@ Dois modos de operação:
     Mostra cl.Step() para cada delegação e tool call em tempo real.
 
   Modo 2 — Dev Assistant:
-    Claude direto (sem Supervisor), ferramentas de desenvolvimento habilitadas.
+    Kimi K2.6 direto (sem Supervisor), ferramentas de desenvolvimento habilitadas.
     Ferramentas: Read, Write, Bash, Grep, Glob.
     Mantém histórico de conversa para follow-ups.
-    Usa settings.default_model (Bedrock) — custo zero pelo acordo da empresa.
+    Usa settings.default_model (Moonshot Kimi K2.6 via endpoint compat. Anthropic).
 
 Seleção de modo via cl.Action no início do chat.
 Troca de modo a qualquer momento com /modo.
 
 Iniciar:
     ./start.sh
-    chainlit run ui/chainlit_app.py --port 8503
+    chainlit run ui/chainlit_app.py --port 8513
 """
 
 from __future__ import annotations
@@ -162,7 +162,7 @@ def _build_dev_options(stderr_lines: list[str] | None = None) -> ClaudeAgentOpti
     """
     ClaudeAgentOptions para o Dev Assistant.
 
-    Usa settings.default_model (Bedrock) — custo zero pelo acordo da empresa.
+    Usa settings.default_model (Kimi K2.6 via Moonshot — endpoint compat. Anthropic).
     Ferramentas de desenvolvimento habilitadas. Zero MCPs de plataforma.
 
     stderr_lines: lista mutável onde as linhas do stderr do processo serão
@@ -374,8 +374,15 @@ Specialist Data & AI Solutions Architect | Center of Excellence CoE @CI&T
 """
 
 # Porta do dashboard de monitoramento (Streamlit — start.sh).
-# Respeita MONITOR_PORT do .env quando definida, com default 8511 (esse projeto).
-_MONITOR_PORT = int(os.getenv("MONITOR_PORT", "8511"))
+# Lê de settings.monitor_port (override via .env: MONITOR_PORT=8511).
+def _get_monitor_port() -> int:
+    """Lazy lookup pra evitar circular import."""
+    from config.settings import settings
+
+    return settings.monitor_port
+
+
+_MONITOR_PORT = _get_monitor_port()
 
 
 async def _show_mode_selection() -> None:

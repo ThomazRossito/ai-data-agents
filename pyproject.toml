@@ -1,5 +1,5 @@
 [project]
-name = "data-agents"
+name = "data-agents-api"
 version = "2.3.0"
 description = "Sistema Multi-Agentes para Engenharia, Qualidade, Governança e Análise de Dados — Databricks + Microsoft Fabric"
 readme = "README.md"
@@ -9,9 +9,9 @@ dependencies = [
     # Core — Claude Agent SDK
     "claude-agent-sdk>=0.1.48",
 
-    # Anthropic SDK direto — usado por utils/summarizer.py (Haiku via Messages API)
-    # e scripts/refresh_skills.py (web_search nativo). Não é dependência transitiva
-    # garantida do claude-agent-sdk.
+    # Anthropic SDK direto — usado por utils/summarizer.py (Kimi K2.6 via endpoint
+    # compatível Anthropic Messages API) e scripts/refresh_skills.py (web_search
+    # nativo). Não é dependência transitiva garantida do claude-agent-sdk.
     "anthropic>=0.39.0",
 
     # MCP framework — declarado explicitamente para garantir versão mínima compatível
@@ -100,7 +100,7 @@ ui = [
 ]
 
 [project.scripts]
-data-agents = "main:main"
+data-agents-api = "main:main"
 fabric-sql-mcp = "mcp_servers.fabric_sql.server:main"
 fabric-semantic-mcp = "mcp_servers.fabric_semantic.server:main"
 fabric-ontology-mcp = "mcp_servers.fabric_ontology.server:main"

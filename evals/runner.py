@@ -197,7 +197,7 @@ async def run_query(query: Query) -> EvalResult:
 
 
 async def run_all(queries: list[Query]) -> list[EvalResult]:
-    """Executa todas as queries sequencialmente (Haiku é rápido e barato)."""
+    """Executa todas as queries sequencialmente (Kimi K2.6 é rápido e barato)."""
     results: list[EvalResult] = []
     for i, query in enumerate(queries, 1):
         print(f"  [{i}/{len(queries)}] {query.id}...", flush=True)
@@ -384,7 +384,7 @@ def main(argv: list[str] | None = None) -> int:
     if baseline:
         print(f"  📊 Baseline: {len(baseline)} queries do run anterior\n")
 
-    print(f"Executando {len(queries)} query(ies) via /geral (Haiku 4.5):\n")
+    print(f"Executando {len(queries)} query(ies) via /geral (Kimi K2.6):\n")
 
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
