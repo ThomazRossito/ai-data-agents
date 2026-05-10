@@ -27,7 +27,7 @@ VALID_AGENT_CONTENT = """\
 ---
 name: test-agent
 description: "Agente de teste para preload."
-model: claude-sonnet-4-6
+model: kimi-k2.6
 tools: [Read, Grep]
 tier: T2
 mcp_servers: []
@@ -44,7 +44,7 @@ MINIMAL_AGENT_CONTENT = """\
 ---
 name: minimal-agent
 description: "Agente mínimo."
-model: claude-haiku-4-5
+model: kimi-k2.6
 tools: [Read]
 ---
 # Minimal Agent
@@ -54,7 +54,7 @@ Corpo mínimo.
 INVALID_NO_NAME_CONTENT = """\
 ---
 description: "Sem nome."
-model: claude-sonnet-4-6
+model: kimi-k2.6
 tools: []
 ---
 # Sem nome
@@ -74,12 +74,12 @@ class TestAgentMeta:
         meta = AgentMeta(
             name="test",
             description="desc",
-            model="claude-sonnet-4-6",
+            model="kimi-k2.6",
             tier="T2",
         )
         assert meta.name == "test"
         assert meta.description == "desc"
-        assert meta.model == "claude-sonnet-4-6"
+        assert meta.model == "kimi-k2.6"
         assert meta.tier == "T2"
 
     def test_default_lists_are_empty(self):
@@ -129,7 +129,7 @@ class TestPreloadRegistry:
     def test_loaded_meta_has_correct_model(self, tmp_path):
         _write_agent_file(tmp_path, "test-agent", VALID_AGENT_CONTENT)
         meta = preload_registry(tmp_path)["test-agent"]
-        assert meta.model == "claude-sonnet-4-6"
+        assert meta.model == "kimi-k2.6"
 
     def test_loaded_meta_has_correct_tier(self, tmp_path):
         _write_agent_file(tmp_path, "test-agent", VALID_AGENT_CONTENT)

@@ -16,10 +16,10 @@ from config.snapshot import ConfigSnapshot, freeze, detect_drift
 def _make_settings(**overrides):
     """Cria um mock de Settings com valores padrão."""
     settings = MagicMock()
-    settings.default_model = "claude-sonnet-4-6"
+    settings.default_model = "kimi-k2.6"
     settings.max_turns = 50
     settings.max_budget_usd = 5.0
-    settings.tier_model_map = {"T1": "claude-opus-4-6"}
+    settings.tier_model_map = {"T1": "kimi-k2.5"}
     settings.tier_turns_map = {"T1": 20, "T2": 12, "T3": 5}
     settings.tier_effort_map = {"T1": "high", "T2": "medium", "T3": "low"}
     settings.inject_kb_index = True
@@ -36,10 +36,10 @@ class TestConfigSnapshot:
     def test_is_immutable(self):
         """ConfigSnapshot é frozen — não aceita modificação após criação."""
         snap = ConfigSnapshot(
-            default_model="claude-sonnet-4-6",
+            default_model="kimi-k2.6",
             max_turns=50,
             max_budget_usd=5.0,
-            tier_model_map=(("T1", "claude-opus-4-6"),),
+            tier_model_map=(("T1", "kimi-k2.5"),),
             tier_turns_map=(("T1", 20),),
             tier_effort_map=(("T1", "high"),),
             inject_kb_index=True,
@@ -75,9 +75,9 @@ class TestConfigSnapshot:
 
 class TestFreeze:
     def test_captures_default_model(self):
-        s = _make_settings(default_model="claude-opus-4-6")
+        s = _make_settings(default_model="kimi-k2.5")
         snap = freeze(s)
-        assert snap.default_model == "claude-opus-4-6"
+        assert snap.default_model == "kimi-k2.5"
 
     def test_captures_max_turns(self):
         s = _make_settings(max_turns=30)
@@ -100,10 +100,10 @@ class TestFreeze:
         assert snap.memory_enabled is False
 
     def test_tier_model_map_serialized_correctly(self):
-        s = _make_settings(tier_model_map={"T1": "claude-opus-4-6", "T2": "claude-sonnet-4-6"})
+        s = _make_settings(tier_model_map={"T1": "kimi-k2.5", "T2": "kimi-k2.6"})
         snap = freeze(s)
         # Deve estar ordenado e como tupla de pares
-        assert snap.tier_model_map == (("T1", "claude-opus-4-6"), ("T2", "claude-sonnet-4-6"))
+        assert snap.tier_model_map == (("T1", "kimi-k2.5"), ("T2", "kimi-k2.6"))
 
     def test_created_at_is_iso_string(self):
         snap = freeze(_make_settings())
@@ -134,9 +134,9 @@ class TestDetectDrift:
 
     def test_detects_model_change(self):
         """Mudança de default_model deve ser detectada."""
-        s = _make_settings(default_model="claude-sonnet-4-6")
+        s = _make_settings(default_model="kimi-k2.6")
         snap = freeze(s)
-        s.default_model = "claude-opus-4-6"
+        s.default_model = "kimi-k2.5"
         drifts = detect_drift(s, snap)
         assert any("default_model" in d for d in drifts)
 
@@ -174,7 +174,7 @@ class TestDetectDrift:
 
     def test_detects_tier_model_map_change(self):
         """Mudança de tier_model_map deve ser detectada."""
-        s = _make_settings(tier_model_map={"T1": "claude-opus-4-6"})
+        s = _make_settings(tier_model_map={"T1": "kimi-k2.5"})
         snap = freeze(s)
         s.tier_model_map = {"T1": "injected-model"}
         drifts = detect_drift(s, snap)
@@ -208,7 +208,7 @@ class TestDetectDrift:
 
     def test_no_drift_for_identical_tier_maps(self):
         """Tier maps idênticos não devem gerar drift."""
-        s = _make_settings(tier_model_map={"T1": "claude-opus-4-6", "T2": "claude-sonnet-4-6"})
+        s = _make_settings(tier_model_map={"T1": "kimi-k2.5", "T2": "kimi-k2.6"})
         snap = freeze(s)
         drifts = detect_drift(s, snap)
         assert drifts == []

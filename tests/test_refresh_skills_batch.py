@@ -95,25 +95,25 @@ class TestEstimateCost:
 
 class TestBuildBatchRequest:
     def test_custom_id_and_model_are_passed_through(self, skill_file: Path):
-        request = _build_batch_request(skill_file, "skill-042", "claude-sonnet-4-6")
+        request = _build_batch_request(skill_file, "skill-042", "kimi-k2.6")
         assert request["custom_id"] == "skill-042"
-        assert request["params"]["model"] == "claude-sonnet-4-6"
+        assert request["params"]["model"] == "kimi-k2.6"
 
     def test_web_search_tool_is_included(self, skill_file: Path):
-        request = _build_batch_request(skill_file, "skill-000", "claude-sonnet-4-6")
+        request = _build_batch_request(skill_file, "skill-000", "kimi-k2.6")
         tools = request["params"]["tools"]
         assert len(tools) == 1
         assert tools[0]["type"] == "web_search_20250305"
         assert tools[0]["name"] == "web_search"
 
     def test_user_prompt_embeds_skill_content(self, skill_file: Path):
-        request = _build_batch_request(skill_file, "skill-000", "claude-sonnet-4-6")
+        request = _build_batch_request(skill_file, "skill-000", "kimi-k2.6")
         user_msg = request["params"]["messages"][0]["content"]
         assert "Old content." in user_msg
         assert "SKILL.md ATUAL" in user_msg
 
     def test_system_prompt_is_set(self, skill_file: Path):
-        request = _build_batch_request(skill_file, "skill-000", "claude-sonnet-4-6")
+        request = _build_batch_request(skill_file, "skill-000", "kimi-k2.6")
         assert "Skill Updater" in request["params"]["system"]
 
 
@@ -253,7 +253,7 @@ class TestRunRefresh:
                 interval_days=0,
                 force=True,
                 dry_run=True,
-                model="claude-sonnet-4-6",
+                model="kimi-k2.6",
             )
         )
         assert metrics["refreshed"] == 1
@@ -274,7 +274,7 @@ class TestRunRefresh:
                 interval_days=3,
                 force=False,
                 dry_run=False,
-                model="claude-sonnet-4-6",
+                model="kimi-k2.6",
             )
         )
         assert metrics["total"] == 0
@@ -308,7 +308,7 @@ class TestRunRefresh:
                 interval_days=0,
                 force=True,
                 dry_run=False,
-                model="claude-sonnet-4-6",
+                model="kimi-k2.6",
             )
         )
 
@@ -345,7 +345,7 @@ class TestRunRefresh:
                 interval_days=0,
                 force=True,
                 dry_run=False,
-                model="claude-sonnet-4-6",
+                model="kimi-k2.6",
             )
         )
         assert metrics["refreshed"] == 0
@@ -374,7 +374,7 @@ class TestRunRefresh:
                 interval_days=0,
                 force=True,
                 dry_run=False,
-                model="claude-sonnet-4-6",
+                model="kimi-k2.6",
             )
         )
         assert metrics["errors"] == 2

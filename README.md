@@ -65,10 +65,10 @@ Você envia uma mensagem — seja pelo terminal, pela interface web ou com um co
 
 ```bash
 # 1. Clone e entre no diretório
-git clone git@github.com:ThomazRossito/data-agents.git && cd data-agents
+git clone git@github.com:ThomazRossito/data-agents-api.git && cd data-agents-api
 
 # 2. Crie o ambiente
-conda create -n data-agents python=3.12 && conda activate data-agents
+conda create -n data-agents-api python=3.12 && conda activate data-agents-api
 
 # 3. Instale dependências
 pip install -e ".[dev,ui,monitoring]"

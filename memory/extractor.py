@@ -29,9 +29,11 @@ logger = logging.getLogger("data_agents.memory.extractor")
 
 # Confidence por tipo de memória: USER/ARCHITECTURE têm alta confiança por serem
 # declarativos; PROGRESS/PIPELINE_STATUS são mais transitórios e menos confiáveis.
+# LESSON_LEARNED tem alta confiança porque é triggered por feedback explícito do usuário.
 _TYPE_CONFIDENCE: dict[str, float] = {
     "user": 0.95,
     "architecture": 0.95,
+    "lesson_learned": 0.95,
     "data_asset": 0.90,
     "feedback": 0.90,
     "platform_decision": 0.85,
@@ -77,11 +79,25 @@ Categorias de extração (taxonomia fechada — use EXATAMENTE estes tipos):
    Exemplos: "job de sync Fabric falhando há 2 dias (erro de permissão)",
    "backfill da camada Silver em andamento, 60% concluído"
 
+8. **lesson_learned** — Lições aprendidas com erros, bugs identificados, anti-padrões ou
+   correções feitas pelo usuário em código/output de um agente. Capture quando o usuário
+   aponta um problema concreto no que um agente gerou (SQL com bug, código quebrado,
+   estrutura errada), explicando: o que aconteceu, causa raiz, padrão para evitar.
+   Decai em 30 dias para forçar reavaliação periódica.
+   Exemplos:
+     "databricks-engineer: CLUSTER BY em CREATE MATERIALIZED VIEW precisa referenciar
+      colunas do SELECT output, não aliases da JOIN"
+     "databricks-engineer: variável YAML usada em databricks.yml deve estar declarada
+      em variables: — bundle validate falha caso contrário"
+     "Imports faltando: F.Window não existe; usar 'from pyspark.sql import Window'"
+   Estrutura recomendada do content:
+     "## O que aconteceu\\n<descrição>\\n\\n## Causa raiz\\n<motivo técnico>\\n\\n## Padrão para evitar\\n<regra clara>"
+
 Para cada extração, retorne:
-- type: um dos 7 tipos acima
+- type: um dos 8 tipos acima
 - summary: resumo de 1 linha (para o index)
-- content: descrição completa (2-5 linhas)
-- tags: 2-5 tags relevantes
+- content: descrição completa (2-5 linhas; para lesson_learned use a estrutura "O que aconteceu / Causa raiz / Padrão para evitar")
+- tags: 2-5 tags relevantes (para lesson_learned inclua o nome do agente envolvido)
 
 Retorne SOMENTE um JSON array de objetos. Sem markdown, sem explicação.
 Se não houver nada para extrair, retorne [].
@@ -99,6 +115,12 @@ Exemplo:
     "summary": "Pipeline Medallion usa Auto Loader na camada Bronze",
     "content": "O pipeline de ingestão foi configurado com Auto Loader (cloudFiles) na Bronze para processar arquivos JSON do blob storage. Formato: Delta. Particionamento por data.",
     "tags": ["pipeline", "bronze", "auto-loader", "delta"]
+  },
+  {
+    "type": "lesson_learned",
+    "summary": "databricks-engineer: CLUSTER BY em MV deve referenciar colunas do SELECT",
+    "content": "## O que aconteceu\\nO agente gerou CREATE MATERIALIZED VIEW com CLUSTER BY (d.ano, d.mes) onde d era alias de JOIN.\\n\\n## Causa raiz\\nEm MATERIALIZED VIEW, CLUSTER BY referencia apenas colunas da saída do SELECT, não aliases da JOIN.\\n\\n## Padrão para evitar\\nIncluir ano/mes no SELECT (ou trocar para CLUSTER BY de coluna já presente, ex: data_id).",
+    "tags": ["databricks-engineer", "materialized-view", "cluster-by", "sql"]
   }
 ]
 """
@@ -162,7 +184,7 @@ def extract_memories_from_conversation(
             "x-api-key": settings.anthropic_api_key,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
-            "User-Agent": "data-agents/1.0 memory-extractor",
+            "User-Agent": "data-agents-api/1.0 memory-extractor",
         },
         method="POST",
     )

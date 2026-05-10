@@ -73,7 +73,7 @@ Orquestra 14 agentes especialistas em Engenharia, Qualidade, Governança, Análi
 
 > Capturadas automaticamente durante sessões
 
-- [[memory/data/index]] — Índice de todas as memórias ativas
+- [[memory/data/data-agents-api/index]] — Índice de todas as memórias ativas (do projeto atual)
 
 ---
 

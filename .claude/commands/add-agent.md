@@ -4,7 +4,7 @@ description: Scaffold de um novo agente especialista no registry (.md com frontm
 
 # /add-agent — Scaffold de Novo Agente Especialista
 
-Você está adicionando um novo agente ao sistema multi-agente `data-agents`. O loader
+Você está adicionando um novo agente ao sistema multi-agente `data-agents-api`. O loader
 dinâmico (`agents/loader.py`) carrega qualquer `.md` válido em `agents/registry/`,
 então o agente propriamente dito é **um único arquivo**. Os demais arquivos abaixo
 precisam ser atualizados manualmente porque contêm listas hardcoded que o loader não

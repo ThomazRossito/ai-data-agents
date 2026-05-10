@@ -378,7 +378,7 @@ def _sonnet_check_contradiction(new_memory: Memory, candidate: Memory) -> bool:
             "x-api-key": settings.anthropic_api_key,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
-            "User-Agent": "data-agents/1.0 memory-contradiction",
+            "User-Agent": "data-agents-api/1.0 memory-contradiction",
         },
         method="POST",
     )

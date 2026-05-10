@@ -22,21 +22,21 @@ class TestFrontmatterParser:
     """Testes para o parser de frontmatter YAML."""
 
     def test_parse_valid_frontmatter(self, tmp_path):
-        content = '---\nname: test-agent\ndescription: "Agente de teste."\nmodel: claude-sonnet-4-6\ntools: [Read, Grep]\n---\n# Body\nConteúdo do agente.'
+        content = '---\nname: test-agent\ndescription: "Agente de teste."\nmodel: kimi-k2.6\ntools: [Read, Grep]\n---\n# Body\nConteúdo do agente.'
         meta, body = _parse_frontmatter(content)
         assert meta["name"] == "test-agent"
         assert meta["description"] == "Agente de teste."
-        assert meta["model"] == "claude-sonnet-4-6"
+        assert meta["model"] == "kimi-k2.6"
         assert meta["tools"] == ["Read", "Grep"]
         assert "# Body" in body
 
     def test_parse_frontmatter_with_mcp_servers(self):
-        content = '---\nname: test\ndescription: "Desc."\nmodel: claude-sonnet-4-6\ntools: [Read]\nmcp_servers: [databricks, fabric]\n---\nBody.'
+        content = '---\nname: test\ndescription: "Desc."\nmodel: kimi-k2.6\ntools: [Read]\nmcp_servers: [databricks, fabric]\n---\nBody.'
         meta, _ = _parse_frontmatter(content)
         assert meta["mcp_servers"] == ["databricks", "fabric"]
 
     def test_parse_frontmatter_without_mcp_servers(self):
-        content = '---\nname: test\ndescription: "Desc."\nmodel: claude-sonnet-4-6\ntools: [Read]\n---\nBody.'
+        content = '---\nname: test\ndescription: "Desc."\nmodel: kimi-k2.6\ntools: [Read]\n---\nBody.'
         meta, _ = _parse_frontmatter(content)
         assert "mcp_servers" not in meta
 
@@ -488,7 +488,7 @@ class TestTokenBudgetsByTier:
         agent_file = tmp_path / "custom-agent.md"
         agent_file.write_text(
             '---\nname: custom-agent\ndescription: "Agente custom."\n'
-            "model: claude-sonnet-4-6\ntools: [Read]\ntier: T1\nmax_turns: 7\n---\n# Body\n"
+            "model: kimi-k2.6\ntools: [Read]\ntier: T1\nmax_turns: 7\n---\n# Body\n"
             "Conteúdo do agente de teste.",
             encoding="utf-8",
         )
@@ -507,7 +507,7 @@ class TestTokenBudgetsByTier:
         agent_file = tmp_path / "effort-agent.md"
         agent_file.write_text(
             '---\nname: effort-agent\ndescription: "Agente effort."\n'
-            "model: claude-sonnet-4-6\ntools: [Read]\ntier: T2\neffort: high\n---\n# Body\n"
+            "model: kimi-k2.6\ntools: [Read]\ntier: T2\neffort: high\n---\n# Body\n"
             "Conteúdo.",
             encoding="utf-8",
         )
@@ -924,7 +924,7 @@ class TestCachePrefix:
         agent_file = tmp_path / "test-agent.md"
         agent_file.write_text(
             '---\nname: test-agent\ndescription: "Agente de teste."\n'
-            "model: claude-sonnet-4-6\ntools: [Read]\n---\n# Body\nConteúdo.",
+            "model: kimi-k2.6\ntools: [Read]\n---\n# Body\nConteúdo.",
             encoding="utf-8",
         )
 

@@ -155,7 +155,7 @@ async def select_agents(
             "x-api-key": settings.anthropic_api_key,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
-            "User-Agent": "data-agents/1.0 dispatcher",
+            "User-Agent": "data-agents-api/1.0 dispatcher",
         },
         method="POST",
     )

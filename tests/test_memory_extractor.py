@@ -186,3 +186,52 @@ class TestExtractMemoriesFromConversation:
         with patch("urllib.request.urlopen", return_value=mock_resp):
             result = extract_memories_from_conversation("Conversa.")
         assert len(result) == 1
+
+
+class TestLessonLearnedExtraction:
+    """
+    Garante que o extractor reconhece e instancia memórias do tipo lesson_learned —
+    fecha o gap onde bugs apontados na conversa não viravam lições aprendidas.
+    """
+
+    def test_lesson_learned_type_is_accepted(self):
+        """Extractor deve aceitar e instanciar memória do tipo lesson_learned."""
+        ext = _sample_extraction(
+            type="lesson_learned",
+            summary="databricks-engineer: CLUSTER BY em MV não pode usar alias da JOIN",
+            content=(
+                "## O que aconteceu\n"
+                "Agente gerou CLUSTER BY (d.ano, d.mes) com alias de JOIN.\n\n"
+                "## Causa raiz\n"
+                "MATERIALIZED VIEW só aceita colunas do SELECT.\n\n"
+                "## Padrão para evitar\n"
+                "Incluir colunas no SELECT antes do CLUSTER BY."
+            ),
+            tags=["databricks-engineer", "materialized-view", "cluster-by"],
+        )
+        mock_resp = _mock_sonnet([ext])
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            result = extract_memories_from_conversation("Conversa com bug apontado.")
+        assert len(result) == 1
+        assert result[0].type == MemoryType.LESSON_LEARNED
+        assert "CLUSTER BY" in result[0].summary
+
+    def test_lesson_learned_gets_high_confidence(self):
+        """lesson_learned tem confidence 0.95 (mesmo nível de user/architecture)."""
+        ext = _sample_extraction(
+            type="lesson_learned",
+            summary="Lesson de exemplo com conteúdo suficiente para evitar penalidade",
+            content="x" * 100,  # > 30 chars para não acionar a penalty
+        )
+        mock_resp = _mock_sonnet([ext])
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            result = extract_memories_from_conversation("c")
+        assert result[0].confidence == 0.95
+
+    def test_prompt_mentions_lesson_learned_category(self):
+        """System prompt do extractor deve documentar a 8ª categoria."""
+        from memory.extractor import _EXTRACTOR_SYSTEM_PROMPT
+
+        assert "lesson_learned" in _EXTRACTOR_SYSTEM_PROMPT
+        assert "8" in _EXTRACTOR_SYSTEM_PROMPT  # menção a "8 tipos"
+        assert "Causa raiz" in _EXTRACTOR_SYSTEM_PROMPT  # estrutura recomendada

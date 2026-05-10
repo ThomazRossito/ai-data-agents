@@ -1,10 +1,10 @@
 ---
-description: Análise completa e profunda do projeto data-agents — varre todos os arquivos, diretórios e subdirectórios, lê cada módulo Python, agente, hook, config, teste, KB e skill, e produz um relatório técnico detalhado com todos os detalhes de programação, arquitetura, fluxos e dependências.
+description: Análise completa e profunda do projeto data-agents-api — varre todos os arquivos, diretórios e subdirectórios, lê cada módulo Python, agente, hook, config, teste, KB e skill, e produz um relatório técnico detalhado com todos os detalhes de programação, arquitetura, fluxos e dependências.
 ---
 
 # /analyze-project — Análise Completa do Projeto
 
-Você vai fazer uma varredura **total e sistemática** do projeto `data-agents`.
+Você vai fazer uma varredura **total e sistemática** do projeto `data-agents-api`.
 O objetivo é compreender cada arquivo, módulo, classe, função e configuração —
 sem deixar nenhum diretório ou subdiretório de fora.
 

@@ -294,7 +294,7 @@ class TestScheduleCompaction:
                 "input_tokens": 100,
                 "output_tokens": 40,
                 "cost_usd": 0.00012,
-                "model": "claude-haiku-4-5-20251001",
+                "model": "kimi-k2.6",
                 "turns_summarized": len(transcript),
             }
 
@@ -328,7 +328,7 @@ class TestScheduleCompaction:
                 "input_tokens": 100,
                 "output_tokens": 40,
                 "cost_usd": 0.00012,
-                "model": "claude-haiku-4-5-20251001",
+                "model": "kimi-k2.6",
                 "turns_summarized": len(transcript),
             }
 
@@ -346,7 +346,7 @@ class TestScheduleCompaction:
         assert "Session Summary — cli-persist" in content
         assert "80%" in content
         assert "## Objetivo" in content
-        assert "claude-haiku-4-5-20251001" in content
+        assert "kimi-k2.6" in content
 
     @pytest.mark.asyncio
     async def test_schedule_skipped_without_session_id(self, monkeypatch, caplog):
