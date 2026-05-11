@@ -1078,17 +1078,20 @@ async def run_interactive() -> None:
                 # se o processo morrer abruptamente antes do próximo save explícito.
                 _checkpoint_saved_for_session = False
                 try:
-                    # Input com idle timeout: detecta inatividade e oferece reset
+                    # Input com idle timeout: detecta inatividade e oferece reset.
+                    # Usamos prompt_async() (não prompt() em executor) porque o
+                    # prompt_toolkit.Application é singleton dentro de _prompt_session,
+                    # e cancelar a task do executor NÃO encerra a Application interna —
+                    # resulta em "Application is already running" no próximo loop.
+                    # prompt_async() integra com asyncio e cancela limpo no timeout.
                     try:
-                        user_input = await asyncio.wait_for(
-                            asyncio.get_event_loop().run_in_executor(
-                                None,
-                                lambda: _prompt_session.prompt("Você: ").strip(),
-                            ),
+                        raw_input = await asyncio.wait_for(
+                            _prompt_session.prompt_async("Você: "),
                             timeout=settings.idle_timeout_minutes * 60
                             if settings.idle_timeout_minutes > 0
                             else None,
                         )
+                        user_input = (raw_input or "").strip()
                     except asyncio.TimeoutError:
                         # Salvar checkpoint antes do reset por inatividade
                         if _session_state["last_prompt"]:
