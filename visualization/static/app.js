@@ -580,6 +580,10 @@
 
   function handleEvent(evt) {
     if (!evt || !evt.type) return;
+    // Log no console pra debug — você vê cada evento que chega ao vivo
+    if (evt.type !== '_backlog') {
+      console.log(`[evt] ${evt.type}`, evt.agent || '-', evt.tool || '-');
+    }
     switch (evt.type) {
       case 'delegation':       return onDelegation(evt);
       case 'tool_call':        return onToolCall(evt);

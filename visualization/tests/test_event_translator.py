@@ -102,9 +102,18 @@ class TestTranslateAuditEvent:
         assert result["platform"] == "custom-platform"
 
     def test_noise_tool_filtered(self):
-        for noise in ("Todowrite", "TodoWrite", "ExitPlanMode"):
-            raw = {"event": "tool_call", "tool_name": noise}
-            assert translate_audit_event(raw) is None
+        # Apenas ExitPlanMode é filtrado (Todowrite/TodoWrite passam pra dar
+        # sinal de vida quando supervisor está só planejando)
+        raw = {"event": "tool_call", "tool_name": "ExitPlanMode"}
+        assert translate_audit_event(raw) is None
+
+    def test_todowrite_passes(self):
+        """Todowrite/TodoWrite agora passam — antes filtradas como ruído."""
+        for name in ("Todowrite", "TodoWrite"):
+            raw = {"event": "tool_call", "tool_name": name}
+            result = translate_audit_event(raw)
+            assert result is not None
+            assert result["tool"] == name
 
     def test_dispatcher_decision(self):
         raw = {

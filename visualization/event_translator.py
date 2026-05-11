@@ -133,10 +133,11 @@ def translate_workflow_event(raw: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-# Tools que o frontend ignora (ruído visual)
+# Tools que o frontend ignora (ruído visual).
+# Todowrite/TodoWrite vinham filtrados antes, mas o usuário relatou que sem
+# eles o escritório parece "morto" quando o supervisor está pensando.
+# Mantemos apenas ExitPlanMode (que é puramente sintaxe, sem ação real).
 _NOISE_TOOLS = {
-    "Todowrite",
-    "TodoWrite",
     "ExitPlanMode",
 }
 
