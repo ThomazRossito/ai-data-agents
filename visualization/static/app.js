@@ -216,7 +216,8 @@
       new THREE.BoxGeometry(0.45, 0.55, 0.08),
       new THREE.MeshStandardMaterial({ color: 0x4a4a58, roughness: 0.7 })
     );
-    back.position.set(0, 0.7, 0.22 * facing);
+    // Encosto fica do lado OPOSTO ao monitor (atrás do boneco, perto da parede)
+    back.position.set(0, 0.7, -0.22 * facing);
     back.castShadow = true;
     chair.add(back);
     const stem = new THREE.Mesh(
@@ -406,9 +407,12 @@
     const color = TIER_COLORS[tier] || TIER_COLORS.T2;
     const desk = deskWithChair(facing);
     desk.group.position.set(x, 0, z);
-    // Rotaciona a mesa 90° pra perpendicular ao corredor: monitor vira pro
-    // corredor (x=0), boneco fica do lado da parede encarando o corredor.
-    desk.group.rotation.y = side === -1 ? Math.PI / 2 : -Math.PI / 2;
+    // Rotaciona a mesa 90° pra perpendicular ao corredor. Mesma rotação
+    // pros dois lados porque o `facing` dentro de deskWithChair já espelha
+    // o conteúdo: monitor.z_local segue +facing (interno), chair.z_local
+    // segue -facing (externo, parede). Rotação +π/2 mapeia z_local→x_global
+    // mantendo coerência em ambos os lados.
+    desk.group.rotation.y = Math.PI / 2;
     scene.add(desk.group);
 
     // Boneco do lado da PAREDE (afastado do corredor), encarando o monitor
