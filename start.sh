@@ -6,12 +6,16 @@
 # pressionar Ctrl+C.
 #
 # Portas escolhidas para NÃO conflitar com o projeto data-agents original
-# (que usa 8503/8501). Override via .env: CHAINLIT_PORT=8513, MONITOR_PORT=8511.
+# (que usa 8503/8501). Override via .env:
+#   CHAINLIT_PORT=8513
+#   MONITOR_PORT=8511
+#   VISUALIZATION_PORT=8512  (opcional, só sobe com --with-viz)
 #
 # Uso:
 #   ./start.sh                # Chat (Chainlit) + Monitoring
 #   ./start.sh --chat-only    # somente UI de Chat
 #   ./start.sh --monitor-only # somente Monitoramento
+#   ./start.sh --with-viz     # adiciona Visualization 3D (escritório dos agentes)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
@@ -29,6 +33,7 @@ RESET="\033[0m"
 # dois lado a lado. Override via env: CHAINLIT_PORT=... MONITOR_PORT=...
 CHAINLIT_PORT="${CHAINLIT_PORT:-8513}"
 MONITOR_PORT="${MONITOR_PORT:-8511}"
+VISUALIZATION_PORT="${VISUALIZATION_PORT:-8512}"
 
 # ── Raiz do projeto (diretório deste script) ──────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,10 +42,12 @@ cd "$SCRIPT_DIR"
 # ── Flags ────────────────────────────────────────────────────────────────────
 CHAT_ONLY=false
 MONITOR_ONLY=false
+WITH_VIZ=false
 for arg in "$@"; do
   case "$arg" in
     --chat-only)    CHAT_ONLY=true ;;
     --monitor-only) MONITOR_ONLY=true ;;
+    --with-viz)     WITH_VIZ=true ;;
     --help|-h)
       echo ""
       echo "  ${BOLD}./start.sh${RESET} [opções]"
@@ -48,10 +55,12 @@ for arg in "$@"; do
       echo "  Opções:"
       echo "    ${CYAN}--chat-only${RESET}     Inicia somente a UI de Chat Chainlit      (porta $CHAINLIT_PORT)"
       echo "    ${CYAN}--monitor-only${RESET}  Inicia somente o Monitoramento            (porta $MONITOR_PORT)"
+      echo "    ${CYAN}--with-viz${RESET}      Adiciona Visualization 3D dos agentes     (porta $VISUALIZATION_PORT)"
       echo "    ${CYAN}--help${RESET}          Exibe esta ajuda"
       echo ""
       echo "  Exemplos:"
       echo "    ./start.sh                    # Chainlit Chat + Monitoring"
+      echo "    ./start.sh --with-viz         # Chat + Monitoring + Visualization 3D"
       echo "    ./start.sh --monitor-only     # Somente Monitoring"
       echo ""
       exit 0
@@ -152,6 +161,7 @@ rotate_log "$SCRIPT_DIR/logs/monitor.log"
 # ── PIDs dos processos filhos ─────────────────────────────────────────────────
 CHAT_PID=""
 MONITOR_PID=""
+VIZ_PID=""
 
 # ── Função de shutdown ────────────────────────────────────────────────────────
 cleanup() {
@@ -164,6 +174,10 @@ cleanup() {
   if [[ -n "$MONITOR_PID" ]] && kill -0 "$MONITOR_PID" 2>/dev/null; then
     kill "$MONITOR_PID" 2>/dev/null
     echo -e "  ${GREEN}✔${RESET}  Monitoramento encerrado (PID $MONITOR_PID)"
+  fi
+  if [[ -n "$VIZ_PID" ]] && kill -0 "$VIZ_PID" 2>/dev/null; then
+    kill "$VIZ_PID" 2>/dev/null
+    echo -e "  ${GREEN}✔${RESET}  Visualization encerrada (PID $VIZ_PID)"
   fi
   echo ""
   exit 0
@@ -180,6 +194,19 @@ if [[ "$CHAT_ONLY" == false ]]; then
     --theme.base dark \
     > logs/monitor.log 2>&1 &
   MONITOR_PID=$!
+fi
+
+# ── Inicia Visualization 3D (opcional, --with-viz) ───────────────────────────
+if [[ "$WITH_VIZ" == true ]] && [[ "$CHAT_ONLY" == false ]] && [[ "$MONITOR_ONLY" == false ]]; then
+  if "$PYTHON_CMD" -c "import fastapi, uvicorn, watchdog" &>/dev/null; then
+    rotate_log "$SCRIPT_DIR/logs/visualization.log"
+    echo -e "  ${GREEN}▶${RESET}  Visualization  →  ${BOLD}http://localhost:$VISUALIZATION_PORT${RESET}"
+    "$PYTHON_CMD" -m visualization.server \
+      > logs/visualization.log 2>&1 &
+    VIZ_PID=$!
+  else
+    echo -e "  ${YELLOW}⚠${RESET}   Dependências viz ausentes. Instale com: pip install -e '.[viz]'"
+  fi
 fi
 
 # ── Inicia UI de Chat (Chainlit) ──────────────────────────────────────────────
@@ -230,8 +257,12 @@ while true; do
     echo -e "  ${RED}✘${RESET}  Monitoramento encerrou inesperadamente. Verifique logs/monitor.log"
     MONITOR_PID=""
   fi
-  # Se ambos morreram, sai
-  if [[ -z "$CHAT_PID" ]] && [[ -z "$MONITOR_PID" ]]; then
+  if [[ -n "$VIZ_PID" ]] && ! kill -0 "$VIZ_PID" 2>/dev/null; then
+    echo -e "  ${RED}✘${RESET}  Visualization encerrou inesperadamente. Verifique logs/visualization.log"
+    VIZ_PID=""
+  fi
+  # Se todos morreram, sai
+  if [[ -z "$CHAT_PID" ]] && [[ -z "$MONITOR_PID" ]] && [[ -z "$VIZ_PID" ]]; then
     echo -e "  ${RED}✘${RESET}  Todos os processos encerraram. Saindo."
     exit 1
   fi

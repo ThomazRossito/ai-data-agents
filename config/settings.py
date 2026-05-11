@@ -182,12 +182,16 @@ class Settings(BaseSettings):
     console_log_level: str = "WARNING"
     audit_log_path: str = "./logs/audit.jsonl"
 
-    # --- UI / Monitoring Ports ---
+    # --- UI / Monitoring / Visualization Ports ---
     # Portas distintas do projeto original (data-agents = 8503/8501) para
     # permitir rodar os dois projetos lado a lado sem conflito.
-    # Override via .env: CHAINLIT_PORT=8513, MONITOR_PORT=8511
+    # Override via .env: CHAINLIT_PORT=8513, MONITOR_PORT=8511, VISUALIZATION_PORT=8512
     chainlit_port: int = 8513
     monitor_port: int = 8511
+    # Visualização 3D do escritório dos agentes (FastAPI + WebSocket).
+    # Roda em porta intermediária entre monitor (8511) e chainlit (8513).
+    # Subir via: python -m visualization.server  OU  ./start.sh --with-viz
+    visualization_port: int = 8512
 
     # --- Model Routing por Tier ---
     # Mapeamento tier -> modelo. Sobrescreve o `model:` do frontmatter de cada agente.

@@ -185,6 +185,20 @@ async def pre_track_workflow_events(
     if tool_name == "Agent":
         agent_name = _extract_agent_name(tool_input)
         _emit_progress("agent_start", {"agent": agent_name, "tool_use_id": tid})
+        # Persiste evento de INÍCIO no workflows.jsonl pra UIs externas
+        # (visualization, monitoring) saberem quando a delegação começou
+        # — não só quando termina. Necessário pra animação em tempo real.
+        timestamp = datetime.now(timezone.utc).isoformat()
+        _write_event(
+            {
+                "timestamp": timestamp,
+                "event": "workflow_step",
+                "agent": display_name_for(agent_name),
+                "tool_use_id": tid,
+                "prompt_preview": _extract_prompt_preview(tool_input),
+                "stage": "started",  # diferencia do PostToolUse (sem stage = "ended")
+            }
+        )
     else:
         safe_keys = {
             "query",
