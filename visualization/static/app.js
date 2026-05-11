@@ -712,15 +712,20 @@
 
   const activeBeams = [];
 
+  // Origem dos beams = posição da lâmpada do supervisor (x=+9).
+  // Se mover o supervisor no futuro, atualizar esta constante também.
+  const SUPERVISOR_BEAM_ORIGIN = new THREE.Vector3(9, 1.6, 0);
+
   function makeBeam(target, tool, platformColor) {
-    const start = new THREE.Vector3(0, 1.6, 0);
-    const end = new THREE.Vector3(target.pos.x, 1.2, target.pos.z);
+    const start = SUPERVISOR_BEAM_ORIGIN;
+    const end = new THREE.Vector3(target.pos.x, target.pos.y || 1.2, target.pos.z);
     const points = [];
     for (let i = 0; i <= 25; i++) {
       const u = i / 25;
       const x = start.x + (end.x - start.x) * u;
       const z = start.z + (end.z - start.z) * u;
-      const y = 1.6 + Math.sin(u * Math.PI) * 1.5;
+      const yBase = start.y + (end.y - start.y) * u;
+      const y = yBase + Math.sin(u * Math.PI) * 1.5; // arco acima da reta
       points.push(new THREE.Vector3(x, y, z));
     }
     // Beam ciano por padrão (cyberpunk), cor da plataforma se houver
