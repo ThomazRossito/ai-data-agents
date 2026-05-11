@@ -75,7 +75,7 @@
 
   // Floor + tapete + paredes
   const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(26, 18),
+    new THREE.PlaneGeometry(30, 20),
     new THREE.MeshStandardMaterial({ color: 0x3a3a48, roughness: 0.85 })
   );
   floor.rotation.x = -Math.PI / 2;
@@ -83,7 +83,7 @@
   scene.add(floor);
 
   const carpet = new THREE.Mesh(
-    new THREE.PlaneGeometry(3, 15),
+    new THREE.PlaneGeometry(3.5, 16),
     new THREE.MeshStandardMaterial({ color: 0x5a3a4a, roughness: 0.9 })
   );
   carpet.rotation.x = -Math.PI / 2;
@@ -397,18 +397,27 @@
     const side = idx < Math.ceil(total / 2) ? -1 : 1;
     const colIdx = side === -1 ? idx : idx - Math.ceil(total / 2);
     const rowsPerSide = Math.ceil(total / 2);
-    const x = side * 4.5;
-    const z = -5.5 + colIdx * (11 / Math.max(1, rowsPerSide - 1));
+    // Espaçamento generoso: corredor mais largo (x=±5.5), mesas com 2.1u
+    // entre centros (rowsPerSide-1 espaços em 13u total)
+    const x = side * 5.5;
+    const z = -6.5 + colIdx * (13 / Math.max(1, rowsPerSide - 1));
     const facing = -side;
 
     const color = TIER_COLORS[tier] || TIER_COLORS.T2;
     const desk = deskWithChair(facing);
     desk.group.position.set(x, 0, z);
+    // Rotaciona a mesa 90° pra perpendicular ao corredor: monitor vira pro
+    // corredor (x=0), boneco fica do lado da parede encarando o corredor.
+    desk.group.rotation.y = side === -1 ? Math.PI / 2 : -Math.PI / 2;
     scene.add(desk.group);
 
+    // Boneco do lado da PAREDE (afastado do corredor), encarando o monitor
+    // que aponta pro centro. Side=-1 (esquerda em x=-5.5): boneco em x=-6.0,
+    // olhando pra +x (rotação π/2). Side=+1 (direita em x=+5.5): boneco em
+    // x=+6.0, olhando pra -x (rotação -π/2).
     const person = voxelPerson(color);
-    person.group.position.set(x, 0.4, z + 0.8 * facing);
-    person.group.rotation.y = facing > 0 ? Math.PI : 0;
+    person.group.position.set(x + 0.5 * side, 0.4, z);
+    person.group.rotation.y = side === -1 ? Math.PI / 2 : -Math.PI / 2;
     person.legL.visible = false;
     person.legR.visible = false;
     person.body.position.y = 0.5;
@@ -417,7 +426,7 @@
     person.armR.position.y = 0.5;
     scene.add(person.group);
 
-    // Halo no chão (verde menta, invisível por padrão) — acende durante working
+    // Halo no chão SOB o boneco (eixo X agora, não Z)
     const halo = new THREE.Mesh(
       new THREE.RingGeometry(0.55, 0.7, 32),
       new THREE.MeshBasicMaterial({
@@ -428,20 +437,22 @@
       })
     );
     halo.rotation.x = -Math.PI / 2;
-    halo.position.set(x, 0.03, z + 0.3 * facing);
+    halo.position.set(x + 0.5 * side, 0.03, z);
     scene.add(halo);
 
+    // Nameplate flutua acima da cabeça do boneco (eixo X)
     const np = nameplate(name, '#' + color.toString(16).padStart(6, '0'));
-    np.sprite.position.set(x, 1.95, z + 0.8 * facing);
+    np.sprite.position.set(x + 0.5 * side, 1.95, z);
     scene.add(np.sprite);
 
     const zSprite = makeZ();
-    zSprite.position.set(x, 1.85, z + 0.8 * facing);
+    zSprite.position.set(x + 0.5 * side, 1.85, z);
     scene.add(zSprite);
 
     return {
       name, tier, baseColor: color, facing,
-      pos: { x, y: 1.2, z: z + 0.2 * facing },
+      // pos = onde os beams chegam (cabeça do boneco, do lado da parede)
+      pos: { x: x + 0.3 * side, y: 1.2, z: z },
       desk, person, nameplate: np, zSprite, halo,
       asleep: false,
       working: false,
@@ -577,8 +588,30 @@
 
   function onBacklog(evt) {
     if (!evt.events) return;
-    console.log(`[backlog] replicando ${evt.events.length} eventos`);
-    for (const ev of evt.events) handleEvent(ev);
+    // Backlog NÃO simula eventos como se fossem ao vivo — só extrai estado
+    // final pra contadores. Senão, ao abrir o browser após o python main.py
+    // ser morto sem session_end, agentes ficam eternamente "working".
+    let count = 0;
+    let lastSessionEnd = null;
+    for (const ev of evt.events) {
+      count++;
+      if (ev.agent) agentsSeenThisSession.add(ev.agent);
+      if (ev.type === 'session_end') {
+        lastSessionEnd = ev;
+      }
+    }
+    if (lastSessionEnd) {
+      // Sessão antiga teve session_end válido — exibe métricas finais
+      const meta = lastSessionEnd.metadata || {};
+      cost = meta.cost_usd || 0;
+      $cost.textContent = cost.toFixed(4);
+      $phase.textContent = `última sessão · $${cost.toFixed(4)} · ${meta.turns || 0} turns`;
+    } else {
+      $phase.textContent = 'aguardando primeira query';
+    }
+    updateActiveCount();
+    logTask(`<span style="opacity:0.6;">[backlog: ${count} eventos antigos carregados — agentes ficam idle até próxima query]</span>`);
+    console.log(`[backlog] ${count} eventos carregados em modo silencioso (sem ativar working)`);
   }
 
   function onDelegation(evt) {
