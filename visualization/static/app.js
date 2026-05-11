@@ -597,24 +597,29 @@
     // ser morto sem session_end, agentes ficam eternamente "working".
     let count = 0;
     let lastSessionEnd = null;
+    const seenInHistory = new Set();
     for (const ev of evt.events) {
       count++;
-      if (ev.agent) agentsSeenThisSession.add(ev.agent);
+      if (ev.agent) seenInHistory.add(ev.agent);
       if (ev.type === 'session_end') {
         lastSessionEnd = ev;
       }
     }
     if (lastSessionEnd) {
-      // Sessão antiga teve session_end válido — exibe métricas finais
+      // Sessão antiga já encerrou — contador volta a 0/14 (nada rodando agora)
       const meta = lastSessionEnd.metadata || {};
       cost = meta.cost_usd || 0;
       $cost.textContent = cost.toFixed(4);
       $phase.textContent = `última sessão · $${cost.toFixed(4)} · ${meta.turns || 0} turns`;
+      agentsSeenThisSession.clear(); // zera — sessão acabou
     } else {
+      // Não houve session_end → ainda mostra histórico de agentes vistos
+      // (caso o python main.py tenha sido morto sem flush)
+      seenInHistory.forEach((n) => agentsSeenThisSession.add(n));
       $phase.textContent = 'aguardando primeira query';
     }
     updateActiveCount();
-    logTask(`<span style="opacity:0.6;">[backlog: ${count} eventos antigos carregados — agentes ficam idle até próxima query]</span>`);
+    logTask(`<span style="opacity:0.6;">[backlog: ${count} eventos antigos carregados — nenhum agente ativo no momento]</span>`);
     console.log(`[backlog] ${count} eventos carregados em modo silencioso (sem ativar working)`);
   }
 
