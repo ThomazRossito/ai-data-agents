@@ -34,9 +34,10 @@
 
   const sceneEl = document.getElementById('scene');
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x0e1018, 20, 42);
+  // Fog ciano-azulado dá aquele clima "cyberpunk noturno"
+  scene.fog = new THREE.Fog(0x0a1422, 22, 48);
 
-  const FRUSTUM = 14;
+  const FRUSTUM = 22;
   let aspect = window.innerWidth / window.innerHeight;
   const camera = new THREE.OrthographicCamera(
     -FRUSTUM * aspect / 2, FRUSTUM * aspect / 2,
@@ -55,8 +56,9 @@
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   sceneEl.appendChild(renderer.domElement);
 
-  scene.add(new THREE.AmbientLight(0xb8c0e0, 0.55));
-  const sun = new THREE.DirectionalLight(0xfff0d0, 0.85);
+  // Ambient mais frio + sun mais branco/azulado (estética futurista)
+  scene.add(new THREE.AmbientLight(0x8090c0, 0.5));
+  const sun = new THREE.DirectionalLight(0xddeeff, 0.85);
   sun.position.set(8, 14, 4);
   sun.castShadow = true;
   sun.shadow.mapSize.width = 2048;
@@ -69,49 +71,150 @@
   sun.shadow.camera.far = 40;
   sun.shadow.bias = -0.0005;
   scene.add(sun);
-  const rim = new THREE.DirectionalLight(0x6080c0, 0.35);
+  // Rim azul vibrante pra silhuetar os bonecos
+  const rim = new THREE.DirectionalLight(0x00aaff, 0.4);
   rim.position.set(-8, 6, -4);
   scene.add(rim);
 
-  // Floor + tapete + paredes
+  // Pontos de luz ciano nos cantos do escritório (estética datacenter)
+  const corner1 = new THREE.PointLight(0x00ddff, 0.6, 12);
+  corner1.position.set(-14, 3, -7);
+  scene.add(corner1);
+  const corner2 = new THREE.PointLight(0x00ddff, 0.6, 12);
+  corner2.position.set(14, 3, 7);
+  scene.add(corner2);
+  const corner3 = new THREE.PointLight(0xaa66ff, 0.4, 10);
+  corner3.position.set(-14, 3, 7);
+  scene.add(corner3);
+  const corner4 = new THREE.PointLight(0xaa66ff, 0.4, 10);
+  corner4.position.set(14, 3, -7);
+  scene.add(corner4);
+
+  // Floor base escuro (datacenter style)
   const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(30, 20),
-    new THREE.MeshStandardMaterial({ color: 0x3a3a48, roughness: 0.85 })
+    new THREE.PlaneGeometry(34, 16),
+    new THREE.MeshStandardMaterial({ color: 0x161a26, roughness: 0.7 })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   scene.add(floor);
 
-  const carpet = new THREE.Mesh(
-    new THREE.PlaneGeometry(3.5, 16),
-    new THREE.MeshStandardMaterial({ color: 0x5a3a4a, roughness: 0.9 })
-  );
-  carpet.rotation.x = -Math.PI / 2;
-  carpet.position.y = 0.01;
-  carpet.receiveShadow = true;
-  scene.add(carpet);
+  // Grid neon ciano sobre o chão (cyberpunk!)
+  const grid = new THREE.GridHelper(34, 17, 0x00ddff, 0x004258);
+  grid.position.y = 0.01;
+  grid.material.transparent = true;
+  grid.material.opacity = 0.55;
+  scene.add(grid);
+
+  // (faixa de energia removida — grid neon ciano já dá identidade visual
+  // ao chão sem ofuscar os bonecos)
 
   function wall(x, z, w, d) {
     const g = new THREE.Mesh(
       new THREE.BoxGeometry(w, 1.6, d),
-      new THREE.MeshStandardMaterial({ color: 0x2a2d40, roughness: 0.9 })
+      new THREE.MeshStandardMaterial({
+        color: 0x1a1f2e,
+        emissive: 0x002238,
+        emissiveIntensity: 0.15,
+        roughness: 0.85,
+      })
     );
     g.position.set(x, 0.8, z);
     g.receiveShadow = true;
     scene.add(g);
   }
-  wall(0, -8.5, 26, 0.2);
-  wall(-13, 0, 0.2, 18);
-  wall(13, 0, 0.2, 18);
+  wall(0, -7.5, 30, 0.2);
+  wall(0, +7.5, 30, 0.2);
+  wall(-15, 0, 0.2, 16);
+  wall(+15, 0, 0.2, 16);
 
   // ─── Construtores reutilizáveis ────────────────────────────────────────────
 
-  function voxelPerson(shirt) {
+  // ─── Texturas estilo Minecraft pra cabeça ──────────────────────────────────
+  // 6 faces (right, left, top, bottom, front, back). Frente tem o rosto;
+  // topo tem cabelo; resto é pele.
+
+  function _mkPixelTexture(drawFn, size = 32) {
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+    drawFn(ctx, size);
+    const tex = new THREE.CanvasTexture(c);
+    tex.magFilter = THREE.NearestFilter; // pixel art crisp (sem blur)
+    tex.minFilter = THREE.NearestFilter;
+    return tex;
+  }
+
+  function makeMinecraftHeadMaterials(skinHex = 0xe8c8a0, hairHex = '#3a2a1a', eyeHex = '#222') {
+    const skin = '#' + skinHex.toString(16).padStart(6, '0');
+    // color=white pra textura aparecer sem tint. Quando o agente dorme,
+    // setAsleep muda color pra cinza, escurecendo a textura naturalmente.
+    const mkMat = (tex) => new THREE.MeshStandardMaterial({
+      map: tex, color: 0xffffff, transparent: true, roughness: 0.65,
+    });
+
+    // Side (lateral): pele com franja de cabelo no topo
+    const sideTex = _mkPixelTexture((ctx, s) => {
+      ctx.fillStyle = skin;
+      ctx.fillRect(0, 0, s, s);
+      ctx.fillStyle = hairHex;
+      ctx.fillRect(0, 0, s, s * 0.22); // franja
+    });
+    // Top: só cabelo
+    const topTex = _mkPixelTexture((ctx, s) => {
+      ctx.fillStyle = hairHex;
+      ctx.fillRect(0, 0, s, s);
+    });
+    // Bottom (queixo): só pele
+    const bottomTex = _mkPixelTexture((ctx, s) => {
+      ctx.fillStyle = skin;
+      ctx.fillRect(0, 0, s, s);
+    });
+    // Front (rosto): pele + cabelo + olhos + boca
+    const frontTex = _mkPixelTexture((ctx, s) => {
+      ctx.fillStyle = skin;
+      ctx.fillRect(0, 0, s, s);
+      // Cabelo (franja no topo)
+      ctx.fillStyle = hairHex;
+      ctx.fillRect(0, 0, s, s * 0.22);
+      // Olhos (2 quadrados escuros)
+      ctx.fillStyle = eyeHex;
+      ctx.fillRect(s * 0.20, s * 0.42, s * 0.16, s * 0.13);
+      ctx.fillRect(s * 0.64, s * 0.42, s * 0.16, s * 0.13);
+      // Pupilas brancas (dá vida)
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(s * 0.26, s * 0.46, s * 0.06, s * 0.06);
+      ctx.fillRect(s * 0.70, s * 0.46, s * 0.06, s * 0.06);
+      // Boca
+      ctx.fillStyle = '#7a4030';
+      ctx.fillRect(s * 0.34, s * 0.72, s * 0.32, s * 0.06);
+    });
+    // Back (nuca): cabelo cobrindo mais que a frente
+    const backTex = _mkPixelTexture((ctx, s) => {
+      ctx.fillStyle = skin;
+      ctx.fillRect(0, 0, s, s);
+      ctx.fillStyle = hairHex;
+      ctx.fillRect(0, 0, s, s * 0.5);
+    });
+
+    // BoxGeometry material order: [+x, -x, +y, -y, +z, -z]
+    return [
+      mkMat(sideTex),    // right (lateral)
+      mkMat(sideTex.clone()), // left
+      mkMat(topTex),     // top (cabelo)
+      mkMat(bottomTex),  // bottom (queixo)
+      mkMat(frontTex),   // front (rosto)
+      mkMat(backTex),    // back (nuca)
+    ];
+  }
+
+  function voxelPerson(shirt, skinHex = 0xe8c8a0, hairHex = '#3a2a1a') {
     const g = new THREE.Group();
-    const skin = 0xe8c8a0;
+    const skin = skinHex;
+    const headMats = makeMinecraftHeadMaterials(skin, hairHex);
     const head = new THREE.Mesh(
       new THREE.BoxGeometry(0.45, 0.45, 0.45),
-      new THREE.MeshStandardMaterial({ color: skin, transparent: true, roughness: 0.6 })
+      headMats // 6 materials, um por face
     );
     head.position.y = 1.45;
     head.castShadow = true;
@@ -141,7 +244,13 @@
     legR.position.set(0.13, 0.28, 0);
     legR.castShadow = true;
     g.add(legR);
-    return { group: g, head, body, armL, armR, legL, legR, materials: [head.material, body.material, armMat, legMat] };
+    // materials array inclui os 6 materials da cabeça (tinting pra sleep mode)
+    // + body + braços + pernas
+    return {
+      group: g, head, body, armL, armR, legL, legR,
+      headMaterials: headMats,
+      materials: [...headMats, body.material, armMat, legMat],
+    };
   }
 
   function deskWithChair(facing) {
@@ -232,22 +341,52 @@
     return { group: g, monitor, screenMat, chair };
   }
 
+  // Holograma piramidal ciano + base metálica — substitui as plantas (visual futurista)
   function plant() {
     const g = new THREE.Group();
-    const pot = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.18, 0.14, 0.25, 8),
-      new THREE.MeshStandardMaterial({ color: 0x6e4f30 })
+    // Base metálica
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.28, 0.32, 0.08, 8),
+      new THREE.MeshStandardMaterial({
+        color: 0x1a2030,
+        metalness: 0.9,
+        roughness: 0.2,
+      })
     );
-    pot.position.y = 0.12;
-    pot.castShadow = true;
-    g.add(pot);
-    const leaves = new THREE.Mesh(
-      new THREE.ConeGeometry(0.32, 0.7, 8),
-      new THREE.MeshStandardMaterial({ color: 0x4a7a3a, roughness: 0.8 })
+    base.position.y = 0.04;
+    base.castShadow = true;
+    g.add(base);
+
+    // Anel ciano emissivo na base (efeito projetor)
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.18, 0.26, 24),
+      new THREE.MeshBasicMaterial({
+        color: 0x00ddff,
+        transparent: true,
+        opacity: 0.85,
+        side: THREE.DoubleSide,
+      })
     );
-    leaves.position.y = 0.55;
-    leaves.castShadow = true;
-    g.add(leaves);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.09;
+    g.add(ring);
+
+    // Pirâmide holográfica (cone translúcido brilhante)
+    const holo = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.35, 0),
+      new THREE.MeshStandardMaterial({
+        color: 0x00ddff,
+        emissive: 0x00aaee,
+        emissiveIntensity: 0.9,
+        transparent: true,
+        opacity: 0.55,
+      })
+    );
+    holo.position.y = 0.65;
+    g.add(holo);
+
+    // Animação handled fora — guardamos referência pra rotacionar no loop
+    g.userData.holo = holo;
     return g;
   }
 
@@ -312,10 +451,13 @@
 
   // ─── Plantas decorativas ───────────────────────────────────────────────────
 
-  [[-12, -7], [-12, 7], [12, -7], [12, 7], [-12, 0], [12, 0]].forEach(([x, z]) => {
+  // Hologramas nos 4 cantos do escritório maior + 2 nas laterais externas
+  const _holograms = [];
+  [[-13.5, -6.5], [-13.5, 6.5], [13.5, -6.5], [13.5, 6.5], [-13.5, 0], [13.5, 0]].forEach(([x, z]) => {
     const p = plant();
     p.position.set(x, 0, z);
     scene.add(p);
+    _holograms.push(p.userData.holo);
   });
 
   // ─── Supervisor ────────────────────────────────────────────────────────────
@@ -349,11 +491,18 @@
   lampShade.position.y = 1.45;
   lampShade.rotation.x = Math.PI;
   supDeskGroup.add(lampShade);
+  // Supervisor à DIREITA do escritório (eixo +X), em x=+9 — afastado da
+  // fileira do meio (que vai até x=+1) e com 5u de respiro até a parede
+  // (em x=+15).
+  supDeskGroup.position.set(9, 0, 0);
   scene.add(supDeskGroup);
 
-  const supPerson = voxelPerson(0xf4c875);
-  supPerson.head.material.color.setHex(0xf4c875);
-  supPerson.group.position.set(0, 0, 0.5);
+  // Supervisor com camisa dourada + skin dourado pálido + cabelo claro
+  const supPerson = voxelPerson(0xf4c875, 0xfde68a, '#7a5a00');
+  supPerson.group.position.set(9, 0, 0.5);
+  // Encara -X (em direção aos 14 agentes que estão em x=-8..+4)
+  // rotation.y = -π/2 aponta a frente do mesh pra -x
+  supPerson.group.rotation.y = -Math.PI / 2;
   scene.add(supPerson.group);
 
   const supRing = new THREE.Mesh(
@@ -361,7 +510,7 @@
     new THREE.MeshBasicMaterial({ color: 0xf4c875, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
   );
   supRing.rotation.x = -Math.PI / 2;
-  supRing.position.y = 0.02;
+  supRing.position.set(9, 0.02, 0);
   scene.add(supRing);
 
   // Spark da lâmpada — sobe quando supervisor pulsa
@@ -369,7 +518,7 @@
     new THREE.SphereGeometry(0.18, 12, 12),
     new THREE.MeshBasicMaterial({ color: 0xfff2cc, transparent: true, opacity: 0 })
   );
-  lampSpark.position.set(0, 1.55, 0);
+  lampSpark.position.set(9, 1.55, 0);
   scene.add(lampSpark);
 
   // Aro pulsante adicional (dourado vibrante) quando supervisor está ativo
@@ -378,7 +527,7 @@
     new THREE.MeshBasicMaterial({ color: 0xfff2aa, transparent: true, opacity: 0, side: THREE.DoubleSide })
   );
   supPulseRing.rotation.x = -Math.PI / 2;
-  supPulseRing.position.y = 0.04;
+  supPulseRing.position.set(9, 0.04, 0);
   scene.add(supPulseRing);
 
   const dispRing = new THREE.Mesh(
@@ -386,7 +535,7 @@
     new THREE.MeshBasicMaterial({ color: 0x5dcaa5, transparent: true, opacity: 0, side: THREE.DoubleSide })
   );
   dispRing.rotation.x = -Math.PI / 2;
-  dispRing.position.y = 0.03;
+  dispRing.position.set(9, 0.03, 0);
   scene.add(dispRing);
 
   // ─── Estado dos agentes ────────────────────────────────────────────────────
@@ -395,33 +544,40 @@
   const agentList = [];     // ordem estável
 
   function createAgent(name, tier, idx, total) {
-    const side = idx < Math.ceil(total / 2) ? -1 : 1;
-    const colIdx = side === -1 ? idx : idx - Math.ceil(total / 2);
-    const rowsPerSide = Math.ceil(total / 2);
-    // Espaçamento generoso: corredor mais largo (x=±5.5), mesas com 2.1u
-    // entre centros (rowsPerSide-1 espaços em 13u total)
-    const x = side * 5.5;
-    const z = -6.5 + colIdx * (13 / Math.max(1, rowsPerSide - 1));
-    const facing = -side;
+    // Layout: 3 fileiras horizontais (5+4+5 = 14), supervisor à direita
+    // em x=+11. Todos os agentes olham pra +x. Fileira do meio (z=0) tem
+    // 4 agentes pra deixar espaço onde o supervisor está alinhado.
+    let fileira, colIdx, rowsInFileira, z;
+    if (idx < 5) {
+      fileira = 'top'; colIdx = idx; rowsInFileira = 5; z = +4.5;
+    } else if (idx < 9) {
+      fileira = 'mid'; colIdx = idx - 5; rowsInFileira = 4; z = 0;
+    } else {
+      fileira = 'bot'; colIdx = idx - 9; rowsInFileira = 5; z = -4.5;
+    }
+    // Fileira top/bot: 5 mesas em x=-8..+4 (spacing 3u entre centros)
+    // Fileira mid: 4 mesas em x=-8..+1 (mesmo spacing, mais curta — deixa
+    // o supervisor à direita visualmente isolado)
+    const xStart = -8;
+    const x = xStart + colIdx * 3.0;
+    const facing = 1; // todos os agentes têm mesmo facing local
 
     const color = TIER_COLORS[tier] || TIER_COLORS.T2;
     const desk = deskWithChair(facing);
     desk.group.position.set(x, 0, z);
-    // Rotaciona a mesa 90° pra perpendicular ao corredor. Mesma rotação
-    // pros dois lados porque o `facing` dentro de deskWithChair já espelha
-    // o conteúdo: monitor.z_local segue +facing (interno), chair.z_local
-    // segue -facing (externo, parede). Rotação +π/2 mapeia z_local→x_global
-    // mantendo coerência em ambos os lados.
+    // Rotação +π/2 mantém compatibilidade com a estrutura interna do
+    // deskWithChair (que orienta no eixo Z local). Após rotação, o monitor
+    // local +z vira global +x (perto do supervisor à direita), e a cadeira
+    // local -z vira global -x (atrás do boneco).
     desk.group.rotation.y = Math.PI / 2;
     scene.add(desk.group);
 
-    // Boneco do lado da PAREDE (afastado do corredor), encarando o monitor
-    // que aponta pro centro. Side=-1 (esquerda em x=-5.5): boneco em x=-6.0,
-    // olhando pra +x (rotação π/2). Side=+1 (direita em x=+5.5): boneco em
-    // x=+6.0, olhando pra -x (rotação -π/2).
+    // Boneco do lado ESQUERDO da mesa (oposto ao supervisor), olhando pra
+    // +x — todos viram pro supervisor à direita.
+    // rotation.y = +π/2 encara +x (DIREÇÃO DO SUPERVISOR em x=+9).
     const person = voxelPerson(color);
-    person.group.position.set(x + 0.5 * side, 0.4, z);
-    person.group.rotation.y = side === -1 ? Math.PI / 2 : -Math.PI / 2;
+    person.group.position.set(x - 0.5, 0.4, z);
+    person.group.rotation.y = Math.PI / 2;
     person.legL.visible = false;
     person.legR.visible = false;
     person.body.position.y = 0.5;
@@ -430,7 +586,7 @@
     person.armR.position.y = 0.5;
     scene.add(person.group);
 
-    // Halo no chão SOB o boneco (eixo X agora, não Z)
+    // Halo no chão SOB o boneco
     const halo = new THREE.Mesh(
       new THREE.RingGeometry(0.55, 0.7, 32),
       new THREE.MeshBasicMaterial({
@@ -441,22 +597,22 @@
       })
     );
     halo.rotation.x = -Math.PI / 2;
-    halo.position.set(x + 0.5 * side, 0.03, z);
+    halo.position.set(x - 0.5, 0.03, z);
     scene.add(halo);
 
-    // Nameplate flutua acima da cabeça do boneco (eixo X)
+    // Nameplate flutua acima da cabeça do boneco
     const np = nameplate(name, '#' + color.toString(16).padStart(6, '0'));
-    np.sprite.position.set(x + 0.5 * side, 1.95, z);
+    np.sprite.position.set(x - 0.5, 1.95, z);
     scene.add(np.sprite);
 
     const zSprite = makeZ();
-    zSprite.position.set(x + 0.5 * side, 1.85, z);
+    zSprite.position.set(x - 0.5, 1.85, z);
     scene.add(zSprite);
 
     return {
       name, tier, baseColor: color, facing,
-      // pos = onde os beams chegam (cabeça do boneco, do lado da parede)
-      pos: { x: x + 0.3 * side, y: 1.2, z: z },
+      // pos = onde os beams chegam (cabeça do boneco)
+      pos: { x: x - 0.3, y: 1.2, z: z },
       desk, person, nameplate: np, zSprite, halo,
       asleep: false,
       working: false,
@@ -534,15 +690,19 @@
     agent.asleep = sleep;
     if (sleep) {
       agent.targetEmissive = 0;
+      // Tinge todos materials (incluindo 6 da cabeça) com cinza — escurece textura
       agent.person.materials.forEach((m) => m.color.setHex(SLEEP_GRAY));
       agent.badge.style.opacity = '0.18';
       agent.badge.style.transform = 'scale(0.7)';
     } else {
       agent.targetEmissive = 0.5;
+      // Restaura: body/braços voltam pra cor da camisa, cabeça volta pra
+      // branco (color=white = textura intacta, sem tint)
       agent.person.body.material.color.setHex(agent.baseColor);
       agent.person.armL.material.color.setHex(agent.baseColor);
       agent.person.armR.material.color.setHex(agent.baseColor);
-      agent.person.head.material.color.setHex(0xe8c8a0);
+      // Cabeça: white = textura aparece com cores originais
+      agent.person.headMaterials.forEach((m) => m.color.setHex(0xffffff));
       agent.badge.style.opacity = '1';
       agent.badge.style.transform = 'scale(1.15)';
     }
@@ -563,14 +723,15 @@
       const y = 1.6 + Math.sin(u * Math.PI) * 1.5;
       points.push(new THREE.Vector3(x, y, z));
     }
-    const beamColor = platformColor != null ? platformColor : 0xf4c875;
+    // Beam ciano por padrão (cyberpunk), cor da plataforma se houver
+    const beamColor = platformColor != null ? platformColor : 0x00ddff;
     const geo = new THREE.BufferGeometry().setFromPoints(points);
-    const mat = new THREE.LineBasicMaterial({ color: beamColor, transparent: true, opacity: 0.85 });
+    const mat = new THREE.LineBasicMaterial({ color: beamColor, transparent: true, opacity: 0.9 });
     const line = new THREE.Line(geo, mat);
     scene.add(line);
     const orb = new THREE.Mesh(
       new THREE.SphereGeometry(0.14, 12, 12),
-      new THREE.MeshBasicMaterial({ color: 0xfff2cc })
+      new THREE.MeshBasicMaterial({ color: 0xaaeeff })
     );
     scene.add(orb);
     activeBeams.push({ line, mat, points, orb, target, tool, t0: performance.now(), arrived: false });
@@ -864,6 +1025,13 @@
     const tNow = performance.now();
     const elapsed = (tNow - t0) / 1000;
 
+    // Hologramas: rotação contínua + flutuação vertical (cyberpunk vibe)
+    _holograms.forEach((h, i) => {
+      h.rotation.y = elapsed * 0.7 + i * 0.3;
+      h.rotation.x = Math.sin(elapsed * 0.5 + i) * 0.15;
+      h.position.y = 0.65 + Math.sin(elapsed * 1.2 + i * 0.8) * 0.05;
+    });
+
     // Câmera — follow sutil do agente ativo (desloca ~0.5 na direção dele)
     aspect = window.innerWidth / window.innerHeight;
     camera.left = -FRUSTUM * aspect / 2 / zoom;
@@ -917,15 +1085,28 @@
       const pulseScale = 1 + pulsePhase * 1.5;
       supPulseRing.scale.set(pulseScale, pulseScale, 1);
     } else {
-      // Idle — calm
-      lampShade.material.emissiveIntensity = 0.4;
-      supPerson.head.position.y = 1.05 + Math.sin(elapsed * 1.5) * 0.02;
-      supRing.scale.set(1, 1, 1);
-      supRing.material.opacity = 0.3 + Math.sin(elapsed * 1.5) * 0.15;
-      lampSpark.material.opacity *= 0.9;
+      // Idle — pulse contínuo VISÍVEL (sem precisar de sessão ativa)
+      // Lâmpada respira entre 0.5 e 1.5, ring escala +/-15% com opacity
+      // oscilando 0.4..0.9, e cor cicla entre dourado e ciano (cyberpunk).
+      const idleT = elapsed * 1.5;
+      const idleP = 0.5 + Math.sin(idleT) * 0.5; // 0..1
+      lampShade.material.emissiveIntensity = 0.5 + idleP * 1.0;
+      supPerson.head.position.y = 1.05 + Math.sin(elapsed * 1.5) * 0.04;
+      const idleScale = 1 + idleP * 0.15;
+      supRing.scale.set(idleScale, idleScale, 1);
+      supRing.material.opacity = 0.4 + idleP * 0.5;
+      // Cor do anel cicla entre dourado e ciano
+      const goldHex = new THREE.Color(0xf4c875);
+      const cyanHex = new THREE.Color(0x00ddff);
+      supRing.material.color.copy(goldHex).lerp(cyanHex, idleP);
+      // Spark sutil sobe lentamente em idle também
+      lampSpark.material.opacity = idleP * 0.35;
+      lampSpark.position.y = 1.55 + idleP * 0.5;
       supPulseRing.material.opacity *= 0.92;
     }
-    supPerson.group.rotation.y = Math.sin(elapsed * 0.4) * 0.6;
+    // Supervisor encara -X (em direção aos agentes) com leve oscilação
+    // pra dar vida (olha um pouco pra um lado e outro, +/- 35°)
+    supPerson.group.rotation.y = -Math.PI / 2 + Math.sin(elapsed * 0.4) * 0.6;
 
     // Anel dispatcher fica visível enquanto toast estiver visível
     if ($disp.classList.contains('visible')) {
