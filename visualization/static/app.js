@@ -392,43 +392,43 @@
 
   function nameplate(text, color) {
     const c = document.createElement('canvas');
-    c.width = 256; c.height = 64;
+    c.width = 320; c.height = 80;
     const ctx = c.getContext('2d');
-    ctx.clearRect(0, 0, 256, 64);
+    ctx.clearRect(0, 0, 320, 80);
     ctx.fillStyle = 'rgba(15, 18, 28, 0.92)';
     ctx.beginPath();
-    ctx.roundRect(0, 16, 256, 32, 6);
+    ctx.roundRect(0, 20, 320, 40, 8);
     ctx.fill();
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(232, 32, 6, 0, Math.PI * 2);
+    ctx.arc(296, 40, 7, 0, Math.PI * 2);
     ctx.fill();
-    ctx.font = '500 22px sans-serif';
+    ctx.font = '600 28px sans-serif';
     ctx.fillStyle = '#dde2f0';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, 14, 32);
+    ctx.fillText(text, 16, 40);
     const tex = new THREE.CanvasTexture(c);
     tex.minFilter = THREE.LinearFilter;
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-    sprite.scale.set(1.6, 0.4, 1);
+    sprite.scale.set(2.0, 0.5, 1);
     return { sprite, canvas: c, ctx, tex };
   }
 
   function redrawNameplate(np, text, color, opacity) {
-    np.ctx.clearRect(0, 0, 256, 64);
+    np.ctx.clearRect(0, 0, 320, 80);
     np.ctx.globalAlpha = opacity;
     np.ctx.fillStyle = 'rgba(15, 18, 28, 0.92)';
     np.ctx.beginPath();
-    np.ctx.roundRect(0, 16, 256, 32, 6);
+    np.ctx.roundRect(0, 20, 320, 40, 8);
     np.ctx.fill();
     np.ctx.fillStyle = color;
     np.ctx.beginPath();
-    np.ctx.arc(232, 32, 6, 0, Math.PI * 2);
+    np.ctx.arc(296, 40, 7, 0, Math.PI * 2);
     np.ctx.fill();
-    np.ctx.font = '500 22px sans-serif';
+    np.ctx.font = '600 28px sans-serif';
     np.ctx.fillStyle = '#dde2f0';
-    np.ctx.fillText(text, 14, 32);
+    np.ctx.fillText(text, 16, 40);
     np.tex.needsUpdate = true;
     np.ctx.globalAlpha = 1;
   }
@@ -897,7 +897,7 @@
       a.person.armL.rotation.x = 0;
       a.person.armR.rotation.x = 0;
       a.person.head.rotation.x = 0;
-      a.nameplate.sprite.scale.set(1.6, 0.4, 1);
+      a.nameplate.sprite.scale.set(2.0, 0.5, 1);
       a.desk.screenMat.emissiveIntensity = 0.5;
       a.lastBeamAt = 0;
     });
@@ -1171,7 +1171,7 @@
         a.person.head.rotation.x = 0.18 + Math.sin(tPulse * 2) * 0.06;
         // 5. Nameplate respira (escala oscila)
         const npScale = 1 + p * 0.12;
-        a.nameplate.sprite.scale.set(1.6 * npScale, 0.4 * npScale, 1);
+        a.nameplate.sprite.scale.set(2.0 * npScale, 0.5 * npScale, 1);
         // 6. Z sprite some quando acorda
         a.zSprite.material.opacity *= 0.85;
       } else {
@@ -1181,7 +1181,7 @@
         a.person.armR.rotation.x *= 0.85;
         a.halo.material.opacity *= 0.92;
         // Nameplate volta ao tamanho normal
-        a.nameplate.sprite.scale.set(1.6, 0.4, 1);
+        a.nameplate.sprite.scale.set(2.0, 0.5, 1);
         if (a.currentPlatformColor != null) a.currentPlatformColor = null;
       }
     });
