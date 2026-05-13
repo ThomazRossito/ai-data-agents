@@ -365,6 +365,48 @@
       ? Math.PI / 2 - RACK_TILT
       : -Math.PI / 2 + RACK_TILT;
     scene.add(rack);
+
+    // ─── Branch cable + connection dot em COORDS GLOBAIS ───────────
+    // Antes da DC21, esses meshes eram filhos do grupo do rack — herdavam
+    // a rotação ±π/2 ± tilt e desalinhavam dos cabos do aisle. Agora cada
+    // rack escolhe um dos 5 cabos centrais (slot % 5) e o branch vai do
+    // lateral do rack até EXATAMENTE esse cabo, perpendicular ao aisle.
+    rack.updateMatrixWorld(true);
+    // Ponto onde o branch sai do rack — meio da face que olha pro aisle,
+    // ligeiramente acima do chão.
+    const sideLocal = new THREE.Vector3(0, 0.45, 0.55);
+    const sideWorld = sideLocal.clone().applyMatrix4(rack.matrixWorld);
+    // Distribui os 14 racks pelos 5 cabos centrais. Slots 0-4 = cabos 0-4,
+    // slot 5 reusa cabo 0, slot 6 reusa cabo 1. Empilha sem cruzar.
+    const targetCableX = cableXOffsets[ag.slot % cableXOffsets.length];
+    const cableHook = new THREE.Vector3(targetCableX, 0.05, sideWorld.z);
+
+    const branchLen = Math.max(0.01, sideWorld.distanceTo(cableHook));
+    const branchMid = sideWorld.clone().lerp(cableHook, 0.5);
+    const branch = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.04, branchLen),
+      new THREE.MeshStandardMaterial({
+        color: ag.color, emissive: ag.color, emissiveIntensity: 1.5,
+        transparent: true, opacity: 0,
+      })
+    );
+    branch.position.copy(branchMid);
+    branch.lookAt(cableHook);  // alinha +Z do box com o vetor side→hook
+    scene.add(branch);
+
+    const branchDot = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 12, 12),
+      new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF, emissive: ag.color, emissiveIntensity: 2.0,
+        transparent: true, opacity: 0,
+      })
+    );
+    branchDot.position.copy(cableHook);
+    scene.add(branchDot);
+
+    rack.userData.branch = branch;
+    rack.userData.branchDot = branchDot;
+
     agentRegistry[ag.name] = rack.userData;
     agentRackByName[ag.name] = rack;
   });
@@ -490,30 +532,9 @@
     halo.position.y = 0.02;
     g.add(halo);
 
-    // Branch cable — fibra que liga o rack ao aisle central quando working.
-    // Eixo Z local POSITIVO aponta pra frente do rack (mesmo lado do painel
-    // frontal em z=+0.51). Após rotation.y=±π/2 ± tilt, +Z local vira a direção
-    // que aponta pro aisle global (matematicamente verificado).
-    const branch = new THREE.Mesh(
-      new THREE.BoxGeometry(0.08, 0.02, 3.2),
-      new THREE.MeshStandardMaterial({
-        color: ag.color, emissive: ag.color, emissiveIntensity: 1.5,
-        transparent: true, opacity: 0,
-      })
-    );
-    branch.position.set(0, 0.12, 2.0);
-    g.add(branch);
-
-    // Connection dot — esfera luminosa no ponto onde o branch encontra o aisle
-    const branchDot = new THREE.Mesh(
-      new THREE.SphereGeometry(0.08, 10, 10),
-      new THREE.MeshStandardMaterial({
-        color: 0xFFFFFF, emissive: ag.color, emissiveIntensity: 2.0,
-        transparent: true, opacity: 0,
-      })
-    );
-    branchDot.position.set(0, 0.14, 3.55);
-    g.add(branchDot);
+    // Branch cable e branchDot NÃO são mais filhos do grupo do rack — eles
+    // são criados depois (em coords globais) no loop principal, alinhados
+    // perpendicularmente aos 5 cabos centrais do aisle. Ver DC21.
 
     // Vapor — 3 puffs subindo do topo do rack (ar quente da refrigeração)
     // Sutil: opacity baixo + cor azulada+branco
@@ -538,8 +559,12 @@
     }
 
     g.userData = {
-      cabinet, front, orb, leds, halo, lcd, lcdTex, branch, branchDot, vaporPuffs,
+      cabinet, front, orb, leds, halo, lcd, lcdTex, vaporPuffs,
       labelSprite,
+      // branch e branchDot setados depois (são meshes em coords GLOBAIS,
+      // criados após scene.add(rack) — ver loop principal logo abaixo).
+      branch: null,
+      branchDot: null,
       working: false,
       baseColor: ag.color,
       accent: ag.accent,
