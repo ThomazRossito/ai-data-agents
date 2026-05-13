@@ -252,6 +252,11 @@ def build_supervisor_options(
         ),
         max_turns=settings.max_turns,
         max_budget_usd=settings.max_budget_usd,
+        # --- Buffer JSON entre Python ↔ subprocess do claude-agent-sdk ---
+        # Default do SDK é 1 MB e quebra com CLIJSONDecodeError quando agentes T1
+        # retornam Discovery com YAML/JSON grandes (ex: dashboard .lvdash.json).
+        # Ref: anthropics/claude-agent-sdk-python#98
+        max_buffer_size=settings.max_buffer_size,
         # --- Streaming parcial para feedback visual em tempo real ---
         include_partial_messages=True,
         # --- Thinking: desabilitado por padrão; ativo via enable_thinking=True ---

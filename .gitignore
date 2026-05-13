@@ -47,9 +47,12 @@ logs/
 # =============================================================================
 # OUTPUT & ARTEFATOS GERADOS
 # =============================================================================
+# output/*
 output/
 !output/workflow-context/
 !output/workflow-context/.gitkeep
+!output/btg-open-finance-bundle/
+!output/btg-open-finance-bundle/**
 memory/*
 !memory/*.py
 reports/

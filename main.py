@@ -708,6 +708,16 @@ async def _stream_geral(
             metadata={"session_type": session_type, "command": "/geral"},
         )
 
+    # Emite eventos pra viz (Supervisor está pulado — sem hooks rodando)
+    from visualization.emit import emit_delegation, emit_session_end
+
+    emit_delegation(
+        agent="geral",
+        session_id=session_id,
+        workflow="geral",
+        prompt_preview=user_message,
+    )
+
     spinner = Spinner("dots", text=Text("💬 Geral pensando...", style="dim"))
     live = Live(spinner, console=console, refresh_per_second=10, transient=True)
     live.start()
@@ -754,6 +764,15 @@ async def _stream_geral(
         parts.append(f"⏱ {raw_metrics['duration']:.1f}s")
     console.print(f"[dim]{' | '.join(parts)}[/dim]\n")
 
+    # Encerra sessão na viz (overlay + reset de contadores)
+    emit_session_end(
+        session_id=session_id,
+        cost_usd=cost,
+        turns=int(raw_metrics.get("turns") or 1),
+        duration_s=float(raw_metrics.get("duration") or 0.0),
+        session_type="geral",
+    )
+
     metrics["cost"] = cost
     return metrics
 
@@ -780,10 +799,22 @@ async def _stream_party(user_input: str, session_id: str | None = None) -> dict[
     if not query.strip():
         console.print(
             "[yellow]Party Mode: forneça uma query após o comando.\n"
+            "\n"
+            "Grupos disponíveis:\n"
+            "  [bold](sem flag)[/bold]      → default: databricks-eng + databricks-ai + fabric-eng (3 agentes)\n"
+            "  [bold]--quality[/bold]       → quality + governance + RTI (3 agentes)\n"
+            "  [bold]--arch[/bold]          → mesmo grupo do default (3 agentes)\n"
+            "  [bold]--engineering[/bold]   → python + databricks-eng + databricks-ai (3 agentes)\n"
+            "  [bold]--migration[/bold]     → migration + databricks-eng + fabric-eng (3 agentes)\n"
+            "  [bold]--full[/bold]          → todos T1 + principais T2 ([bold magenta]9 agentes em paralelo[/bold magenta])\n"
+            "\n"
+            "Ou especifique agentes explicitamente:\n"
+            "  /party databricks-engineer fabric-engineer <query>\n"
+            "\n"
             "Exemplos:\n"
             "  /party qual a diferença entre Delta Lake e Parquet?\n"
             "  /party --quality como validar dados incrementais?\n"
-            "  /party --arch descreva a arquitetura Medallion[/yellow]\n"
+            "  /party --full liste 5 boas práticas pra arquitetura Medallion[/yellow]\n"
         )
         return {"cost": 0.0}
 
@@ -811,7 +842,7 @@ async def _stream_party(user_input: str, session_id: str | None = None) -> dict[
     live.start()
 
     try:
-        results = await run_party_query(query, agent_names)
+        results = await run_party_query(query, agent_names, session_id=session_id)
     finally:
         if live.is_started:
             live.stop()
@@ -910,19 +941,33 @@ async def _stream_analyze(user_input: str, session_id: str | None = None) -> dic
         for name in agent_names
     ]
 
+    # Anuncia à viz quem foi selecionado pra essa rodada (acende racks)
+    from visualization.emit import emit_dispatcher_decision, emit_session_end
+
+    emit_dispatcher_decision(
+        selected=agent_names,
+        session_id=session_id,
+        reason=f"analyze_project ({len(agent_names)} agentes em paralelo)",
+    )
+
     spinner = Spinner("dots", text=Text("Analisando projeto em paralelo...", style="dim"))
     live = Live(spinner, console=console, refresh_per_second=10, transient=True)
     live.start()
+    t0_analyze = time.monotonic()
     try:
         import asyncio as _asyncio
 
         from commands.party import _query_single_agent
 
-        tasks = [_query_single_agent(name, query) for name, query in zip(agent_names, queries)]
+        tasks = [
+            _query_single_agent(name, q, session_id=session_id, workflow_label="analyze")
+            for name, q in zip(agent_names, queries)
+        ]
         results = await _asyncio.gather(*tasks, return_exceptions=True)
     finally:
         if live.is_started:
             live.stop()
+    duration_analyze = time.monotonic() - t0_analyze
 
     # Normaliza resultados
     clean_results: list[tuple[str, str, float]] = []
@@ -975,6 +1020,15 @@ async def _stream_analyze(user_input: str, session_id: str | None = None) -> dic
                     "agents": [name for name, _, _ in clean_results],
                 },
             )
+
+    # Encerra sessão na viz
+    emit_session_end(
+        session_id=session_id,
+        cost_usd=total_cost,
+        turns=len(clean_results),
+        duration_s=duration_analyze,
+        session_type="analyze",
+    )
 
     return {"cost": total_cost}
 

@@ -38,6 +38,10 @@ logger = logging.getLogger("data_agents.visualization.server")
 
 ROOT = Path(__file__).parent.parent
 STATIC_DIR = Path(__file__).parent / "static"
+# Tema alternativo V2 — Warcraft Guild Hall (paralelo ao Minecraft)
+WARCRAFT_DIR = Path(__file__).parent / "themes" / "warcraft"
+# Tema alternativo V3 — Datacenter Cyberpunk (paralelo)
+DATACENTER_DIR = Path(__file__).parent / "themes" / "datacenter"
 
 # Logs que o servidor faz tail
 AUDIT_LOG = ROOT / "logs" / "audit.jsonl"
@@ -241,12 +245,22 @@ async def events_ws(ws: WebSocket) -> None:
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+# ─── Tema alternativo: Warcraft Guild Hall (V2 paralelo) ─────────────────────
+# Mount estático e endpoint dedicado. Reutiliza o mesmo WebSocket /events,
+# mesmo /agents, mesmo /health. Frontend totalmente independente do Minecraft.
+if WARCRAFT_DIR.exists():
+    app.mount("/warcraft/static", StaticFiles(directory=str(WARCRAFT_DIR)), name="warcraft_static")
+
+if DATACENTER_DIR.exists():
+    app.mount("/datacenter/static", StaticFiles(directory=str(DATACENTER_DIR)), name="datacenter_static")
+
 
 @app.middleware("http")
 async def no_cache_on_static(request, call_next):
-    """Desabilita cache em /static e / pra evitar JS/HTML obsoletos durante dev."""
+    """Desabilita cache em /static, /warcraft e / pra evitar JS/HTML obsoletos durante dev."""
     response = await call_next(request)
-    if request.url.path == "/" or request.url.path.startswith("/static"):
+    path = request.url.path
+    if path == "/" or path.startswith("/static") or path.startswith("/warcraft") or path.startswith("/datacenter"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
@@ -265,6 +279,48 @@ async def index() -> Any:
             "endpoints": ["/health", "/agents", "/events (WebSocket)"],
         }
     )
+
+
+@app.get("/warcraft")
+async def warcraft_index() -> Any:
+    """Serve o tema Warcraft (V2 em desenvolvimento paralelo)."""
+    index_path = WARCRAFT_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return JSONResponse(
+        {"message": "Tema Warcraft ainda não inicializado. Veja visualization/themes/warcraft/"},
+        status_code=404,
+    )
+
+
+@app.get("/warcraft/app.js")
+async def warcraft_app_js() -> Any:
+    """Atalho pra app.js do tema Warcraft (evita ter que escrever /warcraft/static/app.js no HTML)."""
+    js_path = WARCRAFT_DIR / "app.js"
+    if js_path.exists():
+        return FileResponse(str(js_path), media_type="application/javascript")
+    return JSONResponse({"error": "app.js not found"}, status_code=404)
+
+
+@app.get("/datacenter")
+async def datacenter_index() -> Any:
+    """Tema V3: Datacenter cyberpunk — agentes como servidores rackeados."""
+    index_path = DATACENTER_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return JSONResponse(
+        {"message": "Tema Datacenter ainda não inicializado."},
+        status_code=404,
+    )
+
+
+@app.get("/datacenter/app.js")
+async def datacenter_app_js() -> Any:
+    """Atalho pra app.js do tema Datacenter."""
+    js_path = DATACENTER_DIR / "app.js"
+    if js_path.exists():
+        return FileResponse(str(js_path), media_type="application/javascript")
+    return JSONResponse({"error": "app.js not found"}, status_code=404)
 
 
 # ─── Entry point ─────────────────────────────────────────────────────────────
