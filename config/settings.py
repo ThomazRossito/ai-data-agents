@@ -175,6 +175,15 @@ class Settings(BaseSettings):
     default_model: str = "kimi-k2.6"
     max_budget_usd: float = 5.0
     max_turns: int = 50
+    # Buffer máximo (bytes) para mensagens JSON entre Python e subprocess do
+    # claude-agent-sdk. Default do SDK é 1 MB (1048576), insuficiente quando
+    # agentes T1 (databricks-engineer, fabric-engineer, migration-expert)
+    # retornam Discovery/Bash com YAMLs/JSONs grandes — caso típico é Discovery
+    # de projeto Databricks completo (Dashboard JSON + Metric Views + LakeFlow).
+    # 10 MB cobre praticamente todos os casos práticos.
+    # Override via .env: MAX_BUFFER_SIZE=20971520 (20 MB) se Discovery seu for
+    # ainda maior. Ref: anthropics/claude-agent-sdk-python#98
+    max_buffer_size: int = 10 * 1024 * 1024  # 10 MB
     log_level: str = "INFO"
     # Nível de log para o console (o que o usuário vê no terminal).
     # "WARNING" esconde logs operacionais (OUTPUT COMPRIMIDO, custo, etc).

@@ -780,10 +780,22 @@ async def _stream_party(user_input: str, session_id: str | None = None) -> dict[
     if not query.strip():
         console.print(
             "[yellow]Party Mode: forneça uma query após o comando.\n"
+            "\n"
+            "Grupos disponíveis:\n"
+            "  [bold](sem flag)[/bold]      → default: databricks-eng + databricks-ai + fabric-eng (3 agentes)\n"
+            "  [bold]--quality[/bold]       → quality + governance + RTI (3 agentes)\n"
+            "  [bold]--arch[/bold]          → mesmo grupo do default (3 agentes)\n"
+            "  [bold]--engineering[/bold]   → python + databricks-eng + databricks-ai (3 agentes)\n"
+            "  [bold]--migration[/bold]     → migration + databricks-eng + fabric-eng (3 agentes)\n"
+            "  [bold]--full[/bold]          → todos T1 + principais T2 ([bold magenta]9 agentes em paralelo[/bold magenta])\n"
+            "\n"
+            "Ou especifique agentes explicitamente:\n"
+            "  /party databricks-engineer fabric-engineer <query>\n"
+            "\n"
             "Exemplos:\n"
             "  /party qual a diferença entre Delta Lake e Parquet?\n"
             "  /party --quality como validar dados incrementais?\n"
-            "  /party --arch descreva a arquitetura Medallion[/yellow]\n"
+            "  /party --full liste 5 boas práticas pra arquitetura Medallion[/yellow]\n"
         )
         return {"cost": 0.0}
 
