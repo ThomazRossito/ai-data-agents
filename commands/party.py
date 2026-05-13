@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 from claude_agent_sdk import (
     AssistantMessage,
@@ -31,6 +32,12 @@ from claude_agent_sdk import (
 )
 
 from config.settings import settings
+from visualization.emit import (
+    emit_delegation,
+    emit_dispatcher_decision,
+    emit_session_end,
+    emit_tool_call,
+)
 
 logger = logging.getLogger("data_agents.party")
 
@@ -249,9 +256,22 @@ def _build_agent_options(agent_name: str) -> ClaudeAgentOptions:
 async def _query_single_agent(  # pragma: no cover
     agent_name: str,
     query: str,
+    session_id: str | None = None,
+    workflow_label: str = "party_mode",
 ) -> tuple[str, str, float]:
     """
     Executa query em um único agente do Party Mode.
+
+    Emite eventos para a viz:
+      - emit_delegation ao iniciar (acende rack)
+      - emit_tool_call ao terminar (pulso final)
+
+    Args:
+        agent_name:     nome canônico do agente
+        query:          texto da query
+        session_id:     ID da sessão pra correlacionar eventos na viz
+        workflow_label: rótulo do workflow (default "party_mode"; "/analyze-project"
+                        passa "analyze")
 
     Returns:
         (agent_name, response_text, cost_usd)
@@ -259,6 +279,15 @@ async def _query_single_agent(  # pragma: no cover
     options = _build_agent_options(agent_name)
     response_text = ""
     cost = 0.0
+    has_error = False
+
+    # Sinaliza pra viz que esse agente começou a trabalhar
+    emit_delegation(
+        agent=agent_name,
+        session_id=session_id,
+        workflow=workflow_label,
+        prompt_preview=query,
+    )
 
     try:
         async for message in sdk_query(prompt=query, options=options):
@@ -274,6 +303,15 @@ async def _query_single_agent(  # pragma: no cover
     except Exception as e:
         logger.error("Party Mode — erro no agente %s: %s", agent_name, e, exc_info=True)
         response_text = f"_Erro ao consultar agente: {e}_"
+        has_error = True
+
+    # Sinaliza pra viz que esse agente terminou (pulso visual + fim de halo)
+    emit_tool_call(
+        agent=agent_name,
+        tool=f"{workflow_label}.respond",
+        session_id=session_id,
+        has_error=has_error,
+    )
 
     return agent_name, response_text, cost
 
@@ -281,9 +319,19 @@ async def _query_single_agent(  # pragma: no cover
 async def run_party_query(  # pragma: no cover
     query: str,
     agent_names: list[str],
+    session_id: str | None = None,
 ) -> list[tuple[str, str, float]]:
     """
     Spawna todos os agentes em paralelo via asyncio.gather.
+
+    Emite eventos para a viz no início (dispatcher_decision) e no fim
+    (session_end), além das delegações/tool_calls por agente em
+    `_query_single_agent`.
+
+    Args:
+        query:       texto da query
+        agent_names: lista de agentes a invocar
+        session_id:  ID da sessão pra correlacionar eventos na viz
 
     Returns:
         Lista de (agent_name, response_text, cost_usd) na ordem dos agent_names.
@@ -291,10 +339,20 @@ async def run_party_query(  # pragma: no cover
     if not query.strip():
         return [(name, "_Nenhuma query fornecida._", 0.0) for name in agent_names]
 
-    tasks = [_query_single_agent(name, query) for name in agent_names]
+    # Anuncia à viz: "esses N agentes foram selecionados pra responder"
+    emit_dispatcher_decision(
+        selected=agent_names,
+        session_id=session_id,
+        reason=f"party_mode ({len(agent_names)} agentes em paralelo)",
+    )
+
+    t0 = time.monotonic()
+    tasks = [_query_single_agent(name, query, session_id=session_id) for name in agent_names]
     results = await asyncio.gather(*tasks, return_exceptions=True)
+    duration_s = time.monotonic() - t0
 
     output: list[tuple[str, str, float]] = []
+    total_cost = 0.0
     for i, result in enumerate(results):
         name = agent_names[i]
         if isinstance(result, Exception):
@@ -302,5 +360,15 @@ async def run_party_query(  # pragma: no cover
             output.append((name, f"_Erro inesperado: {result}_", 0.0))
         else:
             output.append(result)  # type: ignore[arg-type]
+            total_cost += result[2]  # type: ignore[index]
+
+    # Anuncia à viz: "sessão encerrada" — frontend mostra overlay e zera contadores
+    emit_session_end(
+        session_id=session_id,
+        cost_usd=total_cost,
+        turns=len(agent_names),
+        duration_s=duration_s,
+        session_type="party",
+    )
 
     return output
