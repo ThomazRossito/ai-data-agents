@@ -52,11 +52,16 @@ commands:
     - skills/fabric/fabric-medallion/SKILL.md
     - skills/fabric/fabric-direct-lake/SKILL.md
     - skills/fabric/fabric-data-factory/SKILL.md
+    - skills/fabric/fabric-notebook-manager/SKILL.md
     prompt_template: "[DOMA EXPRESS — FABRIC] Delegue IMEDIATAMENTE para fabric-engineer. NÃO crie PRD, NÃO peça aprovação.\n\
       \n⛔ RESTRIÇÃO ABSOLUTA DE PLATAFORMA:\nEste comando é exclusivo para Microsoft Fabric. NUNCA use ferramentas Databricks\
       \ (mcp__databricks__*). Se as ferramentas Fabric não retornarem dados, reporte o erro claramente.\n\nPARA DESCOBERTA\
       \ DE TABELAS (schemas bronze/silver/gold): Use PRIMEIRO mcp__fabric_sql__fabric_sql_list_tables() — acessa todos os\
-      \ schemas. Se indisponível, use mcp__fabric_community__list_tables().\n\nTarefa: {task}"
+      \ schemas. Se indisponível, use mcp__fabric_community__list_tables().\n\n⚠️ PARA CRIAR/EDITAR NOTEBOOKS: LEIA OBRIGATORIAMENTE\
+      \ skills/fabric/fabric-notebook-manager/SKILL.md ANTES de chamar mcp__fabric_official__core_create-item. NUNCA chame\
+      \ core_create-item para Notebook SEM o parâmetro 'definition' — isso cria um notebook vazio (anti-pattern conhecido).\
+      \ O fluxo correto é: (1) Bash para montar .ipynb JSON + codificar base64; (2) core_create-item com definition.parts[0].payload\
+      \ preenchido com o base64. Veja a seção 'MCP TOOL USAGE' da skill pra exemplo direto.\n\nTarefa: {task}"
     display_template: '[bold yellow]🚀 [DOMA Express] Direcionando para: {agent} (Fabric)[/bold yellow]'
   plan:
     agent: null

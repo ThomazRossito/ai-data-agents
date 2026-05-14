@@ -43,7 +43,94 @@ em operacoes atomicas reutilizaveis. Cada operacao cuida internamente de:
 
 ---
 
-## Criacao de Notebooks via API
+## ⚠️ CRITICAL: Notebook Criado SEM Conteúdo
+
+**Anti-pattern observado em produção (POC BTG, 2026-05-13):**
+
+Agente chamou `mcp__fabric_official__core_create-item` **6 vezes em sequência**, todas SEM
+o parâmetro `definition`. Resultado: 6 notebooks criados no workspace, todos vazios (apenas
+shells). Sintoma: tool retorna 201 Created mas notebook abre em branco.
+
+**Causa raiz:** `core_create-item` aceita 2 modos:
+
+- **Sem `definition`** → cria item shell vazio (Notebook stub sem células)
+- **Com `definition`** → cria item COM conteúdo embarcado
+
+Quando a intenção é "criar notebook com este código PySpark", você OBRIGATORIAMENTE precisa
+passar `definition`. Sem ele, o agente está pedindo um Notebook em branco.
+
+---
+
+## ✅ MCP TOOL USAGE — Recomendado (sem Python local)
+
+Esta é a forma **mais confiável** para um agente criar/editar notebooks Fabric: chamadas
+diretas via MCP, sem precisar executar Python local com `azure.identity`. O auth já está
+resolvido pelo wrapper do MCP `fabric_official`.
+
+### Criar Notebook COM conteúdo (1 chamada)
+
+```jsonc
+// Tool: mcp__fabric_official__core_create-item
+// Parâmetros:
+{
+  "workspaceId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "body": {
+    "displayName": "btg_open_finance_bronze_to_silver",
+    "type": "Notebook",
+    "definition": {
+      "format": "ipynb",
+      "parts": [
+        {
+          "path": "artifact/notebook-content.py",
+          "payload": "<BASE64_DO_IPYNB_AQUI>",
+          "payloadType": "InlineBase64"
+        }
+      ]
+    }
+  }
+}
+```
+
+### Como gerar o `payload` em base64
+
+O agente DEVE montar o `.ipynb` como JSON Jupyter, serializar e codificar em base64.
+Faça isso via `Bash`:
+
+```bash
+python3 -c '
+import base64, json
+nb = {
+  "nbformat": 4,
+  "nbformat_minor": 5,
+  "metadata": {
+    "language_info": {"name": "python"},
+    "kernelspec": {"display_name": "Synapse PySpark", "language": "Python", "name": "synapse_pyspark"}
+  },
+  "cells": [
+    {"cell_type": "markdown", "source": ["# Bronze → Silver · BTG Open Finance"], "metadata": {}},
+    {"cell_type": "code", "source": [
+      "df = spark.read.table(\"bronze.transactions\")\n",
+      "df.write.format(\"delta\").mode(\"overwrite\").saveAsTable(\"silver.transactions\")"
+    ], "metadata": {}, "outputs": [], "execution_count": None}
+  ]
+}
+print(base64.b64encode(json.dumps(nb).encode()).decode())
+'
+```
+
+Salve a saída e cole no campo `payload` da chamada `core_create-item`.
+
+**REGRA OURO:** se a tarefa pede "crie notebook X com código Y", você precisa de DOIS passos:
+
+1. Bash: montar o `.ipynb` e gerar base64
+2. MCP `core_create-item` com `definition.parts[0].payload` preenchido
+
+Se você pular o passo 1 e chamar `core_create-item` sem `definition`, vai criar um shell vazio.
+**NÃO faça isso.**
+
+---
+
+## Criacao de Notebooks via API (referência REST pura)
 
 Alem de editar notebooks existentes, e possivel criar notebooks diretamente via API usando
 `createItem` com o payload de definition incluido na requisicao.
