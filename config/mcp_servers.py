@@ -26,6 +26,7 @@ from mcp_servers.fabric.server_config import (
     get_fabric_official_mcp_config,
 )
 from mcp_servers.fabric_rti.server_config import get_fabric_rti_mcp_config
+from mcp_servers.fabric_notebook.server_config import get_fabric_notebook_mcp_config
 from mcp_servers.fabric_semantic.server_config import get_fabric_semantic_mcp_config
 from mcp_servers.fabric_sql.server_config import get_fabric_sql_mcp_config
 from mcp_servers.firecrawl.server_config import get_firecrawl_mcp_config
@@ -68,6 +69,11 @@ ALL_MCP_CONFIGS: dict = {
     # Expõe TMDL (tabelas, colunas, medidas DAX, relacionamentos, RLS) e execução DAX.
     # Reutiliza credenciais Azure (AZURE_TENANT_ID + AZURE_CLIENT_ID + AZURE_CLIENT_SECRET).
     "fabric_semantic": get_fabric_semantic_mcp_config,
+    # fabric_notebook: MCP customizado pra operações determinísticas em Notebooks.
+    # Encapsula montagem do .ipynb + base64 + LRO polling em 1 chamada atômica.
+    # Resolve o anti-pattern de retries gerando notebooks vazios (POC BTG 2026-05-13/14).
+    # Reutiliza mesmas credenciais Azure (Service Principal via .env).
+    "fabric_notebook": get_fabric_notebook_mcp_config,
     # ── MCPs externos ─────────────────────────────────────────────────────────
     # context7: documentação atualizada de bibliotecas (free até 1k req/mês, sem credenciais)
     "context7": get_context7_mcp_config,

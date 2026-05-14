@@ -43,6 +43,21 @@ em operacoes atomicas reutilizaveis. Cada operacao cuida internamente de:
 
 ---
 
+## 🛑 REGRA OURO — Se 1ª tentativa criou notebook vazio: PARE
+
+**Anti-pattern observado em produção 2 vezes (POC BTG, 2026-05-13 / 2026-05-14):**
+
+- Tentativa 1: 6 notebooks vazios criados em 30s (`core_create-item` sem `definition`)
+- Tentativa 2 (17 min depois): 7 notebooks lixo (`test_notebook_content`, `_content2`, ..., `_content5`, `_with_def`, `_api_direct`) — o agente criou um item NOVO a cada falha em vez de corrigir o existente
+
+**REGRAS INVIOLÁVEIS:**
+
+1. **Máximo 1 (uma) chamada de `core_create-item` por nome de notebook.** Se falhar (item criado mas vazio), use `core_update-item` no MESMO `item_id` — NUNCA crie outro com sufixo `_2`, `_v2`, `_with_def`, `_api_direct`.
+2. **Validar IMEDIATAMENTE após criar.** Faça `getDefinition` no item recém-criado. Se `parts[]` estiver vazio ou faltando o `payload`, **PARE e use `core_update-item`** pra completar.
+3. **Se 2 tentativas seguidas falharem (criação + 1 update sem efeito): ABORTE e reporte ao usuário.** Não fique em loop. Cada `core_create-item` deixa lixo permanente no workspace.
+
+---
+
 ## ⚠️ CRITICAL: Notebook Criado SEM Conteúdo
 
 **Anti-pattern observado em produção (POC BTG, 2026-05-13):**

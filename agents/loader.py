@@ -49,6 +49,10 @@ from mcp_servers.fabric_rti.server_config import (
     FABRIC_RTI_MCP_TOOLS,
     FABRIC_RTI_READONLY_TOOLS,
 )
+from mcp_servers.fabric_notebook.server_config import (
+    FABRIC_NOTEBOOK_MCP_TOOLS,
+    FABRIC_NOTEBOOK_MCP_READONLY_TOOLS,
+)
 from mcp_servers.fabric_semantic.server_config import (
     FABRIC_SEMANTIC_MCP_TOOLS,
     FABRIC_SEMANTIC_MCP_READONLY_TOOLS,
@@ -121,6 +125,10 @@ MCP_TOOL_SETS: dict[str, list[str]] = {
     # fabric_semantic: introspecção profunda de Semantic Models (TMDL + DAX INFO functions)
     "fabric_semantic_all": FABRIC_SEMANTIC_MCP_TOOLS,
     "fabric_semantic_readonly": FABRIC_SEMANTIC_MCP_READONLY_TOOLS,
+    # fabric_notebook: MCP customizado pra notebook ops determinísticas
+    # Encapsula montagem do .ipynb + base64 + LRO numa única chamada atômica.
+    "fabric_notebook_all": FABRIC_NOTEBOOK_MCP_TOOLS,
+    "fabric_notebook_readonly": FABRIC_NOTEBOOK_MCP_READONLY_TOOLS,
     # ── MCPs externos ─────────────────────────────────────────────────────────
     # context7: documentação atualizada de bibliotecas (resolve-library-id + get-library-docs)
     "context7_all": CONTEXT7_MCP_TOOLS,

@@ -57,11 +57,14 @@ commands:
       \n⛔ RESTRIÇÃO ABSOLUTA DE PLATAFORMA:\nEste comando é exclusivo para Microsoft Fabric. NUNCA use ferramentas Databricks\
       \ (mcp__databricks__*). Se as ferramentas Fabric não retornarem dados, reporte o erro claramente.\n\nPARA DESCOBERTA\
       \ DE TABELAS (schemas bronze/silver/gold): Use PRIMEIRO mcp__fabric_sql__fabric_sql_list_tables() — acessa todos os\
-      \ schemas. Se indisponível, use mcp__fabric_community__list_tables().\n\n⚠️ PARA CRIAR/EDITAR NOTEBOOKS: LEIA OBRIGATORIAMENTE\
-      \ skills/fabric/fabric-notebook-manager/SKILL.md ANTES de chamar mcp__fabric_official__core_create-item. NUNCA chame\
-      \ core_create-item para Notebook SEM o parâmetro 'definition' — isso cria um notebook vazio (anti-pattern conhecido).\
-      \ O fluxo correto é: (1) Bash para montar .ipynb JSON + codificar base64; (2) core_create-item com definition.parts[0].payload\
-      \ preenchido com o base64. Veja a seção 'MCP TOOL USAGE' da skill pra exemplo direto.\n\nTarefa: {task}"
+      \ schemas. Se indisponível, use mcp__fabric_community__list_tables().\n\n⚠️ PARA CRIAR/EDITAR NOTEBOOKS: USE PRIMEIRO\
+      \ o MCP customizado fabric_notebook — mcp__fabric_notebook__fabric_notebook_create(display_name, cells) faz tudo numa\
+      \ chamada atômica (montagem do .ipynb + base64 + LRO polling internamente). NÃO use mcp__fabric_official__core_create-item\
+      \ pra Notebook — esse caminho ficou marcado como anti-pattern depois de criar 13 notebooks lixo na POC BTG. As outras\
+      \ tools do fabric_notebook (list/get_cells/replace/add_cell/update_cell/delete_cell/delete/cleanup_test_items) cobrem\
+      \ o ciclo de vida completo. Se tarefa pedir cells, use formato: [{'source': 'código aqui', 'cell_type': 'code'|'markdown'},\
+      \ ...]. Em caso de falha, NUNCA crie outro item com sufixo (_v2, _with_def) — use fabric_notebook_replace no MESMO\
+      \ item_id.\n\nTarefa: {task}"
     display_template: '[bold yellow]🚀 [DOMA Express] Direcionando para: {agent} (Fabric)[/bold yellow]'
   plan:
     agent: null
