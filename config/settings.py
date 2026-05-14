@@ -637,6 +637,17 @@ class Settings(BaseSettings):
                 },
                 "required": ["AZURE_TENANT_ID", "FABRIC_WORKSPACE_ID"],
             },
+            "fabric_notebook": {
+                # MCP customizado pra notebook ops (create/run/edit determinístico).
+                # Reutiliza credenciais Azure do fabric — mesmas do fabric_semantic.
+                "fields": {
+                    "AZURE_TENANT_ID": self.azure_tenant_id,
+                    "AZURE_CLIENT_ID": self.azure_client_id,
+                    "AZURE_CLIENT_SECRET": self.azure_client_secret,
+                    "FABRIC_WORKSPACE_ID": self.fabric_workspace_id,
+                },
+                "required": ["AZURE_TENANT_ID", "AZURE_CLIENT_ID", "FABRIC_WORKSPACE_ID"],
+            },
             "fabric_rti": {
                 "fields": {
                     "KUSTO_SERVICE_URI": self.kusto_service_uri,
