@@ -457,6 +457,162 @@ def fabric_notebook_delete(
 
 
 @mcp.tool()
+def fabric_notebook_run(
+    item_id: str,
+    parameters: dict[str, Any] | None = None,
+    wait: bool = True,
+    timeout_s: int = 600,
+    workspace_id: str | None = None,
+) -> dict[str, Any]:
+    """
+    Executa um notebook on-demand via REST. Endpoint:
+      POST /v1/workspaces/{ws}/items/{itemId}/jobs/instances?jobType=RunNotebook
+
+    Args:
+        item_id:    ID do notebook a executar.
+        parameters: Dict de parâmetros opcionais. Formato:
+                    {"param_name": {"value": ..., "type": "string|int|bool|float"}}
+        wait:       True = polling até job concluir (ou timeout). False = retorna imediato.
+        timeout_s:  Limite do polling (default 10 min).
+        workspace_id: Override.
+
+    Returns:
+        Sucesso (wait=True):
+          {"status": "Completed", "item_id", "job_instance_id", "duration_s", ...}
+        Sucesso (wait=False):
+          {"status": "Started", "item_id", "job_instance_url"}
+        Erro:
+          {"error", "detail"}
+    """
+    if not REQUESTS_AVAILABLE:
+        return {"error": "requests não instalado"}
+    ws = _resolve_workspace_id(workspace_id)
+    url = (
+        f"{_BASE_URL}/workspaces/{ws}/items/{item_id}/jobs/instances"
+        f"?jobType=RunNotebook"
+    )
+    body: dict[str, Any] = {}
+    if parameters:
+        body["executionData"] = {"parameters": parameters}
+
+    resp = requests.post(url, headers=_headers(), json=body, timeout=30)
+    if resp.status_code not in (200, 202):
+        return {"error": f"HTTP {resp.status_code}", "detail": resp.text[:500]}
+
+    job_url = resp.headers.get("Location") or resp.headers.get("Operation-Location")
+    if not job_url:
+        # Algumas variantes retornam body
+        return {"status": "Started", "item_id": item_id, "raw": resp.json() if resp.text else {}}
+
+    if not wait:
+        return {"status": "Started", "item_id": item_id, "job_instance_url": job_url}
+
+    # Polling
+    start = time.monotonic()
+    while time.monotonic() - start < timeout_s:
+        job_resp = requests.get(job_url, headers=_headers(), timeout=30)
+        if job_resp.status_code != 200:
+            return {
+                "error": f"polling HTTP {job_resp.status_code}",
+                "detail": job_resp.text[:500],
+                "item_id": item_id,
+            }
+        data = job_resp.json()
+        status = data.get("status", "")
+        if status == "Completed":
+            return {
+                "status": "Completed",
+                "item_id": item_id,
+                "job_instance_id": data.get("id"),
+                "duration_s": time.monotonic() - start,
+                "start_time": data.get("startTimeUtc"),
+                "end_time": data.get("endTimeUtc"),
+            }
+        if status in ("Failed", "Cancelled", "Deduped"):
+            return {
+                "status": status,
+                "error": data.get("failureReason", {}).get("message", "sem detalhes"),
+                "item_id": item_id,
+                "job_instance_id": data.get("id"),
+                "raw": data,
+            }
+        # Retry-After ou default 10s
+        retry_after = int(job_resp.headers.get("Retry-After", 10))
+        time.sleep(retry_after)
+
+    return {
+        "status": "Timeout",
+        "error": f"notebook run não concluiu em {timeout_s}s",
+        "item_id": item_id,
+        "job_instance_url": job_url,
+    }
+
+
+@mcp.tool()
+def fabric_pipeline_run(
+    item_id: str,
+    parameters: dict[str, Any] | None = None,
+    wait: bool = True,
+    timeout_s: int = 1800,
+    workspace_id: str | None = None,
+) -> dict[str, Any]:
+    """
+    Executa um Data Pipeline on-demand via REST. Endpoint:
+      POST /v1/workspaces/{ws}/items/{itemId}/jobs/instances?jobType=Pipeline
+
+    Cobre o gap relatado em produção: 'pipeline não pode ser executado via REST'.
+    Ele PODE, basta usar o tipo de job correto.
+
+    Args/Returns: mesmo formato que fabric_notebook_run.
+    """
+    if not REQUESTS_AVAILABLE:
+        return {"error": "requests não instalado"}
+    ws = _resolve_workspace_id(workspace_id)
+    url = (
+        f"{_BASE_URL}/workspaces/{ws}/items/{item_id}/jobs/instances"
+        f"?jobType=Pipeline"
+    )
+    body: dict[str, Any] = {}
+    if parameters:
+        body["executionData"] = {"parameters": parameters}
+
+    resp = requests.post(url, headers=_headers(), json=body, timeout=30)
+    if resp.status_code not in (200, 202):
+        return {"error": f"HTTP {resp.status_code}", "detail": resp.text[:500]}
+
+    job_url = resp.headers.get("Location") or resp.headers.get("Operation-Location")
+    if not job_url:
+        return {"status": "Started", "item_id": item_id, "raw": resp.json() if resp.text else {}}
+    if not wait:
+        return {"status": "Started", "item_id": item_id, "job_instance_url": job_url}
+
+    start = time.monotonic()
+    while time.monotonic() - start < timeout_s:
+        job_resp = requests.get(job_url, headers=_headers(), timeout=30)
+        if job_resp.status_code != 200:
+            return {"error": f"polling HTTP {job_resp.status_code}", "detail": job_resp.text[:500]}
+        data = job_resp.json()
+        status = data.get("status", "")
+        if status == "Completed":
+            return {
+                "status": "Completed",
+                "item_id": item_id,
+                "job_instance_id": data.get("id"),
+                "duration_s": time.monotonic() - start,
+            }
+        if status in ("Failed", "Cancelled"):
+            return {
+                "status": status,
+                "error": data.get("failureReason", {}).get("message", "sem detalhes"),
+                "item_id": item_id,
+                "raw": data,
+            }
+        retry_after = int(job_resp.headers.get("Retry-After", 15))
+        time.sleep(retry_after)
+    return {"status": "Timeout", "item_id": item_id, "job_instance_url": job_url}
+
+
+@mcp.tool()
 def fabric_notebook_cleanup_test_items(
     pattern: str = r"^test_(notebook|api).*",
     workspace_id: str | None = None,

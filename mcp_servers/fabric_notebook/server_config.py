@@ -52,6 +52,11 @@ FABRIC_NOTEBOOK_MCP_TOOLS = [
     "mcp__fabric_notebook__fabric_notebook_update_cell",
     "mcp__fabric_notebook__fabric_notebook_delete_cell",
     "mcp__fabric_notebook__fabric_notebook_delete",
+    # Execução on-demand — cobre o gap relatado na POC Itaúsa (2026-05-14):
+    # 'API REST do Fabric não suporta execução direta de pipelines/notebooks'.
+    # Ambos os endpoints existem: jobType=RunNotebook e jobType=Pipeline.
+    "mcp__fabric_notebook__fabric_notebook_run",
+    "mcp__fabric_notebook__fabric_pipeline_run",
     "mcp__fabric_notebook__fabric_notebook_cleanup_test_items",
 ]
 
