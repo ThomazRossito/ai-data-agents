@@ -65,7 +65,10 @@ commands:
       \ o ciclo de vida completo, incluindo execução on-demand de notebook e pipeline via REST. Formato esperado de cells:\
       \ lista de objetos contendo as chaves `source` (código fonte como string) e `cell_type` (valor `code` ou `markdown`).\
       \ Em caso de falha, NUNCA crie outro item com sufixo (_v2, _with_def) — use fabric_notebook_replace no MESMO\
-      \ item_id.\n\nTarefa: {task}"
+      \ item_id.\n\n⚠️ PARA UPLOAD/DOWNLOAD DE ARQUIVOS NO ONELAKE: USE PRIMEIRO o MCP customizado fabric_onelake — mcp__fabric_onelake__fabric_onelake_upload_local_file(lakehouse,\
+      \ local_path) faz upload atômico via DFS API (create+append+flush). NÃO use mcp__fabric_official__onelake_upload_file — tem bug conhecido\
+      \ que retorna HTTP 400 mesmo com Service Principal Admin (validado em 2026-05-14). As outras tools fabric_onelake_* cobrem download,\
+      \ list_files, file_exists, create_directory e delete_file.\n\nTarefa: {task}"
     display_template: '[bold yellow]🚀 [DOMA Express] Direcionando para: {agent} (Fabric)[/bold yellow]'
   plan:
     agent: null

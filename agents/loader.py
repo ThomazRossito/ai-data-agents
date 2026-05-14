@@ -53,6 +53,10 @@ from mcp_servers.fabric_notebook.server_config import (
     FABRIC_NOTEBOOK_MCP_TOOLS,
     FABRIC_NOTEBOOK_MCP_READONLY_TOOLS,
 )
+from mcp_servers.fabric_onelake.server_config import (
+    FABRIC_ONELAKE_MCP_TOOLS,
+    FABRIC_ONELAKE_MCP_READONLY_TOOLS,
+)
 from mcp_servers.fabric_semantic.server_config import (
     FABRIC_SEMANTIC_MCP_TOOLS,
     FABRIC_SEMANTIC_MCP_READONLY_TOOLS,
@@ -129,6 +133,10 @@ MCP_TOOL_SETS: dict[str, list[str]] = {
     # Encapsula montagem do .ipynb + base64 + LRO numa única chamada atômica.
     "fabric_notebook_all": FABRIC_NOTEBOOK_MCP_TOOLS,
     "fabric_notebook_readonly": FABRIC_NOTEBOOK_MCP_READONLY_TOOLS,
+    # fabric_onelake: MCP customizado pra OneLake file ops via DFS API.
+    # Contorna bug do fabric_official no upload (HTTP 400 mesmo com SP Admin).
+    "fabric_onelake_all": FABRIC_ONELAKE_MCP_TOOLS,
+    "fabric_onelake_readonly": FABRIC_ONELAKE_MCP_READONLY_TOOLS,
     # ── MCPs externos ─────────────────────────────────────────────────────────
     # context7: documentação atualizada de bibliotecas (resolve-library-id + get-library-docs)
     "context7_all": CONTEXT7_MCP_TOOLS,

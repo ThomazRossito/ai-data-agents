@@ -27,6 +27,7 @@ from mcp_servers.fabric.server_config import (
 )
 from mcp_servers.fabric_rti.server_config import get_fabric_rti_mcp_config
 from mcp_servers.fabric_notebook.server_config import get_fabric_notebook_mcp_config
+from mcp_servers.fabric_onelake.server_config import get_fabric_onelake_mcp_config
 from mcp_servers.fabric_semantic.server_config import get_fabric_semantic_mcp_config
 from mcp_servers.fabric_sql.server_config import get_fabric_sql_mcp_config
 from mcp_servers.firecrawl.server_config import get_firecrawl_mcp_config
@@ -74,6 +75,12 @@ ALL_MCP_CONFIGS: dict = {
     # Resolve o anti-pattern de retries gerando notebooks vazios (POC BTG 2026-05-13/14).
     # Reutiliza mesmas credenciais Azure (Service Principal via .env).
     "fabric_notebook": get_fabric_notebook_mcp_config,
+    # fabric_onelake: MCP customizado pra upload/download/list de arquivos no OneLake.
+    # Existe pra contornar bug do mcp__fabric_official__onelake_upload_file (HTTP 400
+    # mesmo com SP Admin + tenant OK — confirmado em 2026-05-14 via test_onelake_upload.py).
+    # Usa DFS API direta (onelake.dfs.fabric.microsoft.com) com create+append+flush.
+    # Reutiliza credenciais Azure; requer FABRIC_WORKSPACE_NAME (slug) no .env.
+    "fabric_onelake": get_fabric_onelake_mcp_config,
     # ── MCPs externos ─────────────────────────────────────────────────────────
     # context7: documentação atualizada de bibliotecas (free até 1k req/mês, sem credenciais)
     "context7": get_context7_mcp_config,

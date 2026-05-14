@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     azure_client_id: str = ""
     azure_client_secret: str = ""
     fabric_workspace_id: str = ""
+    # Nome (slug) do workspace — necessário pra DFS API do OneLake
+    # (onelake.dfs.fabric.microsoft.com/<NAME>/...). NÃO aceita GUID no path.
+    # Configure no .env: FABRIC_WORKSPACE_NAME=poc-multiagent-fabric
+    fabric_workspace_name: str = ""
     fabric_api_base_url: str = "https://api.fabric.microsoft.com/v1"
     # GUID do Lakehouse de ontologia — necessário para upload via ADLS Gen2 com URL correta.
     # Fabric UI → Lakehouse → Settings → ID (ou Fabric REST API /items).
@@ -647,6 +651,18 @@ class Settings(BaseSettings):
                     "FABRIC_WORKSPACE_ID": self.fabric_workspace_id,
                 },
                 "required": ["AZURE_TENANT_ID", "AZURE_CLIENT_ID", "FABRIC_WORKSPACE_ID"],
+            },
+            "fabric_onelake": {
+                # MCP customizado pra OneLake file ops via DFS API direta.
+                # Requer FABRIC_WORKSPACE_NAME (slug do workspace) — DFS API
+                # não aceita GUID no path.
+                "fields": {
+                    "AZURE_TENANT_ID": self.azure_tenant_id,
+                    "AZURE_CLIENT_ID": self.azure_client_id,
+                    "AZURE_CLIENT_SECRET": self.azure_client_secret,
+                    "FABRIC_WORKSPACE_NAME": self.fabric_workspace_name,
+                },
+                "required": ["AZURE_TENANT_ID", "AZURE_CLIENT_ID", "FABRIC_WORKSPACE_NAME"],
             },
             "fabric_rti": {
                 "fields": {

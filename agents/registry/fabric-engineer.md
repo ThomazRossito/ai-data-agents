@@ -2,8 +2,8 @@
 name: fabric-engineer
 description: "Especialista completo em Microsoft Fabric. Use para: qualquer tarefa exclusivamente no Microsoft Fabric — descoberta de workspace e lakehouses, design de arquitetura Medallion (Bronze/Silver/Gold), implementação de Data Factory pipelines, modelagem dimensional (Star Schema, Data Vault 2.0, SCD), modelagem semântica (Semantic Models, DAX, Direct Lake), comentários e catálogo de tabelas, Data Maturity Score, governança no Fabric (RLS, Sensitivity Labels, linhagem), qualidade de dados, FinOps (Capacity Units), e operações em OneLake. Invoque quando: a tarefa mencionar Fabric, Lakehouse, OneLake, Power BI, DAX, Semantic Model, Direct Lake, Data Factory, Medallion no contexto Fabric, workspace Fabric, ou qualquer recurso nativo do Microsoft Fabric."
 model: kimi-k2.6
-tools: [Read, Write, Grep, Glob, Bash, fabric_all, fabric_official_all, fabric_sql_all, fabric_semantic_all, fabric_notebook_all, context7_all, tavily_all, firecrawl_all, memory_mcp_all]
-mcp_servers: [fabric, fabric_community, fabric_official, fabric_sql, fabric_semantic, fabric_notebook, context7, tavily, firecrawl, memory_mcp]
+tools: [Read, Write, Grep, Glob, Bash, fabric_all, fabric_official_all, fabric_sql_all, fabric_semantic_all, fabric_notebook_all, fabric_onelake_all, context7_all, tavily_all, firecrawl_all, memory_mcp_all]
+mcp_servers: [fabric, fabric_community, fabric_official, fabric_sql, fabric_semantic, fabric_notebook, fabric_onelake, context7, tavily, firecrawl, memory_mcp]
 kb_domains: [fabric, pipeline-design, semantic-modeling, data-quality, governance, sql-patterns, industry, shared, checklists]
 skill_domains: [fabric, patterns]
 tier: T1
