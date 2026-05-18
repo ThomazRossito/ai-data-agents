@@ -164,6 +164,17 @@ class Settings(BaseSettings):
     # Exemplo conda: /opt/anaconda3/envs/multi_agents/bin/migration-source-mcp
     migration_source_command: str = "migration-source-mcp"
 
+    # --- Azure Pricing MCP (custom — Azure Retail Prices API wrapper) ---
+    # Sem credenciais (API pública). Defaults configuráveis via .env (opcionais).
+    # Comando do servidor — instalado via pip install -e .
+    azure_pricing_command: str = "azure-pricing-mcp"
+    # Região default usada quando agent não especifica (arm region name)
+    azure_pricing_default_region: str = "brazilsouth"
+    # Currency default pra cotação (3-letter code)
+    azure_pricing_default_currency: str = "USD"
+    # Horas/mês padrão (Azure Pricing Calculator usa 730 = 365.25/12*24)
+    azure_pricing_hours_per_month: float = 730.0
+
     # --- Permissões dos Agentes ---
     # "bypassPermissions" (padrão): agentes executam sem pedir confirmação — ideal para automação.
     # "acceptEdits": agentes pedem confirmação antes de operações write/execute — recomendado
@@ -493,6 +504,7 @@ class Settings(BaseSettings):
         "databricks_genie_command",
         "fabric_semantic_command",
         "migration_source_command",
+        "azure_pricing_command",
         mode="before",
     )
     @classmethod

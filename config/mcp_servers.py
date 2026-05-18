@@ -18,6 +18,7 @@ Para adicionar uma nova plataforma:
 
 import logging
 
+from mcp_servers.azure_pricing.server_config import get_azure_pricing_mcp_config
 from mcp_servers.context7.server_config import get_context7_mcp_config
 from mcp_servers.databricks.server_config import get_databricks_mcp_config
 from mcp_servers.databricks_genie.server_config import get_databricks_genie_mcp_config
@@ -44,7 +45,13 @@ logger = logging.getLogger("data_agents.mcp")
 # Exportado como constante pública para que commands/mcp.py e outros módulos
 # possam importar sem duplicar a lista.
 # fabric_ontology: auth via Azure CLI (az login), sem env vars extras.
-ALWAYS_ACTIVE_MCPS: list[str] = ["context7", "memory_mcp", "fabric_ontology"]
+# azure_pricing: Retail Prices API é pública, sem auth.
+ALWAYS_ACTIVE_MCPS: list[str] = [
+    "context7",
+    "memory_mcp",
+    "fabric_ontology",
+    "azure_pricing",
+]
 
 # Registry completo de plataformas disponíveis
 ALL_MCP_CONFIGS: dict = {
@@ -103,6 +110,11 @@ ALL_MCP_CONFIGS: dict = {
     # Entity types, relationship types, data bindings, contextualizations.
     # Auth via Azure CLI (az login) — sem credenciais extras no .env.
     "fabric_ontology": get_fabric_ontology_mcp_config,
+    # azure_pricing: MCP customizado wrappando a Azure Retail Prices API (pública).
+    # Retorna preços que casam 1:1 com a Azure Pricing Calculator oficial.
+    # Sem credenciais (auth pública); defaults (region, currency) via .env opcional.
+    # Usado pelo agent azure-cost-calculator (slash /cost-azure).
+    "azure_pricing": get_azure_pricing_mcp_config,
     # Adicione novas plataformas aqui:
     # "snowflake": get_snowflake_mcp_config,
     # "bigquery":  get_bigquery_mcp_config,

@@ -77,7 +77,13 @@ class TestPlatformCredentials:
         # context7: plano free não requer credenciais (repos públicos).
         # memory_mcp: knowledge graph local, sem autenticação.
         # fabric_ontology: auth via Azure CLI (az login), sem env vars extras.
-        CREDENTIAL_FREE_MCPS = {"context7", "memory_mcp", "fabric_ontology"}
+        # azure_pricing: Azure Retail Prices API é pública, sem auth.
+        CREDENTIAL_FREE_MCPS = {
+            "context7",
+            "memory_mcp",
+            "fabric_ontology",
+            "azure_pricing",
+        }
         for platform, info in status.items():
             if platform != "anthropic" and platform not in CREDENTIAL_FREE_MCPS:
                 assert not info["ready"], f"{platform} deveria estar not ready"

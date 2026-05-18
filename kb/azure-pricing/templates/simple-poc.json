@@ -1,0 +1,49 @@
+{
+  "_metadata": {
+    "scenario": "Banco XYZ — [Nome do cenário aqui, ex: Produção Q3 2026]",
+    "premises": {
+      "region": "brazilsouth",
+      "users": 100,
+      "queries_per_day": 5000,
+      "currency": "USD",
+      "convert_to": "BRL"
+    },
+    "expected_total_monthly_usd": null,
+    "notes": [
+      "Editar 'resources' abaixo com os SKUs específicos do projeto",
+      "Para serviços OpenAI/Cognitive: o agent fará discovery via list_skus automaticamente",
+      "Adicionar campos product_name/meter_name quando souber os valores exatos"
+    ]
+  },
+  "resources": [
+    {
+      "label": "[Exemplo] Azure AI Search",
+      "service_name": "Azure Cognitive Search",
+      "sku_name": "S1",
+      "region": "brazilsouth",
+      "quantity": 1,
+      "_note": "S1 inclui 25GB storage — não adicionar Storage à parte para o índice"
+    },
+    {
+      "label": "[Exemplo] gpt-4.1-mini Input",
+      "service_name": "Azure OpenAI",
+      "meter_name": "gpt-4.1-mini Input Tokens",
+      "region": "eastus2",
+      "quantity": 75,
+      "_note": "Quantity em milhões de tokens/mês. Cross-region pricing automático se brazilsouth indisponível."
+    },
+    {
+      "label": "[Exemplo] Storage Account",
+      "service_name": "Storage",
+      "sku_name": "Standard_ZRS",
+      "region": "brazilsouth",
+      "quantity": 100,
+      "_note": "100 GB / mês"
+    }
+  ],
+  "_components_not_in_retail_api": [
+    "Microsoft Copilot Studio license (~$200/mo/tenant) — Power Platform, não Azure Retail",
+    "DDoS Protection Standard (~$2.944/mês tenant-wide se aplicável)",
+    "Entra ID P2 — incluso em M365 E5"
+  ]
+}

@@ -415,3 +415,41 @@ commands:
     prompt_template: |-
       [DOMA EXPRESS] Delegue IMEDIATAMENTE para data-contracts-engineer. Não crie PRD, não peça aprovação. Instrua o agente a ler `kb/governance/index.md` e `kb/data-quality/index.md` antes de executar. Tarefa: {task}
     display_template: '[bold yellow]📋 [DOMA Express] Direcionando para: {agent}[/bold yellow]'
+  cost-azure:
+    agent: azure-cost-calculator
+    doma_mode: express
+    description: |-
+      Calcula custo de qualquer arquitetura Azure de forma CONVERSACIONAL — descreva em linguagem natural e o agent monta o cenário pra você. Valores casam 1:1 com a Azure Pricing Calculator oficial. Use para estimar custo de arquitetura, comparar Pay-as-you-go vs Reservations vs Savings Plans, converter USD↔BRL, gerar TCO 12/24/36 meses, ou comparar regiões. Exemplos: /cost-azure Foundry + AI Search S1 + Fabric F4 em brazilsouth pra 30 users com 1000 queries/dia | /cost-azure quanto custaria uma PoC completa com Foundry + Fabric pra banco X | /cost-azure compara RI 1y vs 3y pra Standard_D4s_v3 em eastus. NAO precisa JSON — o agent constrói o cenário a partir da descrição e salva 2 arquivos (cost_report.md + scenario_used.json) no output.
+    skills:
+    - kb/azure-pricing/index.md
+    - kb/azure-pricing/templates/README.md
+    - skills/finops/azure-pricing/SKILL.md
+    prompt_template: |-
+      [DOMA EXPRESS] Invoque IMEDIATAMENTE o agente `azure-cost-calculator` via tool Agent(). NÃO responda em texto, NÃO crie PRD, NÃO peça aprovação. O agente já possui suas próprias regras invioláveis e KB.
+
+      ⚠️ PROTOCOLO DE SÍNTESE (não negociável):
+
+      1. **Aceite o resultado do agente como verdade.** O agente é o único autorizado a chamar tools MCP (`azure_pricing_*`). Você NUNCA chama essas tools diretamente — isso viola S1/S2 da constituição. Mesmo se o agente falhar, você NÃO substitui o trabalho dele.
+
+      2. **Path do output:** o agente retorna em sua mensagem final os 2 paths (`cost_report.md` + `scenario_used.json`). Use EXATAMENTE os paths que o agente forneceu — não tente adivinhar o slug do cliente. Se o agente disse `output/prj_banco_z/`, vá nesse path. Se você não viu o path no retorno do agente, faça `Glob("output/**/cost_report.md")` e use o arquivo mais recente.
+
+      3. **Leia e exiba verbatim.** Use Read() no `cost_report.md` retornado e exiba o conteúdo SEM modificar: sem arredondar, sem resumir, sem reinterpretar, sem adicionar recursos, sem propor otimizações próprias. Cole o conteúdo do arquivo como está.
+
+      4. **Adicione computer:// links no final.** Uma linha com link para `cost_report.md` e outra para `scenario_used.json`, usando os paths absolutos.
+
+      5. **Se o agente errar (sem arquivo salvo, sem total, sem breakdown):**
+         a. NÃO assuma a tarefa dele
+         b. NÃO chame MCP tools sozinho
+         c. NÃO invente um cost_report.md baseado em estimativas próprias
+         d. Reporte o erro do agente verbatim ao usuário e pergunte se quer re-delegar
+         e. Re-delegação máxima: 1 vez (e somente se o usuário pedir)
+
+      6. **Proibições absolutas:**
+         - NUNCA escreva números próprios (ex: "~$2.650", "~5,20" taxa) que não estejam no `cost_report.md` do agente
+         - NUNCA adicione recursos que não estão no breakdown do agente (ex: VMs se o agente não cotou VMs)
+         - NUNCA aplique R10/heurísticas/templates próprios — o agente é quem decide composição com o usuário
+
+      Você é RELATOR PURO. Se o agente errou, o erro aparece pro usuário e ele corrige na próxima rodada. Não maquie.
+
+      Tarefa: {task}
+    display_template: '[bold yellow]💰 [DOMA Express] Calculando custos com: {agent}[/bold yellow]'

@@ -18,6 +18,8 @@ tools/
 .env.flow
 *.pem
 *.key
+.env.bak
+
 
 # =============================================================================
 # PYTHON
@@ -125,3 +127,13 @@ reports/
 .testmondata
 logs/.cli_history
 logs/.testmondata
+
+# =============================================================================
+# SCRIPTS
+# =============================================================================
+scripts/cleanup_fabric_test_notebooks.py
+scripts/finish_poc.py
+scripts/add_workspace_admin.py
+scripts/diagnose_workspace.py
+scripts/pipeline_status.py
+scripts/test_azure_openai_embedding.py

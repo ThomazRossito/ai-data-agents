@@ -1,0 +1,196 @@
+{
+  "_metadata": {
+    "scenario": "[NOME DO CLIENTE] — [Nome do cenário, ex: Produção Q3 2026]",
+    "template_version": "enterprise-full-1.0",
+    "based_on": "Reference Microsoft Foundry Baseline + Network Hub + Security stack completa",
+    "premises": {
+      "region": "brazilsouth",
+      "users": 30,
+      "queries_per_day": 1000,
+      "queries_per_month": 30000,
+      "currency": "USD",
+      "convert_to": "BRL",
+      "deployment_model": "Standalone (não compartilhado)",
+      "include_dr": true,
+      "compliance_level": "Enterprise (LGPD + SOX-ready)"
+    },
+    "expected_total_monthly_usd_range": {
+      "lower": 2500,
+      "upper": 3500,
+      "note": "Varia por região; brazilsouth ~30% acima de eastus"
+    },
+    "instructions_to_edit": [
+      "1. Substituir [NOME DO CLIENTE] pelo cliente real",
+      "2. Ajustar premises (users, queries/dia, region) conforme caso",
+      "3. Ajustar quantity nos recursos (especialmente Foundry tokens) baseado em volume real",
+      "4. Remover recursos não aplicáveis (ex: se cliente já tem Network Hub, remover Firewall + AppGw + Bastion)",
+      "5. Adicionar recursos específicos do caso (ex: Databricks workspace, ExpressRoute, etc.)",
+      "6. Salvar como output/prj_<cliente>/architecture_resources.json"
+    ]
+  },
+  "resources": [
+    {
+      "label": "Foundry — gpt-4.1-mini Input tokens",
+      "service_name": "Azure OpenAI",
+      "meter_name": "gpt-4.1-mini Input Tokens",
+      "region": "eastus2",
+      "quantity": 75,
+      "_note": "Quantidade em MILHÕES de tokens/mês (75M = 75 unidades). Ajustar baseado em volume real. eastus2 porque modelos OpenAI têm cobertura limitada em brazilsouth (cross-region pricing)"
+    },
+    {
+      "label": "Foundry — gpt-4.1-mini Output tokens",
+      "service_name": "Azure OpenAI",
+      "meter_name": "gpt-4.1-mini Output Tokens",
+      "region": "eastus2",
+      "quantity": 30,
+      "_note": "Output costuma ser ~40% do input em chat. 30M = 30 unidades"
+    },
+    {
+      "label": "Foundry — text-embedding-3-large",
+      "service_name": "Azure OpenAI",
+      "meter_name": "text-embedding-3-large Input Tokens",
+      "region": "eastus2",
+      "quantity": 1.5,
+      "_note": "~1.5M tokens/mês de query embedding em runtime (1 embedding por query)"
+    },
+    {
+      "label": "Azure AI Search Standard S1 (Foundry IQ)",
+      "service_name": "Azure Cognitive Search",
+      "sku_name": "S1",
+      "region": "brazilsouth",
+      "quantity": 1,
+      "_note": "Inclui 25GB storage + semantic ranker + 12 search units. Não cobrar Storage separado pra índice"
+    },
+    {
+      "label": "Microsoft Fabric F4 Capacity",
+      "service_name": "Microsoft Fabric",
+      "sku_name": "F4",
+      "region": "brazilsouth",
+      "quantity": 1,
+      "_note": "Inclui Power BI Premium capacity (não cobrar PBI Pro por user)"
+    },
+    {
+      "label": "Cosmos DB NoSQL — Foundry enterprise_memory (Serverless)",
+      "service_name": "Azure Cosmos DB",
+      "product_name": "Azure Cosmos DB for NoSQL — Serverless",
+      "region": "brazilsouth",
+      "quantity": 1
+    },
+    {
+      "label": "Storage Account ZRS (Foundry files + artifacts)",
+      "service_name": "Storage",
+      "sku_name": "Standard_ZRS",
+      "region": "brazilsouth",
+      "quantity": 50,
+      "_note": "50 GB. ZRS = Zone-Redundant Storage (3 réplicas em zonas distintas)"
+    },
+    {
+      "label": "Key Vault Premium HSM (TLS certs + CMK)",
+      "service_name": "Key Vault",
+      "sku_name": "Premium",
+      "region": "brazilsouth",
+      "quantity": 1
+    },
+    {
+      "label": "Application Gateway WAF v2",
+      "service_name": "Application Gateway",
+      "sku_name": "WAF v2",
+      "region": "brazilsouth",
+      "quantity": 1,
+      "_note": "Inclui WAF rules + TLS termination. Remover se cliente já tem AppGw compartilhado"
+    },
+    {
+      "label": "Azure Firewall Premium (egress + TLS inspection + IDPS)",
+      "service_name": "Azure Firewall",
+      "sku_name": "Azure Firewall Premium",
+      "region": "brazilsouth",
+      "quantity": 1,
+      "_note": "Premium é necessário pra TLS inspection. Remover se compartilhado com outros workloads"
+    },
+    {
+      "label": "Azure Bastion Standard (admin access seguro)",
+      "service_name": "Azure Bastion",
+      "sku_name": "Standard",
+      "region": "brazilsouth",
+      "quantity": 1
+    },
+    {
+      "label": "Log Analytics Workspace (diagnostic logs)",
+      "service_name": "Azure Monitor",
+      "meter_name": "Pay-as-you-go Data Ingestion",
+      "region": "brazilsouth",
+      "quantity": 10,
+      "_note": "10 GB/mês de logs ingested. Ajustar baseado em verbosidade do workload"
+    },
+    {
+      "label": "Microsoft Defender for Cloud Standard",
+      "service_name": "Microsoft Defender for Cloud",
+      "region": "brazilsouth",
+      "quantity": 1
+    },
+    {
+      "label": "Microsoft Sentinel (SIEM)",
+      "service_name": "Microsoft Sentinel",
+      "region": "brazilsouth",
+      "quantity": 10,
+      "_note": "10 GB/mês ingested. Defender + Activity logs + Entra logs"
+    },
+    {
+      "label": "Storage GRS (DR backup archive — 7 anos retention)",
+      "service_name": "Storage",
+      "sku_name": "Standard_GRS",
+      "region": "brazilsouth",
+      "quantity": 100,
+      "_note": "100 GB pra logs archiving (compliance). GRS = geo-redundant cross-region"
+    }
+  ],
+  "_components_not_in_retail_api": [
+    {
+      "name": "Microsoft Copilot Studio license",
+      "estimated_monthly_usd": 200,
+      "note": "Power Platform pricing, não Azure Retail. Per-tenant license (10k mensagens incluídas)"
+    },
+    {
+      "name": "DDoS Protection Standard",
+      "estimated_monthly_usd": 2944,
+      "note": "Tenant-wide. Geralmente compartilhado entre todos workloads do cliente — custo amortizado"
+    },
+    {
+      "name": "Entra ID P2",
+      "estimated_monthly_usd": 0,
+      "note": "Incluso em M365 E5. Não cobrar separadamente se cliente já tem"
+    },
+    {
+      "name": "Private DNS Zones",
+      "estimated_monthly_usd": 5,
+      "note": "Mínimo, depende de número de zones e queries"
+    },
+    {
+      "name": "VPN Gateway VpnGw1",
+      "estimated_monthly_usd": 146,
+      "note": "Apenas se cliente precisa de conectividade hybrid on-prem"
+    }
+  ],
+  "_optional_optimizations_to_test": [
+    {
+      "name": "Fabric F2 com pause/resume",
+      "savings_vs_default": "≈ -$740/mês",
+      "note": "Trocar 'F4' por 'F2' e aplicar pause durante horário fora do comercial"
+    },
+    {
+      "name": "AI Search Reserved 1-year",
+      "savings_vs_default": "≈ -36% no AI Search",
+      "note": "Trocar 'priceType: Consumption' por 'Reservation' + 'reservationTerm: 1 Year'"
+    },
+    {
+      "name": "Compartilhar Network Hub",
+      "savings_vs_default": "≈ -$2.015/mês",
+      "note": "Remover Firewall + AppGw + Bastion se cliente já tem hub compartilhado"
+    },
+    {
+      "name": "Storage Cool/Cold em vez de Hot",
+      "savings_vs_default": "≈ -50% to -80%",
+      "note": "Trocar 'Standard_ZRS' (Hot) por tier inferior se acesso é esporádico"
+    }
+  ]
+}

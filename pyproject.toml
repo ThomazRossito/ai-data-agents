@@ -30,6 +30,12 @@ dependencies = [
     "azure-identity>=1.15.0",
     "semantic-link>=0.1.0",
 
+    # Azure OpenAI — usado pra gerar embeddings na Fase B (RAG/Vector Store)
+    # da PoC Itaúsa via text-embedding-3-large. Compatível com SDK openai 1.x+.
+    # Configuração via .env: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY,
+    # AZURE_OPENAI_EMBEDDING_DEPLOYMENT, AZURE_OPENAI_API_VERSION.
+    "openai>=1.30.0",
+
     # Fabric SQL Analytics Endpoint — MCP customizado (fabric_sql)
     # Conecta via TDS ao SQL Endpoint, resolvendo limitação do schema dbo da REST API.
     # Requer ODBC Driver 18 no sistema:
@@ -58,6 +64,10 @@ dependencies = [
     "markdown2>=2.4",
 
     "pyyaml>=6.0",
+
+    # Azure Pricing MCP — usa requests pra Retail Prices API (https://prices.azure.com)
+    # API pública sem auth; sem dependência de credenciais.
+    "requests>=2.31",
 
 ]
 
@@ -116,6 +126,7 @@ fabric-semantic-mcp = "mcp_servers.fabric_semantic.server:main"
 fabric-ontology-mcp = "mcp_servers.fabric_ontology.server:main"
 databricks-genie-mcp = "mcp_servers.databricks_genie.server:main"
 migration-source-mcp = "mcp_servers.migration_source.server:main"
+azure-pricing-mcp = "mcp_servers.azure_pricing.server:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -151,6 +162,9 @@ extend-exclude = [
 asyncio_mode = "auto"
 testpaths = ["tests"]
 cache_dir = ".cache/pytest"
+markers = [
+    "requires_network: testes que fazem chamadas HTTP reais (Azure Retail Prices API, etc). Skipped por default; rodar com `pytest -m requires_network`",
+]
 
 [tool.coverage.run]
 data_file = "logs/.coverage"

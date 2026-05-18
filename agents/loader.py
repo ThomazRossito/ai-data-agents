@@ -28,6 +28,10 @@ from typing import Any, Literal, cast
 
 from claude_agent_sdk import AgentDefinition
 
+from mcp_servers.azure_pricing.server_config import (
+    AZURE_PRICING_MCP_READONLY_TOOLS,
+    AZURE_PRICING_MCP_TOOLS,
+)
 from mcp_servers.context7.server_config import CONTEXT7_MCP_TOOLS
 from mcp_servers.databricks.server_config import (
     DATABRICKS_MCP_TOOLS,
@@ -158,6 +162,10 @@ MCP_TOOL_SETS: dict[str, list[str]] = {
     # fabric_ontology: CRUD completo no Fabric IQ Ontology (entity types, relationships, bindings)
     "fabric_ontology_all": FABRIC_ONTOLOGY_MCP_TOOLS,
     "fabric_ontology_readonly": FABRIC_ONTOLOGY_MCP_READONLY_TOOLS,
+    # azure_pricing: Azure Retail Prices API (sem auth, pública) — cálculo de custo Azure.
+    # Usado pelo agent azure-cost-calculator (slash /cost-azure).
+    "azure_pricing_all": AZURE_PRICING_MCP_TOOLS,
+    "azure_pricing_readonly": AZURE_PRICING_MCP_READONLY_TOOLS,
 }
 
 
