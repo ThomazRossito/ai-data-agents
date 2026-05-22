@@ -2,7 +2,7 @@
 
 ---
 
-Repositório: [github.com/ThomazRossito/data-agents-api](https://github.com/ThomazRossito/data-agents-api)
+Repositório: [github.com/ThomazRossito/ai-data-agents](https://github.com/ThomazRossito/ai-data-agents)
 
 ---
 
@@ -819,15 +819,15 @@ make deploy-prod       # publica em produção
 **Passo 1: Clonar o repositório**
 
 ```bash
-git clone https://github.com/ThomazRossito/data-agents-api.git
-cd data-agents-api
+git clone https://github.com/ThomazRossito/ai-data-agents.git
+cd ai-data-agents
 ```
 
 **Passo 2: Criar o ambiente virtual**
 
 ```bash
 # Opção A: conda (recomendado)
-conda create -n data-agents-api python=3.12 && conda activate data-agents-api
+conda create -n ai-data-agents python=3.12 && conda activate ai-data-agents
 
 # Opção B: venv
 python3 -m venv .venv && source .venv/bin/activate

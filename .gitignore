@@ -110,7 +110,20 @@ mcp_servers/fabric/Fabric.Mcp.Server/
 # =============================================================================
 # DOCUMENTAÇÃO INTERNA
 # =============================================================================
-docs/
+# Por padrão, ignora todo o conteúdo de docs/ (drafts, screenshots, exports).
+# Exceções abaixo (com `!`) trazem para o git apenas docs versionáveis.
+# IMPORTANTE: usa `docs/*` (não `docs/`) — caso contrário as exceções não funcionam
+# devido à regra do git de "não é possível re-incluir filho de diretório excluído".
+docs/*
+!docs/ARCHITECTURE.md
+!docs/GAPS_E_MELHORIAS.md
+!docs/adr/
+!docs/adr/**
+!docs/refactor-v3/
+!docs/refactor-v3/**
+!docs/legacy/
+!docs/legacy/**
+
 reports/
 
 # =============================================================================
