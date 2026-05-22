@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════
-# Data Agents — Makefile
+# AI Data Agents — Makefile
 # Automação de tarefas comuns de desenvolvimento e deploy
 # ═══════════════════════════════════════════════════════════════════
 
@@ -13,7 +13,7 @@ RESET := \033[0m
 
 help: ## Exibe esta ajuda
 	@echo ""
-	@echo "$(CYAN)Data Agents — Comandos disponíveis:$(RESET)"
+	@echo "$(CYAN)AI Data Agents — Comandos disponíveis:$(RESET)"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(RESET) %s\n", $$1, $$2}'
@@ -56,18 +56,54 @@ type-check: ## Verifica tipos (mypy)
 security: ## Scan de segurança (bandit)
 	bandit -r agents/ config/ hooks/ commands/ -ll --skip B101
 
+# ─── Structural lints (Phase 3 — drift prevention) ──────────────────
+# Each linter validates a specific structural invariant. Run individually
+# during development; run lint-all in CI to gate the whole bundle.
+
+lint-registry: ## Valida frontmatter dos 15 agentes + referências
+	python scripts/lint_registry.py
+
+lint-kb: ## Valida estrutura das 16 KBs + cross-refs com agentes
+	python scripts/lint_kb.py
+
+lint-skills: ## Valida 48 SKILL.md + name/description + orphan domains
+	python scripts/lint_skills.py
+
+lint-mcp: ## Valida MCP server_configs + aliases no loader
+	python scripts/lint_mcp_configs.py
+
+lint-commands: ## Valida config/commands.yaml (39 slash commands)
+	python scripts/lint_commands.py
+
+lint-all: lint lint-registry lint-kb lint-skills lint-mcp lint-commands sync-docs-check ## ruff + 5 lints + doc sync (CI gate)
+
+# ─── Inventory sync ─────────────────────────────────────────────────
+# README/PRODUCT/CLAUDE.md declare auto-managed counts via
+# <!-- INVENTORY:<key> -->...<!-- /INVENTORY:<key> --> markers.
+# `sync-docs` rewrites the values from the live project state.
+# `sync-docs-check` exits 1 if any value is stale (CI gate).
+
+inventory: ## Imprime inventário live (agentes/MCPs/KBs/skills/commands)
+	python scripts/gen_inventory.py --print
+
+sync-docs: ## Reescreve blocos <!-- INVENTORY:* --> nos docs
+	python scripts/gen_inventory.py --update
+
+sync-docs-check: ## Falha se algum doc tem INVENTORY: stale (CI gate)
+	python scripts/gen_inventory.py --check
+
 # ─── Execução ─────────────────────────────────────────────────────
 
-run: ## Inicia o Data Agents em modo interativo
+run: ## Inicia o AI Data Agents em modo interativo
 	python main.py
 
 ui: ## Inicia a UI de Chat + Monitoring (./start.sh)
 	./start.sh
 
-ui-chat: ## Inicia somente a UI de Chat Chainlit (porta 8503)
+ui-chat: ## Inicia somente a UI de Chat Chainlit (porta 8513)
 	./start.sh --chat-only
 
-ui-monitor: ## Inicia somente o Monitoring (porta 8501)
+ui-monitor: ## Inicia somente o Monitoring (porta 8511)
 	./start.sh --monitor-only
 
 health-databricks: ## Verifica conectividade e credenciais do Databricks
