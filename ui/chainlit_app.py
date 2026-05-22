@@ -1,9 +1,9 @@
 """
-ui/chainlit_app.py — Interface Chainlit para Data Agents
+ui/chainlit_app.py — Interface Chainlit para AI Data Agents
 
 Dois modos de operação:
 
-  Modo 1 — Data Agents:
+  Modo 1 — AI Data Agents:
     Supervisor completo com todos os agentes especialistas.
     Suporta slash commands (/sql, /spark, /dbt, /quality, etc.).
     Mostra cl.Step() para cada delegação e tool call em tempo real.
@@ -27,7 +27,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import socket
 import subprocess
 import sys
@@ -97,7 +96,7 @@ MODE_DEV = "dev"
 
 # System prompt do Dev Assistant — carregado inline
 _DEV_SYSTEM_PROMPT = """\
-Você é o **Dev Assistant** do projeto Data Agents.
+Você é o **Dev Assistant** do projeto AI Data Agents.
 
 ## Sobre o Projeto
 Sistema multi-agente construído sobre o Claude Agent SDK + MCP.
@@ -122,7 +121,7 @@ Assistente de desenvolvimento para tarefas no próprio projeto:
 código Python, debugging, refatoração, testes, análise de arquivos, scripts.
 
 Não acesse MCPs de plataformas de dados (Databricks, Fabric).
-Para tarefas de pipeline, SQL ou PySpark, sugira o Modo Data Agents.
+Para tarefas de pipeline, SQL ou PySpark, sugira o Modo AI Data Agents.
 
 Always respond in English (EN-US). Use code blocks with syntax highlighting.
 Seja direto e objetivo — sem preambles desnecessários.
@@ -373,6 +372,7 @@ Specialist Data & AI Solutions Architect | Center of Excellence CoE @CI&T
 **GitHub:** https://github.com/ThomazRossito/
 """
 
+
 # Porta do dashboard de monitoramento (Streamlit — start.sh).
 # Lê de settings.monitor_port (override via .env: MONITOR_PORT=8511).
 def _get_monitor_port() -> int:
@@ -392,7 +392,7 @@ async def _show_mode_selection() -> None:
     actions = [
         cl.Action(
             name="select_supervisor",
-            label="🤖 Data Agents",
+            label="🤖 AI Data Agents",
             payload={"value": "supervisor"},
             description="Supervisor + 8 agentes especialistas (SQL, Spark, dbt, Qualidade...)",
         ),
@@ -412,7 +412,7 @@ async def _show_mode_selection() -> None:
     await cl.Message(
         content=(
             "**Selecione o modo de operação:**\n\n"
-            "- **🤖 Data Agents** — Supervisor com agentes especialistas, slash commands e MCPs de plataforma\n"
+            "- **🤖 AI Data Agents** — Supervisor com agentes especialistas, slash commands e MCPs de plataforma\n"
             "- **💻 Dev Assistant** — Claude direto para tarefas de desenvolvimento no projeto (Bedrock, custo zero)\n"
             f"- **📊 Monitoramento** — Dashboard de custos e métricas de sessão (porta {_MONITOR_PORT})\n\n"
             "*(Troque de modo a qualquer momento com `/modo`)*"
@@ -469,7 +469,7 @@ async def _activate_supervisor() -> None:
         )
         await cl.Message(
             content=(
-                "✅ **Modo: Data Agents** ativado.\n\n"
+                "✅ **Modo: AI Data Agents** ativado.\n\n"
                 f"{_commands_help_text()}\n\n"
                 "---\n"
                 "💡 **Dica:** Use `/plan <objetivo>` para o fluxo completo DOMA com PRD e aprovação.\n"
@@ -529,7 +529,7 @@ async def _activate_dev() -> None:
             "Ferramentas: `Read`, `Write`, `Bash`, `Grep`, `Glob`\n\n"
             "Histórico de conversa mantido para follow-ups.\n\n"
             "---\n"
-            "💡 Para tarefas de pipeline, SQL ou PySpark, use o Modo Data Agents (`/modo`)."
+            "💡 Para tarefas de pipeline, SQL ou PySpark, use o Modo AI Data Agents (`/modo`)."
         )
     ).send()
 
@@ -824,7 +824,7 @@ async def _handle_supervisor(user_input: str) -> None:
             await response_msg.stream_token(
                 f"\n\n💰 **Orçamento excedido** — `${cost_val:.4f}` / `${_settings.max_budget_usd:.2f}`\n\n"
                 "O contexto desta sessão foi salvo automaticamente.\n"
-                "Abra um **Novo Chat**, selecione **Data Agents** e digite **`continuar`** para retomar."
+                "Abra um **Novo Chat**, selecione **AI Data Agents** e digite **`continuar`** para retomar."
             )
         else:
             await response_msg.stream_token(f"\n\n❌ **Erro:** `{exc}`")
@@ -1025,7 +1025,7 @@ async def _handle_export() -> None:
     await cl.Message(content="⏳ Gerando arquivos de export...", author="Sistema").send()
 
     try:
-        title = f"Data Agents — {len(history)} mensagens"
+        title = f"AI Data Agents — {len(history)} mensagens"
 
         from ui.exporter import export_html, export_markdown
 
@@ -1597,7 +1597,7 @@ def _sessions_markdown(limit: int = 15) -> str:
     if not sessions:
         return (
             "Nenhuma sessão registrada ainda.\n\n"
-            "As sessões são registradas automaticamente após o primeiro turno no modo Data Agents."
+            "As sessões são registradas automaticamente após o primeiro turno no modo AI Data Agents."
         )
 
     display = sessions[:limit]

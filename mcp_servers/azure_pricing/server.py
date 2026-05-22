@@ -27,7 +27,6 @@ import time
 import traceback
 import urllib.parse
 from datetime import datetime, timezone
-from typing import Any
 
 try:
     import requests
@@ -183,7 +182,8 @@ def _detect_fixed_cost_violations(resources: list[dict]) -> list[dict]:
     for service_name, tiers in _FIXED_COSTS_TABLE.items():
         # Resources que parecem ser DESSE serviço
         service_resources = [
-            r for r in resources
+            r
+            for r in resources
             if service_name.lower() in str(r.get("service_name", "")).lower()
             or service_name.lower() in str(r.get("label", "")).lower()
         ]
@@ -244,6 +244,8 @@ def _detect_fixed_cost_violations(resources: list[dict]) -> list[dict]:
         )
 
     return violations
+
+
 _API_VERSION = "2023-01-01-preview"
 _DEFAULT_TIMEOUT = 30
 _MAX_PAGE_FOLLOW = 5  # quantas páginas da API seguir em listSkus (paginação OData)
@@ -295,8 +297,7 @@ def _query_retail_api(
     """
     if not REQUESTS_AVAILABLE:
         raise RuntimeError(
-            "Módulo 'requests' não está instalado. "
-            "Instale com: pip install requests"
+            "Módulo 'requests' não está instalado. Instale com: pip install requests"
         )
 
     currency = (currency or _default_currency()).upper()
@@ -359,9 +360,7 @@ def azure_pricing_diagnostics() -> str:
     """
     try:
         if not REQUESTS_AVAILABLE:
-            return _error_response(
-                RuntimeError("Módulo 'requests' não está disponível")
-            )
+            return _error_response(RuntimeError("Módulo 'requests' não está disponível"))
 
         # Sample query usa eastus + serviceFamily=Storage (filtro amplo que sempre
         # retorna items em qualquer região; brazilsouth pode ter cobertura parcial
@@ -911,13 +910,9 @@ def azure_pricing_estimate_monthly_cost(
                     "hours_per_month_default": global_hpm,
                     "resources_count": len(resources),
                     "matched_count": sum(1 for b in breakdown if b.get("match_found")),
-                    "unmatched_count": sum(
-                        1 for b in breakdown if not b.get("match_found")
-                    ),
+                    "unmatched_count": sum(1 for b in breakdown if not b.get("match_found")),
                 },
-                "subtotals_by_service": {
-                    svc: round(amt, 2) for svc, amt in subtotals.items()
-                },
+                "subtotals_by_service": {svc: round(amt, 2) for svc, amt in subtotals.items()},
                 "breakdown": breakdown,
                 "warnings": warnings,
                 "source": _RETAIL_PRICES_API,
@@ -1007,12 +1002,8 @@ def azure_pricing_compare_reservation_terms(
         ri_1y = monthly.get("ri_1year")
         ri_3y = monthly.get("ri_3year")
 
-        savings_1y_pct = (
-            round((1 - ri_1y / payg) * 100, 1) if payg and ri_1y else None
-        )
-        savings_3y_pct = (
-            round((1 - ri_3y / payg) * 100, 1) if payg and ri_3y else None
-        )
+        savings_1y_pct = round((1 - ri_1y / payg) * 100, 1) if payg and ri_1y else None
+        savings_3y_pct = round((1 - ri_3y / payg) * 100, 1) if payg and ri_3y else None
 
         return json.dumps(
             {
@@ -1087,18 +1078,16 @@ def azure_pricing_savings_plan_calc(
         if utilization < 0.7:
             recommendation = "overcommitted"
             recommendation_detail = (
-                f"Utilização {utilization*100:.0f}% — está pagando por horas que não usa. "
+                f"Utilização {utilization * 100:.0f}% — está pagando por horas que não usa. "
                 "Reduza o commit ou considere PAYG."
             )
         elif utilization > 0.95:
             recommendation = "good_fit"
-            recommendation_detail = (
-                f"Utilização {utilization*100:.0f}% — savings plan compensa."
-            )
+            recommendation_detail = f"Utilização {utilization * 100:.0f}% — savings plan compensa."
         else:
             recommendation = "monitor"
             recommendation_detail = (
-                f"Utilização {utilization*100:.0f}% — savings plan compensa "
+                f"Utilização {utilization * 100:.0f}% — savings plan compensa "
                 "mas há folga; monitore tendência."
             )
 
@@ -1194,12 +1183,8 @@ def azure_pricing_currency_convert(
         rate = None
         rate_source_info = None
         for ref_filter in REFERENCE_SKUS:
-            items_from = _query_retail_api(
-                ref_filter, currency=from_currency, max_results=1
-            )
-            items_to = _query_retail_api(
-                ref_filter, currency=to_currency, max_results=1
-            )
+            items_from = _query_retail_api(ref_filter, currency=from_currency, max_results=1)
+            items_to = _query_retail_api(ref_filter, currency=to_currency, max_results=1)
 
             if items_from and items_to:
                 price_from = float(items_from[0].get("retailPrice", 0.0))
