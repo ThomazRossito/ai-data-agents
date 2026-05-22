@@ -1,4 +1,4 @@
-# PRODUCT — Data Agents
+# PRODUCT — AI Data Agents
 
 > Tese de produto em uma página. O que é, pra quem é, e onde **não** se aplica.
 
@@ -6,9 +6,9 @@
 
 ## Tese
 
-**Data Agents é um copiloto de engenharia de dados que opera dentro do seu Databricks e do seu Microsoft Fabric — não uma camada de chat que explica o que você já teria que fazer manualmente.**
+**AI Data Agents é um copiloto de engenharia de dados que opera dentro do seu Databricks e do seu Microsoft Fabric — não uma camada de chat que explica o que você já teria que fazer manualmente.**
 
-O diferencial é simples: o assistente **executa** (via MCPs nativos), respeita regras corporativas declarativas (Constituição, KBs, Skills), e orquestra 14 agentes especialistas em vez de jogar tudo em um único agente genérico.
+O diferencial é simples: o assistente **executa** (via MCPs nativos), respeita regras corporativas declarativas (Constituição, KBs, Skills), e orquestra <!-- INVENTORY:agents_total -->15<!-- /INVENTORY:agents_total --> agentes especialistas em vez de jogar tudo em um único agente genérico.
 
 ---
 
@@ -32,7 +32,7 @@ O diferencial é simples: o assistente **executa** (via MCPs nativos), respeita 
 
 ## JTBD — O que encurta
 
-| Tarefa | Caminho manual | Com Data Agents |
+| Tarefa | Caminho manual | Com AI Data Agents |
 |--------|----------------|-----------------|
 | **Análise de impacto de migração SQL Server → Databricks** (100 tabelas, 30 procedures) | 1-2 dias lendo DDLs, mapeando dependências, estimando esforço | ~30 min: `/migrate` extrai DDLs via MCP, classifica complexidade, sugere desenho Medallion |
 | **Criar pipeline Medallion (Bronze → Silver → Gold)** | 2-4h procurando templates, ajustando configs, testando incrementalmente | ~30-60 min: `/pipeline` delega ao `databricks-engineer` com KBs + skills + MCP Databricks/Fabric |
@@ -46,19 +46,19 @@ A meta não é magia — é **remover o atrito entre intenção e execução** q
 
 ## Diferencial vs alternativas
 
-| Alternativa | O que ela faz bem | Onde Data Agents ganha |
+| Alternativa | O que ela faz bem | Onde AI Data Agents ganha |
 |-------------|-------------------|------------------------|
-| **Databricks Genie (nativo)** | Conversational BI sobre Unity Catalog | Data Agents **usa o Genie como tool** (MCP `databricks_genie`) e complementa com pipeline, quality, governance, migração — Genie sozinho não escreve PySpark nem faz auditoria |
-| **Microsoft Copilot for Fabric** | Q&A integrado no ecossistema MS | Copilot vive na UI do Fabric. Data Agents **cruza Databricks + Fabric** na mesma sessão, algo impossível nos copilots nativos |
+| **Databricks Genie (nativo)** | Conversational BI sobre Unity Catalog | AI Data Agents **usa o Genie como tool** (MCP `databricks_genie`) e complementa com pipeline, quality, governance, migração — Genie sozinho não escreve PySpark nem faz auditoria |
+| **Microsoft Copilot for Fabric** | Q&A integrado no ecossistema MS | Copilot vive na UI do Fabric. AI Data Agents **cruza Databricks + Fabric** na mesma sessão, algo impossível nos copilots nativos |
 | **dbt AI / dbt Copilot** | Sugere SQL e docs dentro do dbt Cloud | `dbt-expert` aqui é **multi-fonte** — consulta context7 para padrões atualizados, PostgreSQL para schemas externos, Fabric para lineage |
-| **LangChain / LangGraph multi-agent** | Framework genérico com muita flexibilidade | Data Agents é **opinativo** sobre dados — tem Constituição S1-S7, KBs declarativas, MCPs pré-configurados. Não é um framework, é um produto pronto |
-| **ChatGPT / Claude direto** | Excelente pra raciocínio e código | Não toca seu Databricks nem seu Fabric. Data Agents **executa** via MCP; a resposta não é "aqui está o SQL pra você rodar" e sim "rodei, aqui está o resultado" |
+| **LangChain / LangGraph multi-agent** | Framework genérico com muita flexibilidade | AI Data Agents é **opinativo** sobre dados — tem Constituição S1-S7, KBs declarativas, MCPs pré-configurados. Não é um framework, é um produto pronto |
+| **ChatGPT / Claude direto** | Excelente pra raciocínio e código | Não toca seu Databricks nem seu Fabric. AI Data Agents **executa** via MCP; a resposta não é "aqui está o SQL pra você rodar" e sim "rodei, aqui está o resultado" |
 
 **Princípio central:** não somos o melhor chat. Somos o **melhor orquestrador de execução** sobre Databricks e Fabric.
 
 ---
 
-## Anti-escopo — O que Data Agents **não** faz
+## Anti-escopo — O que AI Data Agents **não** faz
 
 1. **Não é um ChatOps genérico.** Se a pergunta não envolve dados, plataforma ou engenharia, o agente `geral` responde em Haiku e fim — não há MCP, não há orquestração. Para conversa ampla, use Claude direto.
 2. **Não é um produto SaaS.** Não há multi-tenant, billing, SLA gerenciado. É um repositório para rodar local ou em infra própria do cliente.
@@ -71,8 +71,8 @@ A meta não é magia — é **remover o atrito entre intenção e execução** q
 
 ## Estado atual (2026-05-09) — v2.3.0
 
-- **14 agentes**, **15 MCPs** (6 custom, 9 de terceiros), **1326+ testes** ✅.
-- Modelos: Supervisor e especialistas em Sonnet 4.6; `geral` em Haiku 4.5 (T0).
+- **<!-- INVENTORY:agents_total -->15<!-- /INVENTORY:agents_total --> agentes**, **<!-- INVENTORY:mcps_registered -->18<!-- /INVENTORY:mcps_registered --> MCPs** (<!-- INVENTORY:mcps_custom -->8<!-- /INVENTORY:mcps_custom --> custom, <!-- INVENTORY:mcps_external -->9<!-- /INVENTORY:mcps_external --> de terceiros), **<!-- INVENTORY:kbs_total -->17<!-- /INVENTORY:kbs_total --> KBs**, **<!-- INVENTORY:skills_total -->48<!-- /INVENTORY:skills_total --> skills**, **<!-- INVENTORY:commands_total -->39<!-- /INVENTORY:commands_total --> slash commands** ✅.
+- Modelos: todos os agentes em `kimi-k2.6` (Moonshot); diferenciação por tier via `max_turns` + `effort` (ver ADR-004).
 - **Loop de aprendizado autônomo** ✅: `LESSON_LEARNED` captura erros e eventos de baixa performance entre sessões; injetado no system prompt antes de operações de alto risco. Dashboard "🧠 Lições Aprendidas" no Streamlit.
 - **S4 Autonomous Mode** ✅: auto-aprovação configurável de delegações read-only/single-agent/baixo custo (`S4_AUTONOMOUS_MODE=false` por padrão).
 - **Chainlit UI completa** ✅: `/analyze-project`, `/party`, `/geral`, `/workflow`, `/sessions`, `/resume` com dispatch direto — sem overhead do Supervisor; tokens `/geral` streamados via `messages.stream()`; `/workflow` com feedback por fase em tempo real e botões de aprovação humana.

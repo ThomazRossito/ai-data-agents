@@ -1,7 +1,7 @@
-# Data Agents — Guia para Claude Code
+# AI Data Agents — Guia para Claude Code
 
 Sistema multi-agente construído sobre o **Claude Agent SDK** (protocolo Anthropic Messages API) servido pela **Moonshot Kimi K2** via endpoint compatível, com integração
-nativa via MCP ao **Databricks** e **Microsoft Fabric**. Orquestra 14 agentes especialistas
+nativa via MCP ao **Databricks** e **Microsoft Fabric**. Orquestra <!-- INVENTORY:agents_total -->15<!-- /INVENTORY:agents_total --> agentes especialistas
 em Engenharia, Qualidade, Governança, Análise de Dados, Streaming, FinOps e Web Semântica.
 
 ---
@@ -357,7 +357,7 @@ def get_mcp_config() -> dict:
 **Novos campos em `Settings`:** Adicionar com default `""` e documentar com comentário
 explicando: o que é, como obter, plano gratuito se houver.
 
-**Agentes:** Todos os 14 agentes do registry usam `kimi-k2.6` (modelo único da família K2.6 da Moonshot, abr/2026). Diferenciação por tier acontece via `TIER_TURNS_MAP` (T0=3, T1=20, T2=12, T3=5) e `TIER_EFFORT_MAP` (low/high/medium/low). Para `/plan` (DOMA Full), o Supervisor envia `thinking={"type":"adaptive","effort":"high"}` — mesmo modelo, modo de raciocínio estendido.
+**Agentes:** Todos os <!-- INVENTORY:agents_total -->15<!-- /INVENTORY:agents_total --> agentes do registry usam `kimi-k2.6` (modelo único da família K2.6 da Moonshot, abr/2026). Diferenciação por tier acontece via `TIER_TURNS_MAP` (T0=3, T1=20, T2=12, T3=5) e `TIER_EFFORT_MAP` (low/high/medium/low). Para `/plan` (DOMA Full), o Supervisor envia `thinking={"type":"adaptive","effort":"high"}` — mesmo modelo, modo de raciocínio estendido.
 
 **Testes:** Ao adicionar um agente, verificar se algum teste em `test_agents.py` precisa
 de atualização. Ao adicionar um MCP sem credenciais, adicionar ao `CREDENTIAL_FREE_MCPS`
@@ -444,10 +444,10 @@ POSTGRES_URL=postgresql://...     # banco PostgreSQL
 | `registry/*.md` | Frontmatter YAML + corpo Markdown | Definição declarativa de cada agente |
 | `registry/_template.md` | — | Template para criar novos agentes |
 
-**14 agentes no registry:** `databricks-engineer`, `databricks-ai`, `fabric-engineer`,
+**<!-- INVENTORY:agents_total -->15<!-- /INVENTORY:agents_total --> agentes no registry:** `databricks-engineer`, `databricks-ai`, `fabric-engineer`,
 `fabric-rti`, `fabric-ontology`, `migration-expert`, `python-expert`, `dbt-expert`,
 `data-quality-steward`, `governance-auditor`, `data-contracts-engineer`, `data-mesh-architect`,
-`business-analyst`, `geral`.
+`business-analyst`, `geral`, `azure-cost-calculator`.
 
 ### config/ — Configuração Central
 
