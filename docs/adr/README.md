@@ -39,7 +39,8 @@ ADRs are append-only — never delete one. If a decision is reversed, write a ne
 | [008](ADR-008-cross-platform-databricks-fabric.md) | Cross-platform coverage of Databricks AND Fabric (not specialization) | Accepted | 2026-05-22 |
 | [009](ADR-009-structural-lints.md) | Structural lints as CI gate against declarative drift | Accepted | 2026-05-22 |
 | [010](ADR-010-docs-site-mkdocs-material.md) | Docs site built with MkDocs Material, deployed via GitHub Pages | Accepted | 2026-05-23 |
+| [011](ADR-011-claude-code-plugin-scope.md) | Claude Code plugin — minimal scope (agents + skills only) for v3.0-rc1 | Accepted | 2026-05-23 |
 
 ---
 
-*Future ADRs (planned)*: Plugin Claude Code adoption (Phase 12), OpenTelemetry vs JSONL (Phase 10+), package rename to `data-agents-databricks-fabric`, mkdocstrings reopening post-v3.0.0.
+*Future ADRs (planned)*: OpenTelemetry vs JSONL (re-evaluate post-v3.0.0), package rename to `data-agents-databricks-fabric` (PyPI), mkdocstrings reopening, slash commands + MCPs in plugin (v3.1+).
