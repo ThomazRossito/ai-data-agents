@@ -1,0 +1,35 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "thomazrossito-marketplace",
+  "version": "1.0.0",
+  "description": "Personal marketplace by Thomaz Rossito — hosts the ai-data-agents plugin (Databricks + Microsoft Fabric multi-agent system).",
+  "owner": {
+    "name": "Thomaz A. Rossito Neto",
+    "email": "thomaz.rossito@terra.com.br",
+    "url": "https://github.com/ThomazRossito"
+  },
+  "plugins": [
+    {
+      "name": "ai-data-agents",
+      "source": "./plugins/ai-data-agents",
+      "description": "15 specialist agents + 48 skills for Data Engineering, Quality, Governance and Analytics on Databricks + Microsoft Fabric. Powered by Claude Agent SDK + Moonshot Kimi K2.6.",
+      "version": "3.0.0-rc1",
+      "category": "data",
+      "tags": [
+        "data-engineering",
+        "databricks",
+        "microsoft-fabric",
+        "data-quality",
+        "data-governance",
+        "spark",
+        "delta-lake",
+        "lakehouse",
+        "dax",
+        "semantic-modeling"
+      ],
+      "homepage": "https://thomazrossito.github.io/ai-data-agents/",
+      "repository": "https://github.com/ThomazRossito/ai-data-agents",
+      "license": "MIT"
+    }
+  ]
+}
