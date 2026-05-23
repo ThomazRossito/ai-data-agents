@@ -67,6 +67,18 @@ test-e2e: ## Nightly — e2e/ (exige credenciais reais no .env)
 test-perf: ## Phase 10 — perf baselines (skipped by default, opt-in via -m perf)
 	pytest tests/perf/ -v -m perf -s --tb=short
 
+# ─── Documentation site (Phase 11, ADR-010) ────────────────────────
+# Requires: pip install -e ".[docs]"
+
+docs-serve: ## Local preview of the docs site at http://127.0.0.1:8000
+	mkdocs serve --strict
+
+docs-build: ## Build the static docs site to site/ (gitignored)
+	mkdocs build --strict --clean
+
+docs-deploy: ## Force-deploy to gh-pages branch (CI does this automatically)
+	mkdocs gh-deploy --force --clean
+
 test-all: ## Todos os testes (unit + integration + e2e) — uso manual antes de release
 	pytest tests/ -v --tb=short \
 		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \

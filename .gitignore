@@ -124,6 +124,12 @@ docs/*
 !docs/refactor-v3/**
 !docs/legacy/
 !docs/legacy/**
+# Phase 11: docs site source (consumido por mkdocs.yml)
+!docs/site/
+!docs/site/**
+
+# mkdocs build output (gerado por `mkdocs build`)
+/site/
 
 reports/
 

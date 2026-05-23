@@ -121,6 +121,14 @@ viz = [
     "uvicorn[standard]>=0.27",
     "watchdog>=4.0",
 ]
+docs = [
+    # Phase 11: docs site (ADR-010). Só o mantenedor precisa instalar.
+    # End users consomem o site público em https://thomazrossito.github.io/ai-data-agents/
+    # Rodar: make docs-serve (preview) ou make docs-build (estático)
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "pymdown-extensions>=10.7",
+]
 
 [project.scripts]
 # Phase 7: entry points apontam para o namespace data_agents.*
