@@ -33,8 +33,15 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
-from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
+# Phase 8: watchdog é dep opcional do extra [viz].
+try:
+    from watchdog.events import FileSystemEvent, FileSystemEventHandler
+    from watchdog.observers import Observer
+except ImportError as _exc:
+    raise ImportError(
+        "watchdog não instalado. Para habilitar a visualização 3D:\n"
+        "  pip install -e \".[viz]\""
+    ) from _exc
 
 logger = logging.getLogger("data_agents.visualization.watcher")
 

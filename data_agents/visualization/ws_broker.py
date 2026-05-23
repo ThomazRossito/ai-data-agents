@@ -22,7 +22,14 @@ import logging
 from collections import deque
 from typing import Any
 
-from fastapi import WebSocket
+# Phase 8: fastapi é dep opcional do extra [viz].
+try:
+    from fastapi import WebSocket
+except ImportError as _exc:
+    raise ImportError(
+        "fastapi não instalado. Para habilitar a visualização 3D:\n"
+        "  pip install -e \".[viz]\""
+    ) from _exc
 
 logger = logging.getLogger("data_agents.visualization.ws_broker")
 

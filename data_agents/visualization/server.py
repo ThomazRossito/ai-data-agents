@@ -26,9 +26,17 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+# Phase 8: fastapi é dep opcional do extra [viz].
+try:
+    from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+    from fastapi.responses import FileResponse, JSONResponse
+    from fastapi.staticfiles import StaticFiles
+except ImportError as _exc:
+    raise ImportError(
+        "fastapi não instalado. Para habilitar o servidor de visualização 3D:\n"
+        "  pip install -e \".[viz]\"\n"
+        "  ou: pip install 'fastapi>=0.110' 'uvicorn[standard]>=0.27' 'watchdog>=4.0'"
+    ) from _exc
 
 from data_agents.visualization.event_translator import KNOWN_AGENTS, translate
 from data_agents.visualization.watcher import JsonlTailer

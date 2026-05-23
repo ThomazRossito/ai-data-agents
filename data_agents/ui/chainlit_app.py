@@ -35,7 +35,16 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import chainlit as cl
+# Phase 8: chainlit é dep opcional do extra [ui]. Sem ele, este módulo
+# inteiro não pode ser importado — qualquer import dispara mensagem clara.
+try:
+    import chainlit as cl
+except ImportError as _exc:
+    raise ImportError(
+        "chainlit não instalado. Para habilitar o UI do AI Data Agents:\n"
+        "  pip install -e \".[ui]\"\n"
+        "  ou: pip install chainlit>=2.0"
+    ) from _exc
 
 # IMPORTANTE — Chainlit + Moonshot:
 # A versão original deste arquivo removia ANTHROPIC_API_KEY e ANTHROPIC_BASE_URL

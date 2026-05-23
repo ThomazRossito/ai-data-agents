@@ -15,7 +15,15 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import streamlit as st
+# Phase 8: streamlit é dep opcional do extra [monitoring].
+try:
+    import streamlit as st
+except ImportError as _exc:
+    raise ImportError(
+        "streamlit não instalado. Para habilitar o dashboard de monitoring:\n"
+        "  pip install -e \".[monitoring]\"\n"
+        "  ou: pip install streamlit>=1.35 streamlit-agraph>=0.0.45"
+    ) from _exc
 
 SP_TZ = ZoneInfo("America/Sao_Paulo")
 

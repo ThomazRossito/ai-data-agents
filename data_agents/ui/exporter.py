@@ -23,7 +23,17 @@ import tempfile
 from datetime import datetime
 from typing import Any
 
-import markdown2
+# Phase 8: markdown2 é dep opcional do extra [ui]. Antes da Phase 8 estava
+# em dependencies (core), mas o único uso é este exporter HTML — só faz
+# sentido se quem tem chainlit/UI exportar conversas.
+try:
+    import markdown2
+except ImportError as _exc:
+    raise ImportError(
+        "markdown2 não instalado. Para habilitar export HTML de conversas:\n"
+        "  pip install -e \".[ui]\"\n"
+        "  ou: pip install markdown2>=2.4"
+    ) from _exc
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
