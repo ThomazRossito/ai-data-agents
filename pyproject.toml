@@ -165,6 +165,7 @@ cache-dir = ".cache/ruff"
 extend-exclude = [
     "skills/",   # Reference/example files from external sources — not project code
     "inputs/",   # External repos vendored for integration — not project code
+    "plugins/",  # Generated view (build_plugin.sh) — espelha skills/, mesma exclusão se aplica
 ]
 
 [tool.pytest.ini_options]
