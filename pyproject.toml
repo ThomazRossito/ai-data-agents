@@ -163,7 +163,15 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 cache_dir = ".cache/pytest"
 markers = [
-    "requires_network: testes que fazem chamadas HTTP reais (Azure Retail Prices API, etc). Skipped por default; rodar com `pytest -m requires_network`",
+    # Categorias canônicas — auto-aplicadas pelo conftest.py de cada subdir.
+    # Não decore manualmente; mova o arquivo para tests/<categoria>/ que o marker é injetado.
+    "unit: testes isolados e rápidos (< 1s). Sem rede, sem MCP real, sem LLM real. Tudo mockado.",
+    "integration: tocam DB local (SQLite), JSONL persistente ou subprocess. Offline, ~1-10s.",
+    "e2e: chamam LLM real, Databricks, Fabric ou subprocess full-stack. Exigem credenciais.",
+
+    # Categorias transversais — aplicar manualmente quando relevante.
+    "requires_network: HTTP/socket reais. Implícito em e2e; explícito em integration quando aplicável.",
+    "slow: runtime > 5s. Skip em iteração rápida com `pytest -m 'not slow'`.",
 ]
 
 [tool.coverage.run]

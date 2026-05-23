@@ -3,7 +3,7 @@
 # Automação de tarefas comuns de desenvolvimento e deploy
 # ═══════════════════════════════════════════════════════════════════
 
-.PHONY: help install dev bootstrap demo evals test lint format type-check security clean run health-databricks health-fabric fabric-env deploy-staging deploy-prod refresh-skills refresh-skills-dry refresh-skills-force
+.PHONY: help install dev bootstrap demo evals test test-fast test-int test-e2e test-all lint format type-check security clean run health-databricks health-fabric fabric-env deploy-staging deploy-prod refresh-skills refresh-skills-dry refresh-skills-force
 
 # Cores para output
 CYAN := \033[36m
@@ -38,9 +38,35 @@ evals: ## Roda queries canônicas (~$$0.08) e gera scoreboard
 
 # ─── Quality ──────────────────────────────────────────────────────
 
-test: ## Executa testes com cobertura
-	TESTMON_DATAFILE=logs/.testmondata pytest tests/ -v --tb=short \
-		--cov=agents --cov=config --cov=hooks --cov=commands \
+# Phase 6 test split — categorias auto-marcadas pelos conftest.py de cada subdir:
+#   tests/unit/           → mock total, sem rede, sem MCP real, < 1s típico
+#   tests/integration/    → toca SQLite/JSONL real, offline, ~1-10s
+#   tests/e2e/            → LLM real, Databricks/Fabric real, exige credenciais
+#
+# Hierarquia:
+#   make test-fast  → só unit (iteração rápida, pre-commit)
+#   make test-int   → integration (PR check)
+#   make test-e2e   → e2e (nightly cron, exige .env completo)
+#   make test       → unit + integration (default — sem credenciais externas)
+#   make test-all   → tudo, inclusive e2e
+
+test: test-fast test-int ## Roda unit + integration com cobertura (default offline)
+
+test-fast: ## Iteração rápida — só unit/ (< 30s alvo)
+	TESTMON_DATAFILE=logs/.testmondata pytest tests/unit/ -v --tb=short \
+		--cov=agents --cov=config --cov=hooks --cov=commands --cov=utils \
+		--cov-report=term-missing \
+		--cov-fail-under=80
+
+test-int: ## PR check — integration/ (toca SQLite/JSONL local, ~1-10s)
+	pytest tests/integration/ -v --tb=short
+
+test-e2e: ## Nightly — e2e/ (exige credenciais reais no .env)
+	pytest tests/e2e/ -v --tb=short -m e2e
+
+test-all: ## Todos os testes (unit + integration + e2e) — uso manual antes de release
+	pytest tests/ -v --tb=short \
+		--cov=agents --cov=config --cov=hooks --cov=commands --cov=utils \
 		--cov-report=term-missing \
 		--cov-fail-under=80
 
