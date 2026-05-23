@@ -187,7 +187,7 @@ trap cleanup SIGINT SIGTERM
 # ── Inicia Monitoramento ──────────────────────────────────────────────────────
 if [[ "$CHAT_ONLY" == false ]]; then
   echo -e "  ${GREEN}▶${RESET}  Monitoramento  →  ${BOLD}http://localhost:$MONITOR_PORT${RESET}"
-  $STREAMLIT_CMD run monitoring/app.py \
+  $STREAMLIT_CMD run data_agents/monitoring/app.py \
     --server.port "$MONITOR_PORT" \
     --server.headless true \
     --browser.gatherUsageStats false \
@@ -221,7 +221,7 @@ if [[ "$MONITOR_ONLY" == false ]]; then
     exit 1
   fi
   echo -e "  ${GREEN}▶${RESET}  UI de Chat     →  ${BOLD}http://localhost:$CHAINLIT_PORT${RESET}"
-  $CHAINLIT_CMD run ui/chainlit_app.py \
+  $CHAINLIT_CMD run data_agents/ui/chainlit_app.py \
     --port "$CHAINLIT_PORT" \
     --host 0.0.0.0 \
     > logs/chainlit.log 2>&1 &
