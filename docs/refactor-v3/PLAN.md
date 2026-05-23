@@ -311,23 +311,30 @@ Este é o ganho **maior** depois de Governance. Todo crescimento futuro fica pro
 
 ---
 
-## FASE 9 — Versioning e Release
+## FASE 9 — Versioning e Release ✅ CONCLUÍDA
 
 **Objetivo**: release process repetível, sem editar manualmente versão em 5 lugares.
 
 ### Tasks
 
-| # | Task | Critério de aceitação |
-|---|---|---|
-| 9.1 | Criar arquivo `VERSION` (single source) | Existe, contém `3.0.0-rc1` |
-| 9.2 | `scripts/bump-version.sh patch|minor|major|rc` atualiza VERSION + pyproject.toml + README badge | Funciona, commitando em uma operação |
-| 9.3 | CI gate: `make sync-version --check` falha se VERSION ≠ pyproject.toml version | Gate ativo |
-| 9.4 | `.github/workflows/release.yml`: ao push de tag `vX.Y.Z`, builda wheel + cria GitHub Release com changelog | Tag dispara release |
-| 9.5 | (Opcional) `release.yml` também publica em PyPI via `pypi-publish` action com OIDC | Publish funciona |
-| 9.6 | Auto-changelog via `git-cliff` ou conventional commits | CHANGELOG.md atualizado por script |
+| # | Task | Critério de aceitação | Status |
+|---|---|---|---|
+| 9.1 | Investigar estado: pyproject (2.3.0), `__version__` (3.0.0-rc1), README badge (2.3.0), tags existentes (`v2.3.0-pre-refactor`) | Mapa de fontes de truth listado | ✅ |
+| 9.2 | `VERSION` file na raiz como single source + sync inicial (3.0.0-rc1 em pyproject, __init__.py, README badge) | 3 fontes em sync; validado via `import data_agents` | ✅ |
+| 9.3 | `scripts/bump-version.sh patch\|minor\|major\|rc\|final` com `--dry-run` e `--no-tag` | 5 modos testados via dry-run; commita + tagga em 1 operação | ✅ |
+| 9.4 | `.github/workflows/release.yml`: validate sync → test gate → build wheel/sdist → GitHub Release com notes extraídas da seção `[vX.Y.Z]` do CHANGELOG; SHA-pinned actions, least-privilege permissions | Dispara em push de tag `vX.Y.Z` ou `vX.Y.Z-rcN`; marca pre-release automático para `-rc/-alpha/-beta` | ✅ |
+| 9.5 | CHANGELOG.md: `[Unreleased]` (vazio) + nova seção `[3.0.0-rc1] — 2026-05-23` com tudo de Phase 5-8 | Hierarquia pronta para `bump-version.sh final` gerar `[3.0.0]` | ✅ |
 
-**Estimativa**: 2-3 dias.
-**Risco**: Baixo.
+**Resultado**:
+- 1 arquivo VERSION + 4 fontes sincronizadas (`pyproject.toml`, `data_agents/__init__.py`, `README.md` badge, `CHANGELOG.md`)
+- 1 script `bump-version.sh` com 5 modos de bump (patch/minor/major/rc/final) + 2 flags (--dry-run, --no-tag)
+- 1 workflow `release.yml` com 4 jobs (validate, test, build, release) e job 5 (publish-pypi) comentado pronto para descomentar quando trusted publisher OIDC for configurado no PyPI
+
+**Lições aprendidas**:
+- `git-cliff` / conventional-commits auto-changelog (task 9.6 original) é overkill — escrever manualmente as seções no CHANGELOG.md durante cada fase do refactor manteve as release notes mais ricas do que qualquer geração automática a partir de subject de commit. Mantém-se o padrão Keep a Changelog em prosa.
+- README badge no shields.io precisa double-dash (`Version-3.0.0--rc1`) para escapar o `-` em `rc1`. O script bump-version.sh trata isso via `${NEXT//-/--}`.
+- O `release.yml` valida sync entre tag, VERSION, pyproject.toml e __version__ ANTES de buildar — isso pega o caso em que alguém edita manualmente uma das fontes e tagga sem rodar `bump-version.sh`.
+- pre-release flag automática baseada em regex (`-rc/-alpha/-beta`) evita esquecer de marcar release candidate como pre-release no GitHub.
 
 ---
 

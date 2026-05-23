@@ -7,6 +7,13 @@
 
 ## [Unreleased]
 
+## [3.0.0-rc1] — 2026-05-23
+
+> First release candidate of the v3 refactor. Aggregates Phases 1-8 of the
+> refactor plan (`docs/refactor-v3/PLAN.md`). Not yet a final release —
+> bake-time for users testing against `refactor/v3.0` branch before
+> promoting to `3.0.0` via `scripts/bump-version.sh final`.
+
 ### Changed — Phase 8: Optional extras isolation (lighter core)
 
 The core install (`pip install ai-data-agents`) is now significantly lighter. Optional features moved behind extras with clear `ImportError` messages.
