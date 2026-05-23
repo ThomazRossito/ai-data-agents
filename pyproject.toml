@@ -173,6 +173,9 @@ markers = [
     # Categorias transversais — aplicar manualmente quando relevante.
     "requires_network: HTTP/socket reais. Implícito em e2e; explícito em integration quando aplicável.",
     "slow: runtime > 5s. Skip em iteração rápida com `pytest -m 'not slow'`.",
+    # Phase 10: perf benchmarks — só rodam com `-m perf` ou `make test-perf`.
+    # Skipped por default (flakeiam em runners CI compartilhados).
+    "perf: performance baselines com gate de regressão (20% acima do baseline = fail).",
 ]
 
 [tool.coverage.run]
