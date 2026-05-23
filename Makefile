@@ -64,6 +64,9 @@ test-int: ## PR check — integration/ (toca SQLite/JSONL local, ~1-10s)
 test-e2e: ## Nightly — e2e/ (exige credenciais reais no .env)
 	pytest tests/e2e/ -v --tb=short -m e2e
 
+test-perf: ## Phase 10 — perf baselines (skipped by default, opt-in via -m perf)
+	pytest tests/perf/ -v -m perf -s --tb=short
+
 test-all: ## Todos os testes (unit + integration + e2e) — uso manual antes de release
 	pytest tests/ -v --tb=short \
 		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
@@ -79,8 +82,11 @@ format: ## Formata código (ruff format)
 type-check: ## Verifica tipos (mypy) — namespace data_agents.*
 	mypy data_agents/
 
-security: ## Scan de segurança (bandit)
+security: ## Scan de segurança (bandit apenas — rápido)
 	bandit -r data_agents/ -ll --skip B101
+
+security-review: ## Audit completo: bandit + pip-audit + secrets scan (Phase 10)
+	bash scripts/security_review.sh
 
 # ─── Structural lints (Phase 3 — drift prevention) ──────────────────
 # Each linter validates a specific structural invariant. Run individually
