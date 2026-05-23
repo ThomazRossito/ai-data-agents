@@ -12,7 +12,7 @@ O CSS inclui @media print para resultado profissional.
 Uso:
     from ui.exporter import export_html
 
-    html_path = export_html(history, title="Sessão Data Agents")
+    html_path = export_html(history, title="Sessão AI Data Agents")
 """
 
 from __future__ import annotations
@@ -272,7 +272,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   </div>
 
   <div class="footer">
-    Data Agents — Exportado em {exported_at}
+    AI Data Agents — Exportado em {exported_at}
   </div>
 
 </body>
@@ -312,7 +312,7 @@ def _render_message(entry: dict[str, Any]) -> str:
 
 def export_html(
     chat_history: list[dict[str, Any]],
-    title: str = "Data Agents — Sessão",
+    title: str = "AI Data Agents — Sessão",
 ) -> str:
     """Gera arquivo .html com histórico renderizado. Retorna caminho absoluto."""
     messages_html = "\n".join(_render_message(e) for e in chat_history)
@@ -337,7 +337,7 @@ def export_html(
 
 def export_markdown(
     chat_history: list[dict[str, Any]],
-    title: str = "Data Agents — Sessão",
+    title: str = "AI Data Agents — Sessão",
 ) -> str:
     """
     Gera arquivo .md com histórico em Markdown puro. Retorna caminho absoluto.

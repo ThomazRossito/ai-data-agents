@@ -1,5 +1,5 @@
 """
-Bootstrap interativo do Data Agents.
+Bootstrap interativo do AI Data Agents.
 
 Gera um `.env` mínimo com apenas as credenciais essenciais:
   - ANTHROPIC_API_KEY (obrigatório)
@@ -111,7 +111,7 @@ def _collect_fabric() -> dict[str, str]:
 def _render_env(sections: dict[str, dict[str, str]]) -> str:
     """Gera o conteúdo do .env mínimo, omitindo chaves vazias."""
     lines: list[str] = [
-        "# Data Agents — .env gerado por `make bootstrap`",
+        "# AI Data Agents — .env gerado por `make bootstrap`",
         "# Para configuração completa, veja .env.example",
         "",
     ]
@@ -210,7 +210,7 @@ def _check_system_deps() -> None:
 
 def main() -> int:
     print("━" * 60)
-    print(" Data Agents — Bootstrap")
+    print(" AI Data Agents — Bootstrap")
     print("━" * 60)
     print("Este wizard cria um .env mínimo. Pode completar depois via .env.example.\n")
 

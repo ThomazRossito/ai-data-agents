@@ -36,7 +36,9 @@ class TestFrontmatterParser:
         assert meta["mcp_servers"] == ["databricks", "fabric"]
 
     def test_parse_frontmatter_without_mcp_servers(self):
-        content = '---\nname: test\ndescription: "Desc."\nmodel: kimi-k2.6\ntools: [Read]\n---\nBody.'
+        content = (
+            '---\nname: test\ndescription: "Desc."\nmodel: kimi-k2.6\ntools: [Read]\n---\nBody.'
+        )
         meta, _ = _parse_frontmatter(content)
         assert "mcp_servers" not in meta
 
@@ -131,8 +133,8 @@ class TestLoadAllAgents:
         # Família Kimi K2.6 (Moonshot, abr/2026): modelo único na API.
         # kimi-k2.5 é mantido como variante alternativa válida (visão+texto).
         valid_models = {
-            "kimi-k2.6",   # modelo padrão — todos os tiers
-            "kimi-k2.5",   # variante alternativa (vision support)
+            "kimi-k2.6",  # modelo padrão — todos os tiers
+            "kimi-k2.5",  # variante alternativa (vision support)
         }
         for name, agent in agents.items():
             assert agent.model in valid_models, f"Agente '{name}' com model inválido: {agent.model}"

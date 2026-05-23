@@ -1,1 +1,1 @@
-"""Evals — queries canônicas e runner de regressão para o Data Agents."""
+"""Evals — queries canônicas e runner de regressão para o AI Data Agents."""

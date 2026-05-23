@@ -1,5 +1,6 @@
 ---
 name: fabric-workspace-manager
+description: "Gerenciar workspaces Fabric programaticamente via REST API — lista, cria, atualiza, deleta + configura RBAC (Admin/Contributor/Member/Viewer) e vinculação de capacidade. Use para operações em lote ou automação de provisionamento de workspaces."
 updated_at: 2026-04-23
 source: web_search
 ---

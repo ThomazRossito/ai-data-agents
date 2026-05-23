@@ -1,4 +1,7 @@
 ---
+domain: pipeline-design
+updated_at: 2026-05-22
+agents: [data-mesh-architect, databricks-ai, databricks-engineer, fabric-engineer, fabric-rti, migration-expert]
 mcp_validated: "2026-04-15"
 ---
 

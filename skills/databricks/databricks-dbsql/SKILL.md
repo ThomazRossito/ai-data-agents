@@ -1,17 +1,6 @@
 ---
 name: databricks-dbsql
-description: >-
-  Databricks SQL (DBSQL) advanced features and SQL warehouse capabilities.
-  This skill MUST be invoked when the user mentions: "DBSQL", "Databricks SQL",
-  "SQL warehouse", "SQL scripting", "stored procedure", "CALL procedure",
-  "materialized view", "CREATE MATERIALIZED VIEW", "pipe syntax", "|>",
-  "geospatial", "H3", "ST_", "spatial SQL", "collation", "COLLATE",
-  "ai_query", "ai_classify", "ai_extract", "ai_gen", "AI function",
-  "http_request", "remote_query", "read_files", "Lakehouse Federation",
-  "recursive CTE", "WITH RECURSIVE", "multi-statement transaction",
-  "temp table", "temporary view", "pipe operator".
-  SHOULD also invoke when the user asks about SQL best practices, data modeling
-  patterns, or advanced SQL features on Databricks.
+description: "Databricks SQL (DBSQL) advanced features and SQL warehouse capabilities — SQL scripting (BEGIN...END, DECLARE), stored procedures, recursive CTEs, materialized views, pipe syntax (|>), geospatial (H3, ST_), collations, AI functions (ai_query/classify/extract/gen), Lakehouse Federation. Use when the task mentions DBSQL, SQL warehouse, materialized view, AI function, multi-statement transaction or advanced SQL features on Databricks."
 ---
 
 # Databricks SQL (DBSQL) - Advanced Features

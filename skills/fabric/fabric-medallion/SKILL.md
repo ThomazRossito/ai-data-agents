@@ -1,4 +1,6 @@
 ---
+name: fabric-medallion
+description: "Arquitetura Medallion (Bronze/Silver/Gold) em Fabric Lakehouse usando Delta Lake no OneLake. Use ao projetar pipelines Bronze→Silver→Gold em Fabric — inclui padrões de Tables vs Files, acesso via Spark/SQL Analytics Endpoint/Direct Lake."
 updated_at: 2026-04-16
 source: kb/fabric (lakehouse-concepts, lakehouse-patterns, shortcut-patterns, data-factory-patterns, cross-platform-concepts)
 ---

@@ -212,9 +212,7 @@ def build_supervisor_options(
                 inject_cache_prefix=True,
             )
         else:
-            _logger.info(
-                f"Lazy load ativo: {after}/{before} agentes carregados → {list(agents)}"
-            )
+            _logger.info(f"Lazy load ativo: {after}/{before} agentes carregados → {list(agents)}")
 
     # Raiz do projeto — garante que agentes resolvam caminhos relativos
     # corretamente independente do cwd do processo (ex: Chainlit vs main.py).

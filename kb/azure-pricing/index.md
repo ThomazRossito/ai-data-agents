@@ -1,3 +1,9 @@
+---
+domain: azure-pricing
+updated_at: 2026-05-22
+agents: [azure-cost-calculator]
+---
+
 # Knowledge Base — Azure Pricing & Cost Calculation
 
 > Conhecimento operacional para o agent **azure-cost-calculator**. Consultar SEMPRE antes de calcular cenários novos.

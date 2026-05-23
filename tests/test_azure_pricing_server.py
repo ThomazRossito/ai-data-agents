@@ -120,9 +120,7 @@ class TestImports:
             AZURE_PRICING_MCP_TOOLS,
         )
 
-        assert set(AZURE_PRICING_MCP_READONLY_TOOLS).issubset(
-            set(AZURE_PRICING_MCP_TOOLS)
-        )
+        assert set(AZURE_PRICING_MCP_READONLY_TOOLS).issubset(set(AZURE_PRICING_MCP_TOOLS))
 
 
 # ─── Helpers Internos ────────────────────────────────────────────────────────
@@ -253,18 +251,14 @@ class TestTools:
     def test_estimate_monthly_cost_invalid_json(self):
         from mcp_servers.azure_pricing import server
 
-        result = server.azure_pricing_estimate_monthly_cost(
-            resources_json="not valid json"
-        )
+        result = server.azure_pricing_estimate_monthly_cost(resources_json="not valid json")
         data = json.loads(result)
         assert "error" in data
 
     def test_estimate_monthly_cost_not_a_list(self):
         from mcp_servers.azure_pricing import server
 
-        result = server.azure_pricing_estimate_monthly_cost(
-            resources_json='{"not": "a list"}'
-        )
+        result = server.azure_pricing_estimate_monthly_cost(resources_json='{"not": "a list"}')
         data = json.loads(result)
         assert "error" in data
 
@@ -342,12 +336,8 @@ class TestTools:
     def test_generate_calculator_url_returns_links(self):
         from mcp_servers.azure_pricing import server
 
-        resources = json.dumps(
-            [{"label": "AI Search", "service_name": "Azure AI Search"}]
-        )
-        result = server.azure_pricing_generate_calculator_url(
-            resources_json=resources
-        )
+        resources = json.dumps([{"label": "AI Search", "service_name": "Azure AI Search"}])
+        result = server.azure_pricing_generate_calculator_url(resources_json=resources)
         data = json.loads(result)
 
         assert "calculator_base_url" in data
@@ -357,9 +347,7 @@ class TestTools:
     def test_generate_calculator_url_invalid_json(self):
         from mcp_servers.azure_pricing import server
 
-        result = server.azure_pricing_generate_calculator_url(
-            resources_json="invalid"
-        )
+        result = server.azure_pricing_generate_calculator_url(resources_json="invalid")
         data = json.loads(result)
         assert "error" in data
 
@@ -401,8 +389,7 @@ class TestRealAPI:
 
         server._PRICE_CACHE.clear()
         result = server._query_retail_api(
-            "serviceName eq 'Storage' and armRegionName eq 'eastus' "
-            "and skuName eq 'Standard_LRS'",
+            "serviceName eq 'Storage' and armRegionName eq 'eastus' and skuName eq 'Standard_LRS'",
             max_results=1,
         )
         assert isinstance(result, list)
@@ -440,9 +427,7 @@ class TestConfigRegistration:
 
         import yaml
 
-        commands_path = (
-            Path(__file__).parent.parent / "config" / "commands.yaml"
-        )
+        commands_path = Path(__file__).parent.parent / "config" / "commands.yaml"
         with open(commands_path) as f:
             data = yaml.safe_load(f)
 
@@ -452,12 +437,7 @@ class TestConfigRegistration:
     def test_agent_registry_file_exists(self):
         from pathlib import Path
 
-        path = (
-            Path(__file__).parent.parent
-            / "agents"
-            / "registry"
-            / "azure-cost-calculator.md"
-        )
+        path = Path(__file__).parent.parent / "agents" / "registry" / "azure-cost-calculator.md"
         assert path.exists()
         content = path.read_text()
         assert "name: azure-cost-calculator" in content

@@ -1,5 +1,5 @@
 """
-Data Agents — Entry Point Principal
+AI Data Agents — Entry Point Principal
 
 Sistema Multi-Agentes para Engenharia e Análise de Dados.
 Suporta dois modos:
@@ -451,7 +451,9 @@ async def _stream_response(
                     elif _last_tool_name in ("Read", "Glob", "Grep"):
                         next_msg = f"📖 Refletindo sobre o que leu (etapa {turn_count})..."
                     elif _last_tool_name == "Write":
-                        next_msg = f"✍️  Decidindo próximo passo após escrita (etapa {turn_count})..."
+                        next_msg = (
+                            f"✍️  Decidindo próximo passo após escrita (etapa {turn_count})..."
+                        )
                     elif _last_tool_name == "Bash":
                         next_msg = f"⚡ Analisando saída do comando (etapa {turn_count})..."
                     elif _last_tool_name == "AskUserQuestion":
@@ -1630,9 +1632,7 @@ async def run_single_query(prompt: str) -> None:
     if is_plan_or_free:
         try:
             available = preload_registry()
-            selected, confidence, reason = await dispatcher_select_agents(
-                prompt, available
-            )
+            selected, confidence, reason = await dispatcher_select_agents(prompt, available)
             selected_agents = dispatcher_apply_fallback(selected, confidence, available)
             log_line = dispatcher_format_log(
                 selected, selected_agents, confidence, reason, len(available)
@@ -1724,14 +1724,13 @@ async def run_single_query(prompt: str) -> None:
             real_cost = real_cost_from_message(message)
             if real_cost > 0:
                 console.print(
-                    f"\n[dim]Custo: ${real_cost:.5f} | "
-                    f"Turns: {message.num_turns or 0}[/dim]"
+                    f"\n[dim]Custo: ${real_cost:.5f} | Turns: {message.num_turns or 0}[/dim]"
                 )
             log_session_result(message, prompt_preview=prompt[:100], session_type="single_query")
 
 
 def main() -> None:
-    """Entry point principal do Data Agents."""
+    """Entry point principal do AI Data Agents."""
     if len(sys.argv) > 1:
         prompt = " ".join(sys.argv[1:])
         asyncio.run(run_single_query(prompt))

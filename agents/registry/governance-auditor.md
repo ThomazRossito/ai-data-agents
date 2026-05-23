@@ -4,7 +4,7 @@ description: "Especialista em Governança de Dados. Use para: auditoria de acess
 model: kimi-k2.6
 tools: [Read, Write, Grep, Glob, databricks_readonly, mcp__databricks__execute_sql, fabric_readonly, fabric_official_readonly, mcp__fabric_community__get_lineage, mcp__fabric_community__get_dependencies, tavily_all, postgres_all, memory_mcp_all]
 mcp_servers: [databricks, fabric, fabric_community, fabric_official, tavily, postgres, memory_mcp]
-kb_domains: [governance, databricks, fabric]
+kb_domains: [governance, databricks, fabric, industry]
 skill_domains: [databricks, fabric]
 tier: T2
 output_budget: "80-250 linhas"

@@ -117,9 +117,7 @@ class TestBuildSupervisorOptions:
         """
         from config.settings import settings
 
-        monkeypatch.setattr(
-            settings, "anthropic_base_url", "https://api.moonshot.ai/anthropic"
-        )
+        monkeypatch.setattr(settings, "anthropic_base_url", "https://api.moonshot.ai/anthropic")
         mock_class, _ = self._make_mock_options_class()
         captured_kwargs = {}
 

@@ -473,7 +473,7 @@ class Settings(BaseSettings):
         Deriva paths de memória a partir de project_id quando vazios.
 
         Garante isolamento entre projetos que compartilham o filesystem (ex:
-        quando alguém copia data-agents/ → data-agents-api/, os arquivos não
+        quando alguém copia data-agents/ → ai-data-agents/, os arquivos não
         ficam misturados).
 
         Estrutura derivada:

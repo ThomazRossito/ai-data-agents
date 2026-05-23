@@ -130,7 +130,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="data-agents-api · visualization",
+    title="ai-data-agents · visualization",
     description="Visualização 3D do escritório dos agentes em tempo real",
     version="0.1.0",
     lifespan=lifespan,
@@ -202,7 +202,9 @@ async def list_agents() -> dict[str, Any]:
         ]
     except Exception as e:  # noqa: BLE001
         logger.warning(f"falha ao carregar registry ({e}); usando roster estático")
-        agents = [{"name": n, "tier": _static_tier(n), "description": ""} for n in sorted(KNOWN_AGENTS)]
+        agents = [
+            {"name": n, "tier": _static_tier(n), "description": ""} for n in sorted(KNOWN_AGENTS)
+        ]
 
     return {"agents": agents, "count": len(agents)}
 
@@ -252,7 +254,9 @@ if WARCRAFT_DIR.exists():
     app.mount("/warcraft/static", StaticFiles(directory=str(WARCRAFT_DIR)), name="warcraft_static")
 
 if DATACENTER_DIR.exists():
-    app.mount("/datacenter/static", StaticFiles(directory=str(DATACENTER_DIR)), name="datacenter_static")
+    app.mount(
+        "/datacenter/static", StaticFiles(directory=str(DATACENTER_DIR)), name="datacenter_static"
+    )
 
 
 @app.middleware("http")
@@ -260,7 +264,12 @@ async def no_cache_on_static(request, call_next):
     """Desabilita cache em /static, /warcraft e / pra evitar JS/HTML obsoletos durante dev."""
     response = await call_next(request)
     path = request.url.path
-    if path == "/" or path.startswith("/static") or path.startswith("/warcraft") or path.startswith("/datacenter"):
+    if (
+        path == "/"
+        or path.startswith("/static")
+        or path.startswith("/warcraft")
+        or path.startswith("/datacenter")
+    ):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"

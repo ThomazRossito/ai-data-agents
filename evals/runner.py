@@ -353,7 +353,7 @@ def _filter_queries(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Data Agents — Evals runner")
+    parser = argparse.ArgumentParser(description="AI Data Agents — Evals runner")
     parser.add_argument("--domain", help="Filtra por domain (ex: conceptual, sql, spark)")
     parser.add_argument("--id", help="Executa só a query com esse id")
     parser.add_argument("--limit", type=int, help="Limita ao N primeiras queries")
@@ -366,7 +366,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     print("━" * 60)
-    print(" Data Agents — Evals Runner")
+    print(" AI Data Agents — Evals Runner")
     print("━" * 60)
 
     try:

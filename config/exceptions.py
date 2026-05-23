@@ -1,5 +1,5 @@
 """
-Hierarquia de exceções customizadas do Data Agents.
+Hierarquia de exceções customizadas do AI Data Agents.
 
 Todas as exceções do projeto herdam de DataAgentsError, permitindo
 captura granular por tipo ou genérica pela classe base.
@@ -15,7 +15,7 @@ Uso:
 
 
 class DataAgentsError(Exception):
-    """Classe base para todas as exceções do Data Agents."""
+    """Classe base para todas as exceções do AI Data Agents."""
 
     def __init__(self, message: str = "", *args, **kwargs):
         self.message = message

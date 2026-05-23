@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# Data Agents API (Kimi K2.6) — start.sh
+# AI Data Agents (Kimi K2.6) — start.sh
 # Inicia a UI de Chat (Chainlit, porta 8513) e o App de Monitoramento
 # (Streamlit, porta 8511) juntos em segundo plano, com shutdown limpo ao
 # pressionar Ctrl+C.
@@ -71,7 +71,7 @@ done
 # ── Banner ────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}${CYAN}╔════════════════════════════════════════════╗${RESET}"
-echo -e "${BOLD}${CYAN}║   Data Agents API · Kimi K2.6 (Moonshot)   ║${RESET}"
+echo -e "${BOLD}${CYAN}║   AI Data Agents · Kimi K2.6 (Moonshot)   ║${RESET}"
 echo -e "${BOLD}${CYAN}║   Chat:    porta ${CHAINLIT_PORT}                       ║${RESET}"
 echo -e "${BOLD}${CYAN}║   Monitor: porta ${MONITOR_PORT}                       ║${RESET}"
 echo -e "${BOLD}${CYAN}╚════════════════════════════════════════════╝${RESET}"

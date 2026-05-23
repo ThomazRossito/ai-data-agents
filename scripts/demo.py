@@ -1,5 +1,5 @@
 """
-Demo canônico do Data Agents.
+Demo canônico do AI Data Agents.
 
 Executa uma query que requer apenas `ANTHROPIC_API_KEY` — roteia para o
 agente `geral` (Kimi K2.6, zero MCP, zero Supervisor). Serve de smoke
@@ -58,7 +58,7 @@ async def _run_demo() -> int:
     from commands.geral import run_geral_query
 
     print("━" * 60)
-    print(" Data Agents — Demo (Kimi K2.6, zero MCP)")
+    print(" AI Data Agents — Demo (Kimi K2.6, zero MCP)")
     print("━" * 60)
     print(f"\nQuery: {DEMO_QUERY}\n")
     print("Executando… (costuma levar 3-8s)\n")

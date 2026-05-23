@@ -155,7 +155,7 @@ async def select_agents(
             "x-api-key": settings.anthropic_api_key,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
-            "User-Agent": "data-agents-api/1.0 dispatcher",
+            "User-Agent": "ai-data-agents/1.0 dispatcher",
         },
         method="POST",
     )
@@ -212,9 +212,7 @@ async def select_agents(
     ]
 
     if not selected:
-        logger.warning(
-            f"Dispatcher retornou nenhum agente válido (raw={raw_agents}) — fallback"
-        )
+        logger.warning(f"Dispatcher retornou nenhum agente válido (raw={raw_agents}) — fallback")
         return _all_delegatable(available), 0.0, "empty_selection"
 
     logger.info(

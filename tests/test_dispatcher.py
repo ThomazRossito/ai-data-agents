@@ -270,9 +270,7 @@ class TestSelectAgents:
     async def test_fallback_on_invalid_json(self):
         """Modelo retorna texto não-JSON: fallback retorna todos os agentes."""
         available = _make_available("databricks-engineer", "fabric-engineer", "geral")
-        mock_api = self._mock_response(
-            {"content": [{"text": "isso aqui não é JSON nenhum"}]}
-        )
+        mock_api = self._mock_response({"content": [{"text": "isso aqui não é JSON nenhum"}]})
         with patch("urllib.request.urlopen", return_value=mock_api):
             agents, conf, reason = await select_agents("query", available)
         # Fallback inclui todos exceto geral
@@ -285,15 +283,7 @@ class TestSelectAgents:
         """Modelo retorna agents=[] (lista vazia): fallback."""
         available = _make_available("databricks-engineer", "geral")
         mock_api = self._mock_response(
-            {
-                "content": [
-                    {
-                        "text": json.dumps(
-                            {"agents": [], "confidence": 0.5, "reason": "ok"}
-                        )
-                    }
-                ]
-            }
+            {"content": [{"text": json.dumps({"agents": [], "confidence": 0.5, "reason": "ok"})}]}
         )
         with patch("urllib.request.urlopen", return_value=mock_api):
             agents, conf, reason = await select_agents("query", available)
@@ -323,9 +313,11 @@ class TestSelectAgents:
     async def test_handles_markdown_fenced_response(self):
         """Modelo às vezes envolve JSON em ```json ... ```; deve parsear OK."""
         available = _make_available("databricks-engineer")
-        fenced = "```json\n" + json.dumps(
-            {"agents": ["databricks-engineer"], "confidence": 0.9, "reason": "ok"}
-        ) + "\n```"
+        fenced = (
+            "```json\n"
+            + json.dumps({"agents": ["databricks-engineer"], "confidence": 0.9, "reason": "ok"})
+            + "\n```"
+        )
         mock_api = self._mock_response({"content": [{"text": fenced}]})
         with patch("urllib.request.urlopen", return_value=mock_api):
             agents, conf, _ = await select_agents("query", available)

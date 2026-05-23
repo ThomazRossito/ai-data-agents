@@ -1,4 +1,6 @@
 ---
+name: fabric-notebook-manager
+description: "Gerenciar notebooks Fabric programaticamente via REST API (getDefinition/updateDefinition). Use ao adicionar, editar, remover ou listar células de notebooks sem abrir o Portal — resolve o ciclo base64 + parse JSON .ipynb numa abstração única."
 updated_at: "2026-04-16"
 source: firecrawl + knowledge-base
 status: current

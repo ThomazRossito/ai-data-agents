@@ -1,4 +1,6 @@
 ---
+name: fabric-deployment-pipelines
+description: "Gerenciar deployment pipelines do Fabric (CI/CD dev→test→prod) via REST API. Use ao criar pipelines, configurar estágios, atribuir workspaces, executar deploys e monitorar operações com LRO polling."
 updated_at: 2026-04-16
 source: firecrawl + skill-cross-reference
 ---

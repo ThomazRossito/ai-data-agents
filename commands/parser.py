@@ -1,5 +1,5 @@
 """
-Parser de Slash Commands para o Data Agents CLI.
+Parser de Slash Commands para o AI Data Agents CLI.
 
 As definições de comandos vivem em `config/commands.yaml` — fonte única de verdade.
 Este módulo é apenas um loader + parser + help generator.
@@ -21,8 +21,20 @@ import yaml
 # um path de arquivo como argumento de um slash command. Outras (binárias,
 # PDF, imagens) NÃO expandimos — o agente que use Read se precisar.
 _INLINE_EXPAND_SUFFIXES = {
-    ".md", ".txt", ".json", ".yaml", ".yml", ".csv", ".tsv", ".log",
-    ".sql", ".py", ".jsonl", ".xml", ".html", ".sh",
+    ".md",
+    ".txt",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".csv",
+    ".tsv",
+    ".log",
+    ".sql",
+    ".py",
+    ".jsonl",
+    ".xml",
+    ".html",
+    ".sh",
 }
 
 # Limite de tamanho pra expansão automática (500 KB).
@@ -68,12 +80,7 @@ def _maybe_expand_file(task: str) -> str:
         return task
 
     # Embute com cabeçalho de proveniência pro agente saber o que é
-    return (
-        f"[Arquivo: `{p}` · {size} bytes]\n\n"
-        f"```{p.suffix.lstrip('.') or 'text'}\n"
-        f"{content}\n"
-        f"```"
-    )
+    return f"[Arquivo: `{p}` · {size} bytes]\n\n```{p.suffix.lstrip('.') or 'text'}\n{content}\n```"
 
 
 @dataclass(frozen=True)
@@ -180,6 +187,6 @@ def get_help_text() -> str:
     lines.append(
         "  [bold cyan]limpar[/bold cyan]        Reseta a sessão atual (salva checkpoint antes)."
     )
-    lines.append("  [bold cyan]sair[/bold cyan]          Encerra o Data Agents.")
+    lines.append("  [bold cyan]sair[/bold cyan]          Encerra o AI Data Agents.")
     lines.append("")
     return "\n".join(lines)

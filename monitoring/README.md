@@ -1,4 +1,4 @@
-# Monitoramento — Data Agents
+# Monitoramento — AI Data Agents
 
 Dashboard em tempo real para acompanhar execuções, logs, MCP servers e configurações do projeto.
 

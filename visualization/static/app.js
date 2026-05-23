@@ -1,5 +1,5 @@
 /**
- * data-agents-api · escritório dos agentes
+ * ai-data-agents · escritório dos agentes
  *
  * Three.js cena isométrica + WebSocket client conectando ao backend
  * /events. Reage a 4 tipos de evento:

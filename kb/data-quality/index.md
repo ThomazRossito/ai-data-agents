@@ -1,4 +1,7 @@
 ---
+domain: data-quality
+updated_at: 2026-05-22
+agents: [data-contracts-engineer, data-quality-steward, fabric-engineer]
 mcp_validated: "2026-04-15"
 ---
 

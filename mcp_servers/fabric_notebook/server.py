@@ -102,9 +102,7 @@ def _resolve_workspace_id(workspace_id: str | None) -> str:
     """Workspace explícito ganha; fallback é FABRIC_WORKSPACE_ID do .env."""
     ws = (workspace_id or "").strip() or os.environ.get("FABRIC_WORKSPACE_ID", "").strip()
     if not ws:
-        raise RuntimeError(
-            "workspace_id não fornecido e FABRIC_WORKSPACE_ID não está no .env"
-        )
+        raise RuntimeError("workspace_id não fornecido e FABRIC_WORKSPACE_ID não está no .env")
     return ws
 
 
@@ -487,10 +485,7 @@ def fabric_notebook_run(
     if not REQUESTS_AVAILABLE:
         return {"error": "requests não instalado"}
     ws = _resolve_workspace_id(workspace_id)
-    url = (
-        f"{_BASE_URL}/workspaces/{ws}/items/{item_id}/jobs/instances"
-        f"?jobType=RunNotebook"
-    )
+    url = f"{_BASE_URL}/workspaces/{ws}/items/{item_id}/jobs/instances?jobType=RunNotebook"
     body: dict[str, Any] = {}
     if parameters:
         body["executionData"] = {"parameters": parameters}
@@ -568,10 +563,7 @@ def fabric_pipeline_run(
     if not REQUESTS_AVAILABLE:
         return {"error": "requests não instalado"}
     ws = _resolve_workspace_id(workspace_id)
-    url = (
-        f"{_BASE_URL}/workspaces/{ws}/items/{item_id}/jobs/instances"
-        f"?jobType=Pipeline"
-    )
+    url = f"{_BASE_URL}/workspaces/{ws}/items/{item_id}/jobs/instances?jobType=Pipeline"
     body: dict[str, Any] = {}
     if parameters:
         body["executionData"] = {"parameters": parameters}
@@ -632,10 +624,7 @@ def fabric_notebook_cleanup_test_items(
     if "error" in listing:
         return listing
     pat = re.compile(pattern)
-    matched = [
-        nb for nb in listing["notebooks"]
-        if pat.match(nb.get("displayName", ""))
-    ]
+    matched = [nb for nb in listing["notebooks"] if pat.match(nb.get("displayName", ""))]
     if not apply:
         return {"matched": matched, "dry_run": True, "deleted": [], "failed": []}
 

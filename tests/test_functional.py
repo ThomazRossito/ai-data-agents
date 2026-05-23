@@ -1,5 +1,5 @@
 """
-Bateria de Testes Funcionais — Data Agents v8.x
+Bateria de Testes Funcionais — AI Data Agents v8.x
 
 Cobre 10+ cenários críticos introduzidos ou impactados pelas mudanças:
   1. DOMA Renaming — nenhuma ocorrência de "BMAD" em arquivos de código

@@ -1,5 +1,5 @@
 # ════════════════════════════════════════════════════════════════════════════
-# Slash Commands — Data Agents
+# Slash Commands — AI Data Agents
 # ════════════════════════════════════════════════════════════════════════════
 # Fonte única de verdade para o parser em commands/parser.py.
 # Adicionar ou editar comandos aqui; o loader carrega automaticamente.
@@ -164,7 +164,7 @@ commands:
     description: |-
       Envia tarefa Python diretamente para o Python Expert (DOMA Express). Use para: pacotes, automação, APIs REST, CLIs, testes pytest, pandas/polars, FastAPI.
     skills:
-    - kb/python/index.md
+    - kb/python-patterns/index.md
     prompt_template: |-
       [DOMA EXPRESS] Delegue IMEDIATAMENTE para python-expert. Não crie PRD, não peça aprovação. Instrua o agente a buscar documentação atualizada via context7 se necessário e a seguir PEP 8, type hints e mínimo de dependências externas. Tarefa: {task}
     display_template: '[bold yellow]🐍 [DOMA Express] Direcionando para: {agent}[/bold yellow]'

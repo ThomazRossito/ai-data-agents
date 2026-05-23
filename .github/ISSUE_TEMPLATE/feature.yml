@@ -1,0 +1,91 @@
+name: ✨ Feature Request
+description: Propose a new feature or enhancement
+title: "[Feature] "
+labels: ["enhancement", "needs-triage"]
+assignees:
+  - ThomazRossito
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a feature. Before submitting:
+        - Search [existing issues](https://github.com/ThomazRossito/ai-data-agents/issues?q=is%3Aissue) and the [roadmap](https://github.com/ThomazRossito/ai-data-agents/blob/main/docs/refactor-v3/PLAN.md).
+        - For large features, consider opening a [Discussion](https://github.com/ThomazRossito/ai-data-agents/discussions) first.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature category
+      options:
+        - New agent
+        - New MCP server
+        - New Knowledge Base domain
+        - New Skill
+        - New slash command
+        - New hook
+        - Memory system enhancement
+        - UI enhancement (Chainlit / monitoring / visualization)
+        - Performance / cost optimization
+        - Developer experience / tooling
+        - Documentation
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the user need or workflow gap.
+      placeholder: |
+        Today, when migrating from Snowflake to Databricks, the migration-expert needs DDL via Snowflake connector — but no MCP server for Snowflake exists.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would this work? Sketch the API/interface if relevant.
+      placeholder: |
+        Add `mcp_servers/snowflake/` analogous to `mcp_servers/migration_source/`. Expose tools list_schemas/list_tables/get_table_ddl. Auth via SNOWFLAKE_ACCOUNT + SNOWFLAKE_USER + SNOWFLAKE_PRIVATE_KEY in .env.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches and why they were not chosen.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Estimated scope
+      options:
+        - Small (< 1 day — config, docs, single function)
+        - Medium (1-3 days — new agent or KB)
+        - Large (1-2 weeks — new MCP server)
+        - X-Large (> 2 weeks — architectural change, ADR required)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: willingness
+    attributes:
+      label: Implementation
+      options:
+        - label: I am willing to submit a PR for this feature.
+        - label: I would need help / guidance to implement this.
+        - label: I am only proposing — leaving implementation to maintainers.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmations
+      options:
+        - label: I have searched for similar feature requests.
+          required: true
+        - label: This feature aligns with the project's scope (multi-agent system for Databricks + Fabric).
+          required: true

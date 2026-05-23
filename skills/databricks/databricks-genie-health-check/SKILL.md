@@ -1,5 +1,6 @@
 ---
-skill: databricks-genie-health-check
+name: databricks-genie-health-check
+description: "Playbook de 20 verificações em 5 dimensões para avaliar saúde, cobertura e qualidade de Genie Spaces no Databricks. Use ao precisar auditar ou diagnosticar um Genie Space — gera relatório com nota A-F por dimensão e ações corretivas priorizadas."
 type: operational-playbook
 agents: [databricks-engineer, fabric-engineer]
 tools: [mcp__databricks_genie__genie_ask, mcp__databricks_genie__list_spaces, mcp__databricks__execute_sql, mcp__databricks__get_query_history]

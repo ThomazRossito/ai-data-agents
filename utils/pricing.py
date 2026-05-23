@@ -149,9 +149,7 @@ def recompute_cost_from_message(message: Any) -> CostBreakdown:
                     input_tokens += _safe_int_dict(mu, "input_tokens", 0)
                     output_tokens += _safe_int_dict(mu, "output_tokens", 0)
                     cache_read_tokens += _safe_int_dict(mu, "cache_read_input_tokens", 0)
-                    cache_creation_tokens += _safe_int_dict(
-                        mu, "cache_creation_input_tokens", 0
-                    )
+                    cache_creation_tokens += _safe_int_dict(mu, "cache_creation_input_tokens", 0)
 
     # 3) Fallback final: atributos diretos (defensivo, caso o SDK mude)
     if input_tokens == 0 and output_tokens == 0:
@@ -172,7 +170,9 @@ def recompute_cost_from_message(message: Any) -> CostBreakdown:
         output_tokens=output_tokens,
         cache_read_tokens=cache_read_tokens,
         cost_input_usd=round((input_tokens / 1_000_000) * PRICING_KIMI_K2_6["input_per_mtok"], 6),
-        cost_output_usd=round((output_tokens / 1_000_000) * PRICING_KIMI_K2_6["output_per_mtok"], 6),
+        cost_output_usd=round(
+            (output_tokens / 1_000_000) * PRICING_KIMI_K2_6["output_per_mtok"], 6
+        ),
         cost_cache_read_usd=round(
             (cache_read_tokens / 1_000_000) * PRICING_KIMI_K2_6["cache_read_per_mtok"], 6
         ),
@@ -193,9 +193,7 @@ def real_cost_from_message(message: Any) -> float:
     if breakdown.input_tokens == 0 and breakdown.output_tokens == 0:
         # Sem tokens — não podemos recalcular. Devolve o que o SDK disse.
         sdk_cost = _safe_float_attr(message, "total_cost_usd", 0.0)
-        logger.debug(
-            "recompute_cost: sem tokens disponíveis, usando valor do SDK (%.6f)", sdk_cost
-        )
+        logger.debug("recompute_cost: sem tokens disponíveis, usando valor do SDK (%.6f)", sdk_cost)
         return sdk_cost
     return breakdown.total_cost_usd
 

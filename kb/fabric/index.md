@@ -1,4 +1,7 @@
 ---
+domain: fabric
+updated_at: 2026-05-22
+agents: [data-contracts-engineer, data-mesh-architect, data-quality-steward, fabric-engineer, fabric-ontology, fabric-rti, governance-auditor, migration-expert]
 mcp_validated: "2026-04-15"
 ---
 

@@ -1,4 +1,7 @@
 ---
+domain: python-patterns
+updated_at: 2026-05-22
+agents: [databricks-ai, python-expert]
 mcp_validated: "2026-04-16"
 ---
 

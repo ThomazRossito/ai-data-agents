@@ -184,7 +184,7 @@ def extract_memories_from_conversation(
             "x-api-key": settings.anthropic_api_key,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
-            "User-Agent": "data-agents-api/1.0 memory-extractor",
+            "User-Agent": "ai-data-agents/1.0 memory-extractor",
         },
         method="POST",
     )

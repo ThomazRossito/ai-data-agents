@@ -1,4 +1,6 @@
 ---
+name: azure-pricing
+description: "Playbook conversational-first para o agent azure-cost-calculator construir cenários Azure (Foundry, AI Search, Fabric, OpenAI, Databricks) a partir de descrições em linguagem natural. Inclui padrões enterprise vs simple, comparação multi-região, TCO 12/24/36 meses."
 updated_at: 2026-05-17
 source: kb/azure-pricing (index, patterns/openai-foundry-billing, patterns/bundle-skus)
 agent: azure-cost-calculator

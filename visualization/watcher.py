@@ -65,7 +65,9 @@ class _JsonlFileState:
 
         if current_size < self.offset:
             # Truncate ou rotação — reseta tudo
-            logger.info(f"{self.path.name}: detectado truncate ({current_size} < {self.offset}), resetando")
+            logger.info(
+                f"{self.path.name}: detectado truncate ({current_size} < {self.offset}), resetando"
+            )
             self.offset = 0
             self.partial = ""
 
@@ -145,9 +147,7 @@ class JsonlTailer:
                 d.mkdir(parents=True, exist_ok=True)
                 self._observer.schedule(handler, str(d), recursive=False)
         self._observer.start()
-        logger.info(
-            f"JsonlTailer iniciado. Fontes: {[str(p) for p in self.sources.values()]}"
-        )
+        logger.info(f"JsonlTailer iniciado. Fontes: {[str(p) for p in self.sources.values()]}")
 
     def stop(self) -> None:
         if self._observer is None:

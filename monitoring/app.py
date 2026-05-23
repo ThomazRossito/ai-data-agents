@@ -1,6 +1,6 @@
 """
 monitoring/app.py — Dashboard de Monitoramento em Tempo Real
-Data Agents Project
+AI Data Agents Project
 
 Uso:
    python -m streamlit run monitoring/app.py
@@ -35,7 +35,7 @@ def to_sp(ts: str) -> str:
 
 # ── Configuração da página ────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Data Agents API · Kimi K2.6",
+    page_title="AI Data Agents · Kimi K2.6",
     page_icon="🌙",  # lua = Moonshot
     layout="wide",
     initial_sidebar_state="expanded",
@@ -83,7 +83,7 @@ st.markdown(
 st.markdown(
     """
 <div class="k2-header">
-    <h3>🌙 Data Agents API · Powered by Kimi K2.6 (Moonshot)
+    <h3>🌙 AI Data Agents · Powered by Kimi K2.6 (Moonshot)
         <span class="k2-badge">api.moonshot.ai/anthropic</span>
     </h3>
     <p>Sistema multi-agente sobre Claude Agent SDK + endpoint compatível Anthropic ·
@@ -267,21 +267,21 @@ def analyse_app(records: list[dict]) -> dict:
 #: hardcode aqui. Quando um novo MCP for adicionado ao registry, basta
 #: incluir um entry aqui para o dashboard exibir bonito.
 _MCP_DISPLAY: dict[str, dict[str, str]] = {
-    "databricks":         {"label": "Databricks",                     "icon": "🟠"},
-    "databricks_genie":   {"label": "Databricks Genie",               "icon": "🧞"},
-    "fabric":             {"label": "Microsoft Fabric",               "icon": "🔵"},
-    "fabric_official":    {"label": "Fabric Official",                "icon": "🟦"},
-    "fabric_sql":         {"label": "Fabric SQL Analytics Endpoint",  "icon": "🔷"},
-    "fabric_rti":         {"label": "Fabric Real-Time Intelligence",  "icon": "🟣"},
-    "fabric_semantic":    {"label": "Fabric Semantic Models",         "icon": "💎"},
-    "fabric_ontology":    {"label": "Fabric IQ Ontology",             "icon": "🦉"},
-    "context7":           {"label": "Context7 (docs)",                "icon": "📚"},
-    "tavily":             {"label": "Tavily (web search)",            "icon": "🔍"},
-    "github":             {"label": "GitHub",                         "icon": "🐙"},
-    "firecrawl":          {"label": "Firecrawl (web scrape)",         "icon": "🔥"},
-    "postgres":           {"label": "PostgreSQL",                     "icon": "🐘"},
-    "migration_source":   {"label": "Migration Source",               "icon": "🛤️"},
-    "memory_mcp":         {"label": "Memory (knowledge graph)",       "icon": "🧠"},
+    "databricks": {"label": "Databricks", "icon": "🟠"},
+    "databricks_genie": {"label": "Databricks Genie", "icon": "🧞"},
+    "fabric": {"label": "Microsoft Fabric", "icon": "🔵"},
+    "fabric_official": {"label": "Fabric Official", "icon": "🟦"},
+    "fabric_sql": {"label": "Fabric SQL Analytics Endpoint", "icon": "🔷"},
+    "fabric_rti": {"label": "Fabric Real-Time Intelligence", "icon": "🟣"},
+    "fabric_semantic": {"label": "Fabric Semantic Models", "icon": "💎"},
+    "fabric_ontology": {"label": "Fabric IQ Ontology", "icon": "🦉"},
+    "context7": {"label": "Context7 (docs)", "icon": "📚"},
+    "tavily": {"label": "Tavily (web search)", "icon": "🔍"},
+    "github": {"label": "GitHub", "icon": "🐙"},
+    "firecrawl": {"label": "Firecrawl (web scrape)", "icon": "🔥"},
+    "postgres": {"label": "PostgreSQL", "icon": "🐘"},
+    "migration_source": {"label": "Migration Source", "icon": "🛤️"},
+    "memory_mcp": {"label": "Memory (knowledge graph)", "icon": "🧠"},
 }
 
 
@@ -346,7 +346,7 @@ def infer_mcp_status(audit: dict, app_records: list[dict]) -> dict:
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.title("🤖 Data Agents")
+    st.title("🤖 AI Data Agents")
     st.caption("Monitoramento em Tempo Real")
     st.divider()
 
@@ -518,9 +518,7 @@ if page == "📊 Overview":
     if session_records:
         total_session_cost = sum(r.get("total_cost_usd", 0) or 0 for r in session_records)
         # SDK reportou (Anthropic prices) — útil pra ver "fator de inflação"
-        total_sdk_reported = sum(
-            r.get("sdk_reported_cost_usd", 0) or 0 for r in session_records
-        )
+        total_sdk_reported = sum(r.get("sdk_reported_cost_usd", 0) or 0 for r in session_records)
         # Se não temos sdk_reported, estimamos via fator 5.45x (Sonnet/K2.6 input ratio)
         if total_sdk_reported == 0 and total_session_cost > 0:
             total_sdk_reported = total_session_cost * 5.45
@@ -1022,7 +1020,9 @@ elif page == "🤖 Agentes":
                     st.caption(agent.get("description", "")[:200])
                     c1, c2, c3, c4 = st.columns(4)
                     c1.metric("Tier", tier)
-                    c2.metric("Modelo", model.replace("kimi-", "").replace("-", " ").replace(".", " "))
+                    c2.metric(
+                        "Modelo", model.replace("kimi-", "").replace("-", " ").replace(".", " ")
+                    )
                     c3.metric("Delegações", deleg_count)
                     c4.metric("Em Workflows", wf_count)
                     if tools:
@@ -1239,7 +1239,9 @@ elif page == "⚡ Execuções":
         # Quando ainda não há tool calls registradas, df_tools fica vazio (sem colunas)
         # — st.column_config.ProgressColumn quebraria com KeyError. Usa render simples.
         if df_tools.empty or "Chamadas" not in df_tools.columns:
-            st.info("Nenhuma chamada de ferramenta registrada ainda. Use o sistema para popular este audit log.")
+            st.info(
+                "Nenhuma chamada de ferramenta registrada ainda. Use o sistema para popular este audit log."
+            )
         else:
             st.dataframe(
                 df_tools,
@@ -1686,22 +1688,20 @@ elif page == "💰 Custo & Tokens":
 
         # ── Estimativa de pricing ──
         st.subheader("💡 Referência de Pricing (Moonshot API — Kimi K2.6)")
-        st.caption(
-            "Modelo único na API. Thinking ligado/desligado via parâmetro — sem variantes."
-        )
+        st.caption("Modelo único na API. Thinking ligado/desligado via parâmetro — sem variantes.")
 
         pricing_data = pd.DataFrame(
             [
                 {
                     "Modelo": "kimi-k2.6",
-                    "Modo": "thinking={\"type\":\"adaptive\"} — /plan",
+                    "Modo": 'thinking={"type":"adaptive"} — /plan',
                     "Input ($/1M tokens)": "$0.55",
                     "Output ($/1M tokens)": "$2.65",
                     "Cache Read": "$0.055",
                 },
                 {
                     "Modelo": "kimi-k2.6",
-                    "Modo": "thinking={\"type\":\"disabled\"} — default",
+                    "Modo": 'thinking={"type":"disabled"} — default',
                     "Input ($/1M tokens)": "$0.55",
                     "Output ($/1M tokens)": "$2.65",
                     "Cache Read": "$0.055",
@@ -2440,8 +2440,8 @@ elif page == "ℹ️ Sobre":
     # Cabeçalho de identidade
     col_meta, col_badge = st.columns([3, 1])
     with col_meta:
-        st.markdown("## Data Agents — Monitoramento")
-        st.caption("Dashboard de observabilidade para o sistema multi-agente Data Agents")
+        st.markdown("## AI Data Agents — Monitoramento")
+        st.caption("Dashboard de observabilidade para o sistema multi-agente AI Data Agents")
     with col_badge:
         st.markdown(
             """
@@ -2475,7 +2475,7 @@ elif page == "ℹ️ Sobre":
     st.subheader("📋 O que é este monitoramento?")
     st.markdown(
         """
-        Este dashboard oferece **observabilidade em tempo real** para o projeto **Data Agents** —
+        Este dashboard oferece **observabilidade em tempo real** para o projeto **AI Data Agents** —
         um sistema multi-agente baseado no Claude Agent SDK que orquestra especialistas de dados
         contra plataformas Databricks e Microsoft Fabric.
 
@@ -2584,7 +2584,7 @@ elif page == "ℹ️ Sobre":
     st.subheader("🏗️ Arquitetura do Sistema Monitorado")
     st.markdown(
         """
-        O **Data Agents** é um sistema multi-agente que segue a arquitetura **DOMA**
+        O **AI Data Agents** é um sistema multi-agente que segue a arquitetura **DOMA**
         (Data Orchestration Method for Agents), com 14 agentes especialistas:
 
         **Tier 1 — Engineering Core:**

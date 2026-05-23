@@ -1,4 +1,6 @@
 ---
+name: migration
+description: "Playbook de migração de SQL Server/PostgreSQL para Databricks (Spark SQL/Delta) ou Microsoft Fabric (T-SQL/Lakehouse) usando arquitetura Medallion. Use ao executar as 5 fases: ASSESS → ANALYZE → DESIGN → MIGRATE → VALIDATE."
 updated_at: 2026-04-16
 source: kb/migration/index.md
 ---

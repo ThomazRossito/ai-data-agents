@@ -63,7 +63,7 @@ def log_session_result(
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "session_type": session_type,
             "prompt_preview": _redact_secrets(prompt_preview[:100]),
-            "total_cost_usd": total_cost_usd,            # custo real Moonshot K2.6
+            "total_cost_usd": total_cost_usd,  # custo real Moonshot K2.6
             "sdk_reported_cost_usd": sdk_reported_cost,  # o que o SDK disse (Anthropic prices)
             "input_tokens": breakdown.input_tokens,
             "output_tokens": breakdown.output_tokens,

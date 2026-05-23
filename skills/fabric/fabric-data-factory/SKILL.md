@@ -1,5 +1,6 @@
 ---
-skill: fabric-data-factory
+name: fabric-data-factory
+description: "Pipelines, Copy Activity, Copy Job e Dataflows Gen2 do Microsoft Fabric Data Factory. Use ao projetar pipelines de orquestração ou ingestão no Fabric — inclui breaking changes de abril/2026 (Dataflow Gen2 Classic descontinuado, CI/CD por padrão)."
 domain: fabric
 updated_at: 2026-04-23
 version: "2.1"

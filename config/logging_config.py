@@ -1,5 +1,5 @@
 """
-Configuração de logging estruturado para o Data Agents.
+Configuração de logging estruturado para o AI Data Agents.
 
 Implementa:
   - Console handler com Rich formatting para desenvolvimento
@@ -63,7 +63,7 @@ def setup_logging(
     console_log_level: str | None = None,
 ) -> None:
     """
-    Configura o sistema de logging do Data Agents.
+    Configura o sistema de logging do AI Data Agents.
 
     Args:
         log_level: Nível mínimo global e para o arquivo JSONL.

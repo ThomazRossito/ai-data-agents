@@ -1,4 +1,7 @@
 ---
+domain: semantic-modeling
+updated_at: 2026-05-22
+agents: [fabric-engineer]
 mcp_validated: "2026-04-15"
 ---
 

@@ -1,5 +1,5 @@
 [project]
-name = "data-agents-api"
+name = "ai-data-agents"
 version = "2.3.0"
 description = "Sistema Multi-Agentes para Engenharia, Qualidade, Governança e Análise de Dados — Databricks + Microsoft Fabric"
 readme = "README.md"
@@ -120,7 +120,7 @@ viz = [
 ]
 
 [project.scripts]
-data-agents-api = "main:main"
+ai-data-agents = "main:main"
 fabric-sql-mcp = "mcp_servers.fabric_sql.server:main"
 fabric-semantic-mcp = "mcp_servers.fabric_semantic.server:main"
 fabric-ontology-mcp = "mcp_servers.fabric_ontology.server:main"

@@ -17,7 +17,7 @@ Schema final (frontend espera exatamente esses campos):
       "type": "delegation" | "tool_call" | "dispatcher_decision" | "session_end",
       "ts":   ISO-8601 string,
       "session_id": str | null,
-      "agent": str | null,        # nome canônico (data-agents-api registry)
+      "agent": str | null,        # nome canônico (ai-data-agents registry)
       "tool": str | null,         # nome MCP ou ferramenta
       "platform": str | null,     # "databricks" | "fabric" | ... | null
       "metadata": dict             # campos extras (custo, ids, etc.)
