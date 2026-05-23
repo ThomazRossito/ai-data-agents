@@ -54,7 +54,7 @@ test: test-fast test-int ## Roda unit + integration com cobertura (default offli
 
 test-fast: ## Iteração rápida — só unit/ (< 30s alvo)
 	TESTMON_DATAFILE=logs/.testmondata pytest tests/unit/ -v --tb=short \
-		--cov=agents --cov=config --cov=hooks --cov=commands --cov=utils \
+		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
 		--cov-report=term-missing \
 		--cov-fail-under=80
 
@@ -66,7 +66,7 @@ test-e2e: ## Nightly — e2e/ (exige credenciais reais no .env)
 
 test-all: ## Todos os testes (unit + integration + e2e) — uso manual antes de release
 	pytest tests/ -v --tb=short \
-		--cov=agents --cov=config --cov=hooks --cov=commands --cov=utils \
+		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
 		--cov-report=term-missing \
 		--cov-fail-under=80
 
@@ -76,11 +76,11 @@ lint: ## Executa linter (ruff check)
 format: ## Formata código (ruff format)
 	ruff format .
 
-type-check: ## Verifica tipos (mypy)
-	mypy agents/ config/ hooks/ commands/
+type-check: ## Verifica tipos (mypy) — namespace data_agents.*
+	mypy data_agents/
 
 security: ## Scan de segurança (bandit)
-	bandit -r agents/ config/ hooks/ commands/ -ll --skip B101
+	bandit -r data_agents/ -ll --skip B101
 
 # ─── Structural lints (Phase 3 — drift prevention) ──────────────────
 # Each linter validates a specific structural invariant. Run individually
@@ -121,7 +121,7 @@ sync-docs-check: ## Falha se algum doc tem INVENTORY: stale (CI gate)
 # ─── Execução ─────────────────────────────────────────────────────
 
 run: ## Inicia o AI Data Agents em modo interativo
-	python main.py
+	python -m data_agents.cli
 
 ui: ## Inicia a UI de Chat + Monitoring (./start.sh)
 	./start.sh
