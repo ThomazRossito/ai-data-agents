@@ -12,10 +12,10 @@ Lifespan:
   - on_shutdown: para tailer com graceful join
 
 Rodar standalone:
-    python -m visualization.server
+    python -m data_agents.visualization.server
 
 Ou via uvicorn:
-    uvicorn visualization.server:app --port 8512 --reload
+    uvicorn data_agents.visualization.server:app --port 8512 --reload
 """
 
 from __future__ import annotations
@@ -362,7 +362,7 @@ def main() -> None:
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
     )
     uvicorn.run(
-        "visualization.server:app",
+        "data_agents.visualization.server:app",
         host="127.0.0.1",
         port=_port(),
         reload=False,

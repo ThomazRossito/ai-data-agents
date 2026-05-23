@@ -13,7 +13,7 @@ e empurra eventos pra uma cena Three.js no browser. Mostra:
 
 Rodar:
     pip install -e ".[viz]"
-    python -m visualization.server
+    python -m data_agents.visualization.server
 
 Componentes:
     watcher.py            — tail dos JSONLs (audit.jsonl + workflows.jsonl)

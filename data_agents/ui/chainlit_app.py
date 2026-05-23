@@ -2082,8 +2082,13 @@ async def on_chat_end() -> None:
     cl.user_session.set("memory_manager", None)
 
     # Solicita avaliação via action buttons
+    # Chainlit 2.x: `value=` removido, usar payload={"value": ...} como nas demais cl.Action
     actions = [
-        cl.Action(name=f"rate_{i}", value=str(i), label=("★" * i + "☆" * (5 - i)))
+        cl.Action(
+            name=f"rate_{i}",
+            payload={"value": str(i)},
+            label=("★" * i + "☆" * (5 - i)),
+        )
         for i in range(1, 6)
     ]
     await cl.Message(

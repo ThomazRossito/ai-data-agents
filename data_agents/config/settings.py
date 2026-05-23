@@ -214,7 +214,7 @@ class Settings(BaseSettings):
     monitor_port: int = 8511
     # Visualização 3D do escritório dos agentes (FastAPI + WebSocket).
     # Roda em porta intermediária entre monitor (8511) e chainlit (8513).
-    # Subir via: python -m visualization.server  OU  ./start.sh --with-viz
+    # Subir via: python -m data_agents.visualization.server  OU  ./start.sh --with-viz
     visualization_port: int = 8512
 
     # --- Model Routing por Tier ---
