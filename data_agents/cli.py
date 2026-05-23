@@ -20,7 +20,14 @@ from pathlib import Path as _Path  # noqa: E402
 try:
     from dotenv import load_dotenv as _load_dotenv
 
-    _load_dotenv(_Path(__file__).parent / ".env")
+    # Phase 7: arquivo em data_agents/cli.py — .env vive na raiz do repo,
+    # 2 níveis acima (.parent.parent). Antes da Phase 7 o main.py estava na
+    # raiz e .parent funcionava; o move quebrou esse cálculo e só apareceu
+    # agora porque o pydantic-settings cobre quando o user fonteia .env no
+    # shell, mas o subprocess `claude` CLI (Node.js) só recebe env vars que
+    # estão em os.environ — e load_dotenv só popula os.environ se acertar o
+    # path do arquivo.
+    _load_dotenv(_Path(__file__).parent.parent / ".env")
 except ImportError:
     pass
 
