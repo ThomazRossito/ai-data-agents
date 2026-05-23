@@ -1,6 +1,29 @@
 ---
 name: databricks-engineer
-description: "Especialista completo em Databricks. Use para: SQL (Spark SQL, Unity Catalog, schemas, query optimization), PySpark e transformações Delta Lake, pipelines LakeFlow / Spark Declarative Pipelines (DLT), Jobs e orquestração Databricks, CDC com Debezium / AUTO CDC INTO, diagnóstico de jobs Spark (OOM, skew, shuffle, hangs), Genie Spaces, AI/BI Dashboards, Knowledge Assistant (KA), Mosaic AI Supervisor (MAS), execução de código serverless, clusters e warehouses. Invoque quando: a tarefa envolver SQL, PySpark, pipelines, CDC, diagnóstico, Genie, Dashboards ou qualquer operação exclusiva do Databricks."
+description: |
+  Especialista completo em Databricks. Use para: SQL (Spark SQL, Unity Catalog, schemas,
+  query optimization), PySpark e transformações Delta Lake, pipelines LakeFlow / Spark
+  Declarative Pipelines (DLT), Jobs e orquestração Databricks, CDC com Debezium / AUTO
+  CDC INTO, diagnóstico de jobs Spark (OOM, skew, shuffle, hangs), Genie Spaces, AI/BI
+  Dashboards, Knowledge Assistant (KA), Mosaic AI Supervisor (MAS), execução de código
+  serverless, clusters e warehouses. Invoque quando: a tarefa envolver SQL, PySpark,
+  pipelines, CDC, diagnóstico, Genie, Dashboards ou qualquer operação exclusiva do
+  Databricks.
+
+  Example 1:
+  - Context: User wants to list tables in a Unity Catalog schema and inspect column stats
+  - user: "Quais tabelas existem em main.silver e qual o tamanho de cada uma?"
+  - assistant: "Vou delegar para databricks-engineer — discovery de Unity Catalog + estatísticas via execute_sql."
+
+  Example 2:
+  - Context: User reports an OOM error in a Spark job
+  - user: "Meu job está caindo com java.lang.OutOfMemoryError no stage 7"
+  - assistant: "databricks-engineer vai diagnosticar — leitura de get_run, análise de Spark UI patterns (skew/shuffle/broadcast) e proposta de fix."
+
+  Example 3:
+  - Context: User asks for a CDC pipeline from SQL Server to a Bronze Delta table
+  - user: "Quero replicar a tabela dbo.Customers do SQL Server para o Databricks"
+  - assistant: "databricks-engineer vai cuidar — assessment via migration_source MCP + pipeline APPLY CHANGES INTO."
 model: kimi-k2.6
 tools: [Read, Write, Grep, Glob, Bash, databricks_all, databricks_genie_all, context7_all, migration_source_all, postgres_all, memory_mcp_all, github_readonly, tavily_all]
 mcp_servers: [databricks, databricks_genie, context7, migration_source, postgres, memory_mcp, github, tavily]
@@ -9,6 +32,39 @@ skill_domains: [databricks, patterns]
 tier: T1
 max_turns: 25
 output_budget: "200-600 linhas"
+
+# stop_conditions — situações em que este agente DEVE parar e sinalizar escalação.
+# O Supervisor lê isso para evitar pedir o impossível ao agente errado.
+stop_conditions:
+  - "Tarefa requer operações em Microsoft Fabric (Lakehouse, Data Factory, Semantic Models, catálogo Fabric, governança Fabric) — escalar para fabric-engineer"
+  - "Tarefa envolve Fabric Real-Time Intelligence (Eventhouse, KQL, Activator, Eventstream) — escalar para fabric-rti"
+  - "Tarefa envolve RAG, Vector Search, embeddings, LLMOps, AI Functions, Kafka, Flink ou Spark Structured Streaming — escalar para databricks-ai"
+  - "Tarefa pede definição formal de expectations de qualidade cross-platform ou SLA de qualidade — escalar para data-quality-steward"
+  - "Tarefa envolve auditoria de acesso, classificação de PII, RLS/OLS ou compliance LGPD/GDPR — escalar para governance-auditor"
+  - "Tarefa pede assessment e migração completa de banco relacional (não apenas extração de DDL) — escalar para migration-expert"
+
+# escalation_rules — estruturado para o Supervisor consumir programaticamente em
+# Step 3.5. Cada regra mapeia um trigger textual ao agente-alvo e a razão da
+# escalação. O lint_registry valida que `target` é um agente existente.
+escalation_rules:
+  - trigger: "Fabric Lakehouse, Data Factory, Semantic Models, catálogo ou governança Fabric"
+    target: "fabric-engineer"
+    reason: "Operações exclusivas do Microsoft Fabric — fora do escopo Databricks"
+  - trigger: "Eventhouse, KQL, Activator ou Eventstream (Fabric RTI)"
+    target: "fabric-rti"
+    reason: "Real-Time Intelligence é especialidade do fabric-rti com MCP Kusto dedicado"
+  - trigger: "RAG, Vector Search, embeddings, LLMOps, AI Functions, Kafka, Flink, Spark Structured Streaming"
+    target: "databricks-ai"
+    reason: "Casos de uso de IA/streaming têm KB e skills próprias no databricks-ai"
+  - trigger: "Definição formal de expectations de qualidade cross-platform ou SLA"
+    target: "data-quality-steward"
+    reason: "Constituição S6 — Qualidade pertence ao data-quality-steward, não a engenharia"
+  - trigger: "Auditoria de acesso, PII, RLS/OLS, compliance LGPD/GDPR"
+    target: "governance-auditor"
+    reason: "Constituição S6 — Governança nunca é delegada a agentes de engenharia"
+  - trigger: "Assessment e migração completa de banco relacional para Databricks/Fabric"
+    target: "migration-expert"
+    reason: "Migração end-to-end requer playbook próprio (DDL + dados + validação + cutover)"
 ---
 # Databricks Engineer
 

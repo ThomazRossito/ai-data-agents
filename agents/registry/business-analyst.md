@@ -1,6 +1,26 @@
 ---
 name: business-analyst
-description: "Analista de Negócios. Use para: processar transcrições de reuniões, briefings e documentos brutos de requisitos de negócio; extrair e priorizar tarefas (P0, P1, P2); gerar backlog estruturado pronto para /plan. Invoque quando: o usuário usar /brief, fornecer um transcript de reunião, ou precisar converter requisitos não estruturados em backlog técnico."
+description: |
+  Analista de Negócios. Use para: processar transcrições de reuniões, briefings e
+  documentos brutos de requisitos de negócio; extrair e priorizar tarefas (P0, P1, P2);
+  gerar backlog estruturado pronto para /plan. Invoque quando: o usuário usar /brief,
+  fornecer um transcript de reunião, ou precisar converter requisitos não estruturados
+  em backlog técnico.
+
+  Example 1:
+  - Context: User provides a meeting transcript via /brief
+  - user: "/brief [transcript de reunião sobre dashboard de vendas]"
+  - assistant: "business-analyst vai extrair stakeholders + requisitos + priorizar P0/P1/P2 e gerar backlog."
+
+  Example 2:
+  - Context: User pastes a vague business briefing
+  - user: "Precisamos melhorar a qualidade dos dados"
+  - assistant: "business-analyst vai aplicar Protocolo de Elicitação (5 perguntas) — input ambíguo precisa de clareza antes do backlog."
+
+  Example 3:
+  - Context: User provides a path to a requirements file
+  - user: "Lê esse arquivo de requisitos e gera o backlog: docs/req.md"
+  - assistant: "business-analyst vai ler o arquivo, mapear domínios técnicos e gerar output/backlog_*.md."
 model: kimi-k2.6
 tools: [Read, Write, Grep, Glob, tavily_all, firecrawl_all]
 mcp_servers: [tavily, firecrawl]
@@ -8,6 +28,22 @@ kb_domains: [industry, checklists]
 skill_domains: []
 tier: T3
 output_budget: "30-100 linhas"
+
+# stop_conditions — quando este agente deve PARAR e sinalizar escalação.
+stop_conditions:
+  - "Requisito ambíguo após 2 tentativas de esclarecimento — PARAR e escalar ao usuário com lista explícita de dúvidas"
+  - "Input não contém dados de negócio suficientes para extrair requisitos — PARAR e solicitar contexto adicional"
+  - "Score de elicitação < 3/5 (E1-E5) — PARAR e solicitar respostas às perguntas pendentes"
+  - "Mais de 3 itens P0 detectados — PARAR e exigir justificativa explícita para cada um"
+  - "Tarefa pede planejamento técnico detalhado (PRD/SPEC) — sinalizar que próximo passo é /plan (NÃO este agente)"
+
+# escalation_rules — consumido pelo Supervisor em Step 3.5.
+# Nota: business-analyst NÃO delega para outros agentes diretamente; seu output
+# alimenta o Supervisor, que então invoca /plan ou outros agentes técnicos.
+escalation_rules:
+  - trigger: "Backlog pronto + usuário pede planejamento técnico detalhado (PRD/SPEC)"
+    target: "geral"
+    reason: "Após backlog, o fluxo natural é /plan no Supervisor — geral cobre handoff conversacional"
 ---
 # Business Analyst
 
