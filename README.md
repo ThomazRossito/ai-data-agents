@@ -63,6 +63,19 @@ Você envia uma mensagem — seja pelo terminal, pela interface web ou com um co
 
 ## Início Rápido
 
+> **Dois canais de instalação** — escolha um (ou os dois, eles coexistem):
+>
+> **(A) Python CLI** — feature set completo: Supervisor, 39 slash commands, 17 MCPs, hooks de segurança, memória persistente, audit JSONL. É o que está descrito abaixo.
+>
+> **(B) Claude Code plugin** — apenas os 15 agentes + 48 skills dentro do seu Claude Code. Use se você já usa o Claude Code e quer os agentes nativamente:
+>
+> ```bash
+> claude plugin marketplace add ThomazRossito/ai-data-agents
+> claude plugin install ai-data-agents@thomazrossito-marketplace
+> ```
+>
+> Comparação completa em [`docs/site/getting-started/installation.md`](docs/site/getting-started/installation.md).
+
 ```bash
 # 1. Clone e entre no diretório
 git clone git@github.com:ThomazRossito/ai-data-agents.git && cd ai-data-agents

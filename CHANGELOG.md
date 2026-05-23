@@ -7,6 +7,62 @@
 
 ## [Unreleased]
 
+### Added — Phase 12: Claude Code plugin distribution
+
+A third distribution channel: `ai-data-agents` is now available as a
+[Claude Code plugin](https://code.claude.com/docs/en/plugin-marketplaces),
+bringing the 15 agents + 48 skills into Claude Code natively for users who
+prefer that over the Python CLI.
+
+**Install (in Claude Code):**
+
+```bash
+claude plugin marketplace add ThomazRossito/ai-data-agents
+claude plugin install ai-data-agents@thomazrossito-marketplace
+```
+
+**Scope (per ADR-011 — intentional minimal scope for v3.0-rc1):**
+
+| Included | Excluded (Python CLI only) |
+|---|---|
+| 15 specialist agents | 39 slash commands |
+| 48 operational skills | 17 MCP servers |
+| | Hooks (security, cost guard, audit) |
+| | Memory layer (SQLite + ledger) |
+
+Plugin users invoke agents via natural language inside Claude Code. The
+scope decision is documented in ADR-011 (defer commands + MCPs to v3.1+).
+
+**New files:**
+
+- `.claude-plugin/marketplace.json` — declares 1 plugin under owner
+  Thomaz Rossito
+- `plugins/ai-data-agents/.claude-plugin/plugin.json` — plugin metadata
+  (name, description, version synced from `VERSION`, keywords, license)
+- `plugins/ai-data-agents/README.md` — plugin-specific docs covering
+  install, what's included vs excluded, sync workflow
+- `plugins/ai-data-agents/agents/` — 15 generated agent `.md` files
+  (synced from `data_agents/agents/registry/`)
+- `plugins/ai-data-agents/skills/` — 48 generated skill directories
+  (flattened from `skills/<domain>/<name>/` to `skills/<name>/`)
+- `scripts/build_plugin.sh` — idempotent sync from canonical sources to
+  plugin view; collision detection on flattened skill names; version
+  injected from `VERSION` file
+- `.github/workflows/plugin-validate.yml` — 2 jobs: JSON-validate manifests
+  + assert `build_plugin.sh` produces zero diff against committed content
+- `docs/adr/ADR-011-claude-code-plugin-scope.md` — scope decision
+  documented per Michael Nygard format
+
+**Extended files:**
+
+- `.github/workflows/release.yml` — build step now also produces
+  `dist/ai-data-agents-plugin-<version>.tar.gz`; GitHub Release attaches
+  it alongside wheel/sdist (glob `dist/*.tar.gz` covers both)
+- `README.md` — Início Rápido section adds tabs (Python CLI vs Plugin)
+- `docs/site/index.md` — quickstart section adds tabs for both channels
+- `docs/site/getting-started/installation.md` — new "Claude Code plugin"
+  section with full feature comparison
+
 ### Added — Phase 11: Documentation site (MkDocs Material)
 
 The project now publishes its docs as a navigable site at

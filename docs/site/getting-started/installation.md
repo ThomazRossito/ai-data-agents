@@ -1,5 +1,15 @@
 # Installation
 
+Three ways to install, picked by what you want to do:
+
+| Channel | When to use |
+|---|---|
+| **Python CLI** (this page, below) | Full feature set — Supervisor, hooks, memory, audit, MCPs. Use for production work, automation, CLI scripts. |
+| **Claude Code plugin** ([install instructions](#claude-code-plugin)) | If you already use Claude Code and want the 15 agents + 48 skills available natively inside it. |
+| **From source** | Contributors who want to develop on the project. `git clone && pip install -e ".[dev]"` |
+
+---
+
 ## Core install
 
 Only what's needed to run the Supervisor + 15 agents + 17 MCPs in CLI mode:
@@ -64,6 +74,33 @@ pip install ai-data-agents
 python -c "from data_agents.agents.loader import preload_registry; print(len(preload_registry()), 'agents loaded')"
 # expected: 15 agents loaded
 ```
+
+## Claude Code plugin
+
+If you already use [Claude Code](https://docs.claude.com/en/docs/claude-code) and want the 15 agents + 48 skills available natively (without `pip install`), use the plugin distribution:
+
+```bash
+# 1. Add the marketplace
+claude plugin marketplace add ThomazRossito/ai-data-agents
+
+# 2. Install the plugin
+claude plugin install ai-data-agents@thomazrossito-marketplace
+```
+
+Restart your Claude Code session. The 15 specialist agents and 48 skills become available.
+
+### What the plugin does NOT include (vs Python CLI)
+
+To keep the plugin minimal and resilient to spec changes, the v3.0-rc1 plugin includes only **agents** and **skills**. These features are Python-CLI-only:
+
+| Feature | Why not in plugin |
+|---|---|
+| 39 slash commands (`/sql`, `/fabric`, `/migrate`, ...) | Plugin spec uses individual `.md` files per command; mapping from `commands.yaml` waits for v3.1+ |
+| 17 MCP servers (Databricks, Fabric, Genie, ...) | Users configure their own MCPs in Claude Code separately — these are platform-coupled and need user credentials |
+| Hooks (security, cost guard, audit, output compression) | Tightly coupled to the Python orchestration loop |
+| Memory layer (ShortTerm + LongTerm + Ledger) | Stateful SQLite DBs; not portable as plugin content |
+
+If you want all of this, use the Python CLI install above. **The two channels coexist** — you can install both, and they share the same source-of-truth agents/skills.
 
 ## Next step
 

@@ -50,20 +50,40 @@
 
 ## Quickstart
 
-```bash
-# Install (core only)
-pip install ai-data-agents
+=== "Python CLI (full feature set)"
 
-# Or with all extras
-pip install "ai-data-agents[ui,monitoring,viz,memory,ontology]"
+    ```bash
+    # Install (core only)
+    pip install ai-data-agents
 
-# Configure credentials (one-time)
-cp .env.example .env
-# edit .env: ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL, DATABRICKS_*, etc.
+    # Or with all extras
+    pip install "ai-data-agents[ui,monitoring,viz,memory,ontology]"
 
-# Run your first query
-ai-data-agents "liste as tabelas do schema silver"
-```
+    # Configure credentials (one-time)
+    cp .env.example .env
+    # edit .env: ANTHROPIC_API_KEY, DATABRICKS_*, AZURE_*, etc.
+
+    # Run your first query
+    ai-data-agents "liste as tabelas do schema silver"
+    ```
+
+=== "Claude Code plugin (agents + skills only)"
+
+    ```bash
+    # 1. Add the marketplace
+    claude plugin marketplace add ThomazRossito/ai-data-agents
+
+    # 2. Install the plugin
+    claude plugin install ai-data-agents@thomazrossito-marketplace
+    ```
+
+    Restart Claude Code. The 15 specialist agents and 48 skills become
+    available natively — invoke them via natural language in your IDE.
+
+    The plugin does NOT include slash commands, MCP servers, hooks, or the
+    memory layer (those are Python-CLI-only). See
+    [installation › Claude Code plugin](getting-started/installation.md#claude-code-plugin)
+    for the full comparison.
 
 Need a more detailed walkthrough? → **[Getting Started](getting-started/index.md)**.
 

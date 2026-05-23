@@ -57,6 +57,9 @@ output/
 !output/btg-open-finance-bundle/**
 memory/*
 !memory/*.py
+# Phase 7: memory data moved to data_agents/memory/data/ (settings.derive_memory_db_paths)
+# Ignore runtime DBs (SQLite) but keep the code under data_agents/memory/*.py
+data_agents/memory/data/
 reports/
 
 # Bundle do BTG OpenFinance — exceção para o DAB CLI sincronizar

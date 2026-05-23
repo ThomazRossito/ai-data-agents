@@ -405,21 +405,46 @@ Aplicada a heurística "é débito ou foi feito assim de propósito?" — 3 das 
 
 ---
 
-## FASE 12 — (Opcional) Plugin Claude Code
+## FASE 12 — Plugin Claude Code ✅ CONCLUÍDA
 
 **Objetivo**: distribuição via marketplace Claude Code (paridade com agentspec).
 
 ### Tasks
 
-| # | Task | Critério de aceitação |
+| # | Task | Decisão / Status |
 |---|---|---|
-| 12.1 | Criar `.claude-plugin/marketplace.json` | Plugin metadata correto |
-| 12.2 | `scripts/build_plugin.sh` que monta `plugin/` a partir de `data_agents/agents/`, `data_agents/skills/`, `kb/` | Plugin gerado funciona localmente |
-| 12.3 | Adicionar plugin install instructions ao README | `claude plugin install data-agents` funciona |
-| 12.4 | CI valida estrutura do plugin | `plugin-validate.yml` workflow |
+| 12.1 | Investigar spec real do Claude Code plugin marketplace | ✅ — verificado em docs.code.claude.com + repo oficial `anthropics/claude-plugins-official`. Confirmado layout: `.claude-plugin/marketplace.json` + `plugins/<name>/.claude-plugin/plugin.json` + `plugins/<name>/{agents,skills,commands,hooks}/`. |
+| 12.2 | `.claude-plugin/marketplace.json` + `plugins/ai-data-agents/` scaffolding | ✅ — marketplace declara 1 plugin com source `./plugins/ai-data-agents`; plugin.json com keywords, license, homepage; README do plugin documentando o que está incluído vs Python CLI. |
+| 12.3 | `scripts/build_plugin.sh` sync canônicos → plugin | ✅ — copia 15 agents de `data_agents/agents/registry/` (skip `_template.md`) + 48 skills de `skills/<domain>/<name>/SKILL.md` ou `skills/<name>/SKILL.md` (achata hierarquia, exclui TEMPLATE); colisão de nome aborta; version syncada do `VERSION` file (Phase 9). |
+| 12.4 | `.github/workflows/plugin-validate.yml` + `release.yml` extension | ✅ — `plugin-validate.yml` tem 2 jobs (validate-manifest JSON-schema + validate-sync re-roda build_plugin.sh e exige zero diff). `release.yml` ganha step que builda plugin tarball e anexa à GitHub Release. |
+| 12.5 | Docs install instructions (README + docs/site/) + ADR-011 | ✅ — README seção "Início Rápido" com tabs Python CLI vs plugin; `docs/site/getting-started/installation.md` seção dedicada com comparação feature-set; `docs/site/index.md` quickstart tabs; ADR-011 documenta scope intencional do plugin (agents + skills only; commands + MCPs + hooks ficam para v3.1+). |
 
-**Estimativa**: 4-6 dias.
-**Risco**: Médio.
+**Escopo intencional v3.0-rc1 — o que NÃO está no plugin:**
+
+| Feature | Por que ficou fora | Onde fica |
+|---|---|---|
+| 39 slash commands | Plugin spec usa 1 `.md` por command; conversão de `commands.yaml` → 39 arquivos é mecânica mas tem risco de drift. Adiar até v3.1+. | Python CLI (`ai-data-agents "/sql ..."`) |
+| 17 MCP servers | MCPs são platform-coupled (Databricks token, Fabric SP); usuário do plugin configura seus próprios MCPs em Claude Code. | Python CLI + manual setup |
+| Hooks (security, audit, cost) | Acoplado ao Python orchestration loop; portar é re-implementar a infraestrutura. | Python CLI |
+| Memory layer (SQLite + ledger) | Stateful, não é content. | Python CLI |
+
+Documentado claramente em `plugins/ai-data-agents/README.md` para usuários do plugin saberem o trade-off.
+
+**Resultado**:
+- 1 marketplace + 1 plugin declarados, com 15 agents + 48 skills generated-and-committed
+- Build idempotente via `scripts/build_plugin.sh` (~80 linhas bash + python embarcado)
+- 2 workflows novos protegendo contra drift entre canonical sources e plugin view
+- 1 ADR (ADR-011) documentando scope decisions
+- Os 3 canais de distribuição coexistem: `pip install` (full) + `git clone && python -m data_agents.cli` (dev) + `claude plugin install` (Claude Code users)
+
+**Lições aprendidas**:
+- A documentação oficial do Claude Code plugin (`code.claude.com/docs/en/plugin-marketplaces`) é jovem (sub-1-ano); algumas referências em marketplace.json mencionam `$schema` URLs que ainda não resolvem. Pragmaticamente, validei via JSON-schema artesanal no `plugin-validate.yml` em vez de confiar no $schema remoto.
+- O layout do plugin força flat `skills/<name>/` em vez do `skills/<domain>/<name>/` do source. Build script tem que achatar e detectar colisões de nome. Adicionar 1 skill nova exige rodar build novamente — `plugin-validate.yml` previne esquecimentos.
+- `dist/*.tar.gz` no `release.yml` `files:` cobre TANTO o sdist (`ai_data_agents-X.tar.gz`) quanto o plugin tarball (`ai-data-agents-plugin-X.tar.gz`). Glob único, comportamento correto.
+- Manter `commands.yaml` fora do plugin foi uma decisão consciente — usuários do plugin Claude Code chamam agentes via natural language ("use the databricks-engineer to ..."), sem precisar dos 39 slash commands. Reabrir em v3.1+ se houver demanda.
+
+**Sobre o risco de spec evolution (do PLAN original)**:
+O workflow `plugin-validate.yml` foi desenhado para ser independente do resto do CI. Se a Anthropic mudar o spec do marketplace de forma breaking, esse workflow falha sozinho — o release pip/wheel/sdist continua funcionando, e o desenvolvedor recebe alerta isolado para atualizar.
 
 ---
 
