@@ -179,11 +179,7 @@ def _list_kb_domains() -> set[str]:
     kb_dir = PROJECT_ROOT / "kb"
     if not kb_dir.is_dir():
         return set()
-    return {
-        p.name
-        for p in kb_dir.iterdir()
-        if p.is_dir() and not p.name.startswith("_")
-    }
+    return {p.name for p in kb_dir.iterdir() if p.is_dir() and not p.name.startswith("_")}
 
 
 def _list_skill_domains() -> set[str]:
@@ -429,8 +425,7 @@ def check_agent(
                         Severity.ERROR,
                         declared_name,
                         "kb-domain-unknown",
-                        f"kb_domains references '{kb}' which is not a "
-                        f"directory under kb/",
+                        f"kb_domains references '{kb}' which is not a directory under kb/",
                         agent_file,
                     )
                 )
@@ -474,8 +469,7 @@ def check_agent(
                             Severity.ERROR,
                             declared_name,
                             "stop-conditions-item-type",
-                            f"stop_conditions[{i}] must be a string, "
-                            f"got {type(entry).__name__}",
+                            f"stop_conditions[{i}] must be a string, got {type(entry).__name__}",
                             agent_file,
                         )
                     )
@@ -489,8 +483,7 @@ def check_agent(
                     Severity.ERROR,
                     declared_name,
                     "escalation-rules-type",
-                    f"'escalation_rules' must be a list, got "
-                    f"{type(escalation_rules).__name__}",
+                    f"'escalation_rules' must be a list, got {type(escalation_rules).__name__}",
                     agent_file,
                 )
             )
@@ -610,8 +603,8 @@ def cross_check_kb_vs_agents(
     valid_kbs: set[str],
 ) -> list[Issue]:
     """Checks that:
-        ERROR — every agent listed in kb/<X>/index.md::agents declares X in kb_domains
-        INFO  — every agent declaring kb_domains: [X] is listed in kb/X/index.md::agents
+    ERROR — every agent listed in kb/<X>/index.md::agents declares X in kb_domains
+    INFO  — every agent declaring kb_domains: [X] is listed in kb/X/index.md::agents
     """
     issues: list[Issue] = []
 
@@ -683,8 +676,9 @@ def _color_for(severity: Severity, isatty: bool) -> tuple[str, str]:
 
 def render_report(report: LintReport, quiet: bool, isatty: bool) -> str:
     lines: list[str] = []
-    lines.append(f"lint_registry: scanned {report.agents_count} agents in "
-                 f"{report.files_scanned} files")
+    lines.append(
+        f"lint_registry: scanned {report.agents_count} agents in {report.files_scanned} files"
+    )
     lines.append("")
 
     by_agent: dict[str, list[Issue]] = {}
@@ -704,13 +698,16 @@ def render_report(report: LintReport, quiet: bool, isatty: bool) -> str:
         lines.append(f"▶ {agent}")
         for issue in issues:
             color, reset = _color_for(issue.severity, isatty)
-            lines.append(f"    {color}{issue.severity.value:7}{reset} "
-                         f"[{issue.check}] {issue.message}")
+            lines.append(
+                f"    {color}{issue.severity.value:7}{reset} [{issue.check}] {issue.message}"
+            )
         lines.append("")
 
-    lines.append(f"summary: {len(report.errors)} errors, "
-                 f"{len(report.warnings)} warnings, "
-                 f"{len(report.infos)} infos")
+    lines.append(
+        f"summary: {len(report.errors)} errors, "
+        f"{len(report.warnings)} warnings, "
+        f"{len(report.infos)} infos"
+    )
     return "\n".join(lines)
 
 
@@ -732,7 +729,7 @@ def render_json(report: LintReport) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Structural lint for agent registry. "
-                    "Validates frontmatter, referential integrity, and cross-checks."
+        "Validates frontmatter, referential integrity, and cross-checks."
     )
     parser.add_argument(
         "--strict",
@@ -763,8 +760,7 @@ def main(argv: list[str] | None = None) -> int:
         valid_aliases = _load_valid_aliases()
     except Exception as exc:  # noqa: BLE001 — surface any import failure clearly
         print(
-            f"lint_registry: FATAL: could not load project metadata: "
-            f"{type(exc).__name__}: {exc}",
+            f"lint_registry: FATAL: could not load project metadata: {type(exc).__name__}: {exc}",
             file=sys.stderr,
         )
         return 2

@@ -498,7 +498,9 @@ class Settings(BaseSettings):
         if not self.long_term_db_path:
             self.long_term_db_path = f"data_agents/memory/data/long_term__{self.project_id}.db"
         if not self.embedder_cache_db_path:
-            self.embedder_cache_db_path = f"data_agents/memory/data/embedder_cache__{self.project_id}.db"
+            self.embedder_cache_db_path = (
+                f"data_agents/memory/data/embedder_cache__{self.project_id}.db"
+            )
         return self
 
     @field_validator(

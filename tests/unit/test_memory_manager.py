@@ -165,7 +165,9 @@ class TestFlushSession:
 
     def test_returns_zero_on_exception(self, manager):
         manager.start_session("s1")
-        with patch("data_agents.hooks.memory_hook.flush_session_memories", side_effect=OSError("disk full")):
+        with patch(
+            "data_agents.hooks.memory_hook.flush_session_memories", side_effect=OSError("disk full")
+        ):
             assert manager.flush_session() == 0
 
 

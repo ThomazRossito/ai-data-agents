@@ -39,8 +39,7 @@ try:
     from watchdog.observers import Observer
 except ImportError as _exc:
     raise ImportError(
-        "watchdog não instalado. Para habilitar a visualização 3D:\n"
-        "  pip install -e \".[viz]\""
+        'watchdog não instalado. Para habilitar a visualização 3D:\n  pip install -e ".[viz]"'
     ) from _exc
 
 logger = logging.getLogger("data_agents.visualization.watcher")

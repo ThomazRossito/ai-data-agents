@@ -78,26 +78,30 @@ MIN_DESCRIPTION_CHARS: int = 20
 #: Commands where 'agent: null' is intentional — they dispatch to multiple
 #: agents at runtime (DOMA Full / party mode / workflows) or are utility
 #: commands that operate without delegating.
-AGENT_NULL_BY_DESIGN: frozenset[str] = frozenset({
-    "plan",             # DOMA Full — agents picked by dispatcher
-    "workflow",         # WF-01..05 multi-agent workflows
-    "party",            # Multi-agent independent perspectives
-    "analyze-project",  # 4 agents in parallel
-    "memory",           # internal — queries memory store
-    "sessions",         # internal — lists sessions
-    "resume",           # internal — resumes session
-    "health",           # internal — platform connectivity
-    "status",           # internal — session state
-    "mcp",              # internal — lists MCP servers
-    "review",           # internal — code review (multi-agent)
-    "eval",             # internal — runs evals
-})
+AGENT_NULL_BY_DESIGN: frozenset[str] = frozenset(
+    {
+        "plan",  # DOMA Full — agents picked by dispatcher
+        "workflow",  # WF-01..05 multi-agent workflows
+        "party",  # Multi-agent independent perspectives
+        "analyze-project",  # 4 agents in parallel
+        "memory",  # internal — queries memory store
+        "sessions",  # internal — lists sessions
+        "resume",  # internal — resumes session
+        "health",  # internal — platform connectivity
+        "status",  # internal — session state
+        "mcp",  # internal — lists MCP servers
+        "review",  # internal — code review (multi-agent)
+        "eval",  # internal — runs evals
+    }
+)
 
 #: Commands where {task} placeholder is NOT required because the prompt is
 #: parameterless — they don't accept user input (lists, statuses, etc).
-NO_TASK_PLACEHOLDER_OK: frozenset[str] = frozenset({
-    "status",  # lists artifacts via Glob/Read, no user input needed
-})
+NO_TASK_PLACEHOLDER_OK: frozenset[str] = frozenset(
+    {
+        "status",  # lists artifacts via Glob/Read, no user input needed
+    }
+)
 
 
 # ─── Issue model ──────────────────────────────────────────────────────────────
@@ -182,16 +186,12 @@ def _load_commands_yaml() -> dict[str, Any]:
     except yaml.YAMLError as exc:
         raise RuntimeError(f"yaml parse error: {exc}") from exc
     if not isinstance(data, dict):
-        raise RuntimeError(
-            f"top-level YAML must be a mapping, got {type(data).__name__}"
-        )
+        raise RuntimeError(f"top-level YAML must be a mapping, got {type(data).__name__}")
     commands = data.get("commands")
     if commands is None:
         raise RuntimeError("missing top-level 'commands:' key")
     if not isinstance(commands, dict):
-        raise RuntimeError(
-            f"'commands' must be a mapping, got {type(commands).__name__}"
-        )
+        raise RuntimeError(f"'commands' must be a mapping, got {type(commands).__name__}")
     return commands
 
 
@@ -292,8 +292,7 @@ def check_command(name: str, cmd: Any, valid_agents: set[str]) -> list[Issue]:
                     Severity.WARNING,
                     name,
                     "description-too-short",
-                    f"'description' is {len(desc.strip())} chars "
-                    f"(< {MIN_DESCRIPTION_CHARS})",
+                    f"'description' is {len(desc.strip())} chars (< {MIN_DESCRIPTION_CHARS})",
                 )
             )
 
@@ -404,9 +403,7 @@ def _color_for(severity: Severity, isatty: bool) -> tuple[str, str]:
 def render_report(report: LintReport, quiet: bool, isatty: bool) -> str:
     lines: list[str] = [f"lint_commands: scanned {report.commands_scanned} commands"]
     if report.mode_distribution:
-        dist = ", ".join(
-            f"{k}={v}" for k, v in sorted(report.mode_distribution.items())
-        )
+        dist = ", ".join(f"{k}={v}" for k, v in sorted(report.mode_distribution.items()))
         lines.append(f"mode distribution: {dist}")
     lines.append("")
 
@@ -428,8 +425,7 @@ def render_report(report: LintReport, quiet: bool, isatty: bool) -> str:
         for issue in issues:
             color, reset = _color_for(issue.severity, isatty)
             lines.append(
-                f"    {color}{issue.severity.value:7}{reset} "
-                f"[{issue.check}] {issue.message}"
+                f"    {color}{issue.severity.value:7}{reset} [{issue.check}] {issue.message}"
             )
         lines.append("")
 
@@ -459,15 +455,12 @@ def render_json(report: LintReport) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Structural lint for config/commands.yaml — validates "
-                    "every slash command's fields, agent existence, mode, "
-                    "skills references and placeholders."
+        "every slash command's fields, agent existence, mode, "
+        "skills references and placeholders."
     )
-    parser.add_argument("--strict", action="store_true",
-                        help="Treat warnings as errors.")
-    parser.add_argument("--quiet", action="store_true",
-                        help="Suppress non-error messages.")
-    parser.add_argument("--json", action="store_true",
-                        help="Emit JSON for machine consumption.")
+    parser.add_argument("--strict", action="store_true", help="Treat warnings as errors.")
+    parser.add_argument("--quiet", action="store_true", help="Suppress non-error messages.")
+    parser.add_argument("--json", action="store_true", help="Emit JSON for machine consumption.")
     args = parser.parse_args(argv)
 
     report = LintReport()
@@ -491,9 +484,7 @@ def main(argv: list[str] | None = None) -> int:
         # Track mode distribution for the summary line
         if isinstance(cmd, dict):
             mode = cmd.get("doma_mode", "<missing>")
-            report.mode_distribution[str(mode)] = (
-                report.mode_distribution.get(str(mode), 0) + 1
-            )
+            report.mode_distribution[str(mode)] = report.mode_distribution.get(str(mode), 0) + 1
 
         for issue in check_command(name, cmd, valid_agents):
             report.add(issue)

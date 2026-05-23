@@ -27,8 +27,7 @@ try:
     from fastapi import WebSocket
 except ImportError as _exc:
     raise ImportError(
-        "fastapi não instalado. Para habilitar a visualização 3D:\n"
-        "  pip install -e \".[viz]\""
+        'fastapi não instalado. Para habilitar a visualização 3D:\n  pip install -e ".[viz]"'
     ) from _exc
 
 logger = logging.getLogger("data_agents.visualization.ws_broker")

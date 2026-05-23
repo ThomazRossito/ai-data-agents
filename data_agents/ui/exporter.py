@@ -31,7 +31,7 @@ try:
 except ImportError as _exc:
     raise ImportError(
         "markdown2 não instalado. Para habilitar export HTML de conversas:\n"
-        "  pip install -e \".[ui]\"\n"
+        '  pip install -e ".[ui]"\n'
         "  ou: pip install markdown2>=2.4"
     ) from _exc
 

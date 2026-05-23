@@ -96,7 +96,9 @@ class TestClaudeDataAgent:
         """Verifica que exceção no asyncio.run é capturada e retornada como erro."""
         self.agent._ready = True
         self.agent._init_error = None
-        with patch("data_agents.agents.mlflow_wrapper.asyncio.run", side_effect=RuntimeError("async fail")):
+        with patch(
+            "data_agents.agents.mlflow_wrapper.asyncio.run", side_effect=RuntimeError("async fail")
+        ):
             response = self.agent.predict(None, {"messages": [{"role": "user", "content": "test"}]})
         assert "error" in response
         assert "RuntimeError" in response["choices"][0]["message"]["content"]
@@ -209,6 +211,9 @@ class TestClaudeDataAgent:
             num_turns = 3
             duration_ms = 1500
 
-        with patch("data_agents.agents.mlflow_wrapper.mlflow.active_run", side_effect=Exception("mlflow down")):
+        with patch(
+            "data_agents.agents.mlflow_wrapper.mlflow.active_run",
+            side_effect=Exception("mlflow down"),
+        ):
             # Deve ser silenciado — não lança exceção
             self.agent._log_result_metrics(FakeResult())

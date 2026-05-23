@@ -96,10 +96,12 @@ def _list_agents() -> list[dict[str, Any]]:
             meta, _ = parse_yaml_frontmatter(f.read_text(encoding="utf-8"))
         except (ValueError, OSError):
             continue
-        items.append({
-            "name": meta.get("name", f.stem),
-            "tier": meta.get("tier", ""),
-        })
+        items.append(
+            {
+                "name": meta.get("name", f.stem),
+                "tier": meta.get("tier", ""),
+            }
+        )
     return items
 
 
@@ -130,6 +132,7 @@ def _list_all_mcp_configs() -> list[str]:
     a stripped-down environment without pydantic)."""
     try:
         from data_agents.config.mcp_servers import ALL_MCP_CONFIGS
+
         return sorted(ALL_MCP_CONFIGS.keys())
     except Exception:  # noqa: BLE001 — defensive: never let import errors break --print
         return []
@@ -140,7 +143,8 @@ def _list_kb_domains() -> list[str]:
     if not kb_dir.is_dir():
         return []
     return sorted(
-        d.name for d in kb_dir.iterdir()
+        d.name
+        for d in kb_dir.iterdir()
         if d.is_dir() and not d.name.startswith("_") and d.name not in {"_templates"}
     )
 
@@ -149,7 +153,8 @@ def _count_kbs_with_index() -> int:
     return sum(
         1
         for d in (PROJECT_ROOT / "kb").iterdir()
-        if d.is_dir() and not d.name.startswith("_")
+        if d.is_dir()
+        and not d.name.startswith("_")
         and d.name not in {"_templates"}
         and (d / "index.md").is_file()
     )
@@ -164,8 +169,7 @@ def _list_skills() -> list[str]:
     paths: list[str] = []
     for p in sorted(root.rglob("SKILL.md")):
         # Skip TEMPLATE/, _template/
-        if any(part in {"TEMPLATE", "_template"} or part.startswith("_")
-               for part in p.parts):
+        if any(part in {"TEMPLATE", "_template"} or part.startswith("_") for part in p.parts):
             continue
         paths.append(p.parent.relative_to(root).as_posix())
     return paths
@@ -176,7 +180,8 @@ def _list_skill_domains() -> list[str]:
     if not root.is_dir():
         return []
     return sorted(
-        d.name for d in root.iterdir()
+        d.name
+        for d in root.iterdir()
         if d.is_dir() and not d.name.startswith("_") and d.name != "TEMPLATE"
     )
 
@@ -184,6 +189,7 @@ def _list_skill_domains() -> list[str]:
 def _list_commands() -> dict[str, list[str]]:
     """Returns {mode: [command_names]} from config/commands.yaml."""
     import yaml
+
     cmds_file = PROJECT_ROOT / "data_agents" / "config" / "commands.yaml"
     by_mode: dict[str, list[str]] = {"express": [], "full": [], "internal": []}
     if not cmds_file.is_file():
@@ -208,10 +214,7 @@ def _count_hooks() -> int:
     hooks_dir = PROJECT_ROOT / "data_agents" / "hooks"
     if not hooks_dir.is_dir():
         return 0
-    return sum(
-        1 for f in hooks_dir.glob("*.py")
-        if f.name != "__init__.py"
-    )
+    return sum(1 for f in hooks_dir.glob("*.py") if f.name != "__init__.py")
 
 
 def _count_tests() -> int:
@@ -279,8 +282,7 @@ def _iter_doc_files() -> list[Path]:
     return [PROJECT_ROOT / p for p in WATCHED_DOCS if (PROJECT_ROOT / p).is_file()]
 
 
-def _process_file(path: Path, inventory: dict[str, Any], mode: str
-                  ) -> tuple[bool, list[str]]:
+def _process_file(path: Path, inventory: dict[str, Any], mode: str) -> tuple[bool, list[str]]:
     """Returns (changed_or_drift, list_of_diff_messages).
 
     mode='update' rewrites the file in place if any block was stale.
@@ -299,16 +301,12 @@ def _process_file(path: Path, inventory: dict[str, Any], mode: str
         key = match.group(1)
         current = match.group(2).strip()
         if key not in inventory:
-            messages.append(
-                f"{path}:<!-- INVENTORY:{key} --> — unknown key (no value to inject)"
-            )
+            messages.append(f"{path}:<!-- INVENTORY:{key} --> — unknown key (no value to inject)")
             return match.group(0)
         new_value = str(inventory[key])
         if current != new_value:
             changed = True
-            messages.append(
-                f"{path}:<!-- INVENTORY:{key} --> {current!r} → {new_value!r}"
-            )
+            messages.append(f"{path}:<!-- INVENTORY:{key} --> {current!r} → {new_value!r}")
         return f"<!-- INVENTORY:{key} -->{new_value}<!-- /INVENTORY:{key} -->"
 
     new_content = INVENTORY_BLOCK.sub(replace_block, original)
@@ -338,10 +336,8 @@ def render_print(inventory: dict[str, Any]) -> str:
         f"(custom={inventory['mcps_custom']}, "
         f"external={inventory['mcps_external']}, "
         f"registered={inventory['mcps_registered']})",
-        f"KBS:       {inventory['kbs_total']:>4}  "
-        f"(with index={inventory['kbs_with_index']})",
-        f"SKILLS:    {inventory['skills_total']:>4}  "
-        f"(domains={inventory['skill_domains']})",
+        f"KBS:       {inventory['kbs_total']:>4}  (with index={inventory['kbs_with_index']})",
+        f"SKILLS:    {inventory['skills_total']:>4}  (domains={inventory['skill_domains']})",
         f"COMMANDS:  {inventory['commands_total']:>4}  "
         f"(express={inventory['commands_express']}, "
         f"full={inventory['commands_full']}, "
@@ -359,19 +355,22 @@ def render_print(inventory: dict[str, Any]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Compute live project inventory and sync docs."
-    )
+    parser = argparse.ArgumentParser(description="Compute live project inventory and sync docs.")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--print", action="store_true",
-                       help="Print human-readable inventory (default).")
-    group.add_argument("--json", action="store_true",
-                       help="Print inventory as JSON.")
-    group.add_argument("--update", action="store_true",
-                       help="Rewrite <!-- INVENTORY:* --> blocks in docs in place.")
-    group.add_argument("--check", action="store_true",
-                       help="Exit 1 if any doc has stale <!-- INVENTORY:* --> "
-                            "values (CI gate).")
+    group.add_argument(
+        "--print", action="store_true", help="Print human-readable inventory (default)."
+    )
+    group.add_argument("--json", action="store_true", help="Print inventory as JSON.")
+    group.add_argument(
+        "--update",
+        action="store_true",
+        help="Rewrite <!-- INVENTORY:* --> blocks in docs in place.",
+    )
+    group.add_argument(
+        "--check",
+        action="store_true",
+        help="Exit 1 if any doc has stale <!-- INVENTORY:* --> values (CI gate).",
+    )
     args = parser.parse_args(argv)
 
     try:

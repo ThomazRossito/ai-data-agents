@@ -349,12 +349,14 @@ def build_escalation_graph_markdown(
     for source, target, trigger, reason in rows:
         lines.append(f"| `{source}` | `{target}` | {trigger} | {reason} |")
 
-    lines.extend([
-        "",
-        f"_({len(rows)} rules across {len({r[0] for r in rows})} source agents — "
-        "regenerated on each Supervisor build from agent frontmatter)_",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            f"_({len(rows)} rules across {len({r[0] for r in rows})} source agents — "
+            "regenerated on each Supervisor build from agent frontmatter)_",
+            "",
+        ]
+    )
 
     return "\n".join(lines)
 

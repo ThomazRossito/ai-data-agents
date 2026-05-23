@@ -34,7 +34,7 @@ try:
 except ImportError as _exc:
     raise ImportError(
         "fastapi não instalado. Para habilitar o servidor de visualização 3D:\n"
-        "  pip install -e \".[viz]\"\n"
+        '  pip install -e ".[viz]"\n'
         "  ou: pip install 'fastapi>=0.110' 'uvicorn[standard]>=0.27' 'watchdog>=4.0'"
     ) from _exc
 

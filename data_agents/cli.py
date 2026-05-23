@@ -58,7 +58,11 @@ from claude_agent_sdk import (
 )
 from claude_agent_sdk.types import StreamEvent
 
-from data_agents.agents.supervisor import build_supervisor_options, build_failover_options, is_rate_limit_error
+from data_agents.agents.supervisor import (
+    build_supervisor_options,
+    build_failover_options,
+    is_rate_limit_error,
+)
 from data_agents.agents.dispatcher import (
     select_agents as dispatcher_select_agents,
     apply_fallback_policy as dispatcher_apply_fallback,
@@ -628,7 +632,10 @@ async def _handle_memory_command(user_input: str) -> None:
             return
 
         console.print(f"[dim]🧠 Buscando memórias para: {query_text}...[/dim]")
-        from data_agents.memory.retrieval import retrieve_relevant_memories, format_memories_for_injection
+        from data_agents.memory.retrieval import (
+            retrieve_relevant_memories,
+            format_memories_for_injection,
+        )
 
         memories = retrieve_relevant_memories(query_text, store)
         if memories:

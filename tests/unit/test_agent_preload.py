@@ -289,7 +289,10 @@ class TestPhase5AgentMetaFields:
 
     def test_agentmeta_accepts_stop_conditions(self):
         meta = AgentMeta(
-            name="x", description="d", model="m", tier="T1",
+            name="x",
+            description="d",
+            model="m",
+            tier="T1",
             stop_conditions=["c1", "c2"],
         )
         assert meta.stop_conditions == ["c1", "c2"]
@@ -297,7 +300,10 @@ class TestPhase5AgentMetaFields:
     def test_agentmeta_accepts_escalation_rules(self):
         rules = [{"trigger": "t", "target": "a", "reason": "r"}]
         meta = AgentMeta(
-            name="x", description="d", model="m", tier="T1",
+            name="x",
+            description="d",
+            model="m",
+            tier="T1",
             escalation_rules=rules,
         )
         assert meta.escalation_rules == rules

@@ -5,7 +5,11 @@ import os
 import pytest
 from unittest.mock import patch
 
-from data_agents.hooks.security_hook import block_destructive_commands, check_sql_cost, _detect_expensive_sql
+from data_agents.hooks.security_hook import (
+    block_destructive_commands,
+    check_sql_cost,
+    _detect_expensive_sql,
+)
 from data_agents.hooks.audit_hook import audit_tool_usage, _classify_operation
 from data_agents.hooks.cost_guard_hook import (
     log_cost_generating_operations,

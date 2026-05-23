@@ -42,7 +42,7 @@ try:
 except ImportError as _exc:
     raise ImportError(
         "chainlit não instalado. Para habilitar o UI do AI Data Agents:\n"
-        "  pip install -e \".[ui]\"\n"
+        '  pip install -e ".[ui]"\n'
         "  ou: pip install chainlit>=2.0"
     ) from _exc
 
@@ -800,7 +800,9 @@ async def _handle_supervisor(user_input: str) -> None:
                     cl.user_session.set("supervisor_client", _reconnected["client"])
                     cl.user_session.set("supervisor_options", _reconnected["options"])
                     # Reseta o budget para que o novo cliente comece do zero
-                    from data_agents.hooks.context_budget_hook import reset_context_budget as _reset_budget
+                    from data_agents.hooks.context_budget_hook import (
+                        reset_context_budget as _reset_budget,
+                    )
 
                     _reset_budget(session_id=cl.user_session.get("session_id"))
                     await cl.Message(

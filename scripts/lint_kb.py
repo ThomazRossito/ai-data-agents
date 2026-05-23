@@ -153,7 +153,8 @@ def _list_kb_subdirs() -> list[Path]:
     if not kb_dir.is_dir():
         return []
     return sorted(
-        p for p in kb_dir.iterdir()
+        p
+        for p in kb_dir.iterdir()
         if p.is_dir() and not p.name.startswith("_") and p.name not in NOT_A_KB
     )
 
@@ -194,10 +195,7 @@ def _extract_internal_paths(body: str, source_file: Path) -> set[str]:
     refs: set[str] = set()
 
     def is_external(url: str) -> bool:
-        return (
-            url.startswith(("http://", "https://", "mailto:", "ftp://", "#"))
-            or "://" in url
-        )
+        return url.startswith(("http://", "https://", "mailto:", "ftp://", "#")) or "://" in url
 
     def is_placeholder(url: str) -> bool:
         """Templates like 'kb/industry/<vertical>.md' or 'kb/{name}.md'
@@ -288,9 +286,7 @@ def check_kb(
     try:
         content = index.read_text(encoding="utf-8")
     except OSError as exc:
-        issues.append(
-            Issue(Severity.ERROR, domain, "io", f"cannot read index.md: {exc}", index)
-        )
+        issues.append(Issue(Severity.ERROR, domain, "io", f"cannot read index.md: {exc}", index))
         return issues
 
     try:
@@ -332,8 +328,7 @@ def check_kb(
                     Severity.WARNING,
                     domain,
                     "updated-at-invalid",
-                    f"'updated_at' value {updated_at_raw!r} could not be "
-                    f"parsed as YYYY-MM-DD",
+                    f"'updated_at' value {updated_at_raw!r} could not be parsed as YYYY-MM-DD",
                     index,
                 )
             )
@@ -411,8 +406,7 @@ def check_kb(
                     Severity.WARNING,
                     domain,
                     "broken-link",
-                    f"internal reference '{ref}' (from index.md body) "
-                    f"does not exist on disk",
+                    f"internal reference '{ref}' (from index.md body) does not exist on disk",
                     index,
                 )
             )
@@ -483,8 +477,7 @@ def render_report(report: LintReport, quiet: bool, isatty: bool) -> str:
         for issue in issues:
             color, reset = _color_for(issue.severity, isatty)
             lines.append(
-                f"    {color}{issue.severity.value:7}{reset} "
-                f"[{issue.check}] {issue.message}"
+                f"    {color}{issue.severity.value:7}{reset} [{issue.check}] {issue.message}"
             )
         lines.append("")
 
@@ -513,15 +506,14 @@ def render_json(report: LintReport) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Structural lint for the Knowledge Base. "
-                    "Validates index.md presence, frontmatter, agent references, "
-                    "and broken internal links."
+        "Validates index.md presence, frontmatter, agent references, "
+        "and broken internal links."
     )
-    parser.add_argument("--strict", action="store_true",
-                        help="Treat warnings as errors.")
-    parser.add_argument("--quiet", action="store_true",
-                        help="Suppress info-level messages; show errors only.")
-    parser.add_argument("--json", action="store_true",
-                        help="Emit JSON for machine consumption.")
+    parser.add_argument("--strict", action="store_true", help="Treat warnings as errors.")
+    parser.add_argument(
+        "--quiet", action="store_true", help="Suppress info-level messages; show errors only."
+    )
+    parser.add_argument("--json", action="store_true", help="Emit JSON for machine consumption.")
     args = parser.parse_args(argv)
 
     valid_agents = _list_valid_agents()

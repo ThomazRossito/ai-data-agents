@@ -40,7 +40,10 @@ class TestSaveCheckpoint:
     def test_save_creates_file(self, tmp_path):
         mock_settings = _make_mock_settings(tmp_path)
         with patch("data_agents.hooks.checkpoint.settings", mock_settings):
-            with patch("data_agents.hooks.checkpoint.CHECKPOINT_PATH", tmp_path / "logs" / "checkpoint.json"):
+            with patch(
+                "data_agents.hooks.checkpoint.CHECKPOINT_PATH",
+                tmp_path / "logs" / "checkpoint.json",
+            ):
                 from data_agents.hooks.checkpoint import save_checkpoint
 
                 path = save_checkpoint("meu prompt", "budget_exceeded", cost_usd=1.5, turns=10)

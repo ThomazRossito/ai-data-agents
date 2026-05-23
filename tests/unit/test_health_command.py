@@ -135,7 +135,10 @@ class TestBuildPlatformRows:
         with (
             patch("data_agents.config.settings.settings", mock_settings),
             patch("data_agents.config.mcp_servers.ALWAYS_ACTIVE_MCPS", []),
-            patch("data_agents.commands.health._check_url", return_value=(False, "Conexão recusada / timeout")),
+            patch(
+                "data_agents.commands.health._check_url",
+                return_value=(False, "Conexão recusada / timeout"),
+            ),
         ):
             rows, ok, warn, err = _build_platform_rows()
 
@@ -170,7 +173,9 @@ class TestHandleHealthCommand:
                 "missing": [],
             }
         ]
-        with patch("data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 1, 0, 0)):
+        with patch(
+            "data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 1, 0, 0)
+        ):
             console = MagicMock()
             handle_health_command(console)
 
@@ -198,7 +203,9 @@ class TestHandleHealthCommandChainlit:
                 "missing": [],
             }
         ]
-        with patch("data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 1, 0, 0)):
+        with patch(
+            "data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 1, 0, 0)
+        ):
             result = handle_health_command_chainlit()
 
         assert isinstance(result, str)
@@ -222,7 +229,9 @@ class TestHandleHealthCommandChainlit:
                 "missing": ["FABRIC_SQL_ENDPOINT"],
             },
         ]
-        with patch("data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 1, 0, 1)):
+        with patch(
+            "data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 1, 0, 1)
+        ):
             result = handle_health_command_chainlit()
 
         assert "1 OK" in result
@@ -238,7 +247,9 @@ class TestHandleHealthCommandChainlit:
                 "missing": ["AZURE_TENANT_ID"],
             }
         ]
-        with patch("data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 0, 0, 1)):
+        with patch(
+            "data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 0, 0, 1)
+        ):
             result = handle_health_command_chainlit()
 
         assert "❌" in result
@@ -253,7 +264,9 @@ class TestHandleHealthCommandChainlit:
                 "missing": [],
             }
         ]
-        with patch("data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 0, 1, 0)):
+        with patch(
+            "data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 0, 1, 0)
+        ):
             result = handle_health_command_chainlit()
 
         assert "⚠️" in result

@@ -79,8 +79,9 @@ def test_frontmatter_parse_baseline():
 
     # Phase 7: tests/perf/ — repo root é 2 níveis acima.
     repo_root = Path(__file__).resolve().parent.parent.parent
-    sample = (repo_root / "data_agents" / "agents" / "registry"
-              / "databricks-engineer.md").read_text(encoding="utf-8")
+    sample = (
+        repo_root / "data_agents" / "agents" / "registry" / "databricks-engineer.md"
+    ).read_text(encoding="utf-8")
 
     # Warmup
     parse_yaml_frontmatter(sample)
@@ -89,8 +90,10 @@ def test_frontmatter_parse_baseline():
         parse_yaml_frontmatter(sample)
 
     elapsed_ms = _measure(parse, n=10)
-    print(f"\n  parse_yaml_frontmatter (databricks-engineer.md): "
-          f"{elapsed_ms:.2f}ms (baseline: 2ms, gate: 10ms)")
+    print(
+        f"\n  parse_yaml_frontmatter (databricks-engineer.md): "
+        f"{elapsed_ms:.2f}ms (baseline: 2ms, gate: 10ms)"
+    )
 
     assert elapsed_ms < 10, (
         f"parse_yaml_frontmatter: {elapsed_ms:.2f}ms excede o gate de 10ms. "

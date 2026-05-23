@@ -81,12 +81,14 @@ SKIP_DIR_NAMES: frozenset[str] = frozenset({"_template", "__pycache__"})
 #:  - firecrawl: web scraping (no writes)
 #:  - postgres: server enforces SELECT-only at the MCP layer
 #:  - tavily: web search (no writes)
-READONLY_BY_NATURE: frozenset[str] = frozenset({
-    "context7",
-    "firecrawl",
-    "postgres",
-    "tavily",
-})
+READONLY_BY_NATURE: frozenset[str] = frozenset(
+    {
+        "context7",
+        "firecrawl",
+        "postgres",
+        "tavily",
+    }
+)
 
 
 # ─── Issue model ──────────────────────────────────────────────────────────────
@@ -147,7 +149,8 @@ def _list_mcp_dirs() -> list[Path]:
     if not root.is_dir():
         return []
     return sorted(
-        p for p in root.iterdir()
+        p
+        for p in root.iterdir()
         if p.is_dir() and p.name not in SKIP_DIR_NAMES and not p.name.startswith("_")
     )
 
@@ -199,10 +202,14 @@ def _expected_tool_constants(dir_name: str) -> list[str]:
     """Returns names of XXX_MCP_TOOLS constants the module should export."""
     if dir_name in MULTI_SERVER_DIRS:
         # 'fabric' → FABRIC_MCP_TOOLS + FABRIC_OFFICIAL_MCP_TOOLS
-        return [
-            "FABRIC_MCP_TOOLS",
-            "FABRIC_OFFICIAL_MCP_TOOLS",
-        ] if dir_name == "fabric" else []
+        return (
+            [
+                "FABRIC_MCP_TOOLS",
+                "FABRIC_OFFICIAL_MCP_TOOLS",
+            ]
+            if dir_name == "fabric"
+            else []
+        )
     if dir_name in GENERIC_CONSTANTS_DIRS:
         return ["MCP_TOOLS"]
     return [_tools_const_for(dir_name)]
@@ -243,8 +250,7 @@ def check_mcp_dir(mcp_dir: Path) -> list[Issue]:
                 Severity.ERROR,
                 dir_name,
                 "import-error",
-                f"failed to import {module_path}: "
-                f"{type(exc).__name__}: {exc}",
+                f"failed to import {module_path}: {type(exc).__name__}: {exc}",
                 config_file,
             )
         )
@@ -287,8 +293,7 @@ def check_mcp_dir(mcp_dir: Path) -> list[Issue]:
                     Severity.ERROR,
                     dir_name,
                     "function-raises",
-                    f"{fn_name}() raised on call: "
-                    f"{type(exc).__name__}: {exc}",
+                    f"{fn_name}() raised on call: {type(exc).__name__}: {exc}",
                     config_file,
                 )
             )
@@ -325,8 +330,7 @@ def check_mcp_dir(mcp_dir: Path) -> list[Issue]:
                     Severity.ERROR,
                     dir_name,
                     "shape-entry-not-dict",
-                    f"cfg['{server_key}'] is {type(entry).__name__}, "
-                    f"expected dict",
+                    f"cfg['{server_key}'] is {type(entry).__name__}, expected dict",
                     config_file,
                 )
             )
@@ -393,8 +397,7 @@ def check_mcp_dir(mcp_dir: Path) -> list[Issue]:
                         Severity.ERROR,
                         dir_name,
                         "tool-wrong-prefix",
-                        f"{const_name}: tool '{tool}' should start "
-                        f"with '{prefix}'",
+                        f"{const_name}: tool '{tool}' should start with '{prefix}'",
                         config_file,
                     )
                 )
@@ -441,8 +444,7 @@ def check_global_aliases() -> list[Issue]:
                 Severity.ERROR,
                 "<global>",
                 "cannot-load-globals",
-                f"could not import ALL_MCP_CONFIGS or MCP_TOOL_SETS: "
-                f"{type(exc).__name__}: {exc}",
+                f"could not import ALL_MCP_CONFIGS or MCP_TOOL_SETS: {type(exc).__name__}: {exc}",
             )
         )
         return issues
@@ -542,8 +544,7 @@ def render_report(report: LintReport, quiet: bool, isatty: bool) -> str:
         for issue in issues:
             color, reset = _color_for(issue.severity, isatty)
             lines.append(
-                f"    {color}{issue.severity.value:7}{reset} "
-                f"[{issue.check}] {issue.message}"
+                f"    {color}{issue.severity.value:7}{reset} [{issue.check}] {issue.message}"
             )
         lines.append("")
 
@@ -573,14 +574,11 @@ def render_json(report: LintReport) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Structural lint for mcp_servers/* configurations and "
-                    "their cross-references in loader/registry."
+        "their cross-references in loader/registry."
     )
-    parser.add_argument("--strict", action="store_true",
-                        help="Treat warnings as errors.")
-    parser.add_argument("--quiet", action="store_true",
-                        help="Suppress non-error messages.")
-    parser.add_argument("--json", action="store_true",
-                        help="Emit JSON for machine consumption.")
+    parser.add_argument("--strict", action="store_true", help="Treat warnings as errors.")
+    parser.add_argument("--quiet", action="store_true", help="Suppress non-error messages.")
+    parser.add_argument("--json", action="store_true", help="Emit JSON for machine consumption.")
     args = parser.parse_args(argv)
 
     report = LintReport()
@@ -594,6 +592,7 @@ def main(argv: list[str] | None = None) -> int:
     # Count registered servers (for the header summary)
     try:
         from data_agents.config.mcp_servers import ALL_MCP_CONFIGS
+
         report.servers_registered = len(ALL_MCP_CONFIGS)
     except Exception:  # noqa: BLE001
         report.servers_registered = 0

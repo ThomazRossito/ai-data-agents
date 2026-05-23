@@ -211,6 +211,7 @@ class Memory:
                 return datetime.fromisoformat(value)
             # date sem time (raro mas possível com pyyaml)
             from datetime import date as _date
+
             if isinstance(value, _date):
                 return datetime(value.year, value.month, value.day, tzinfo=timezone.utc)
             return datetime.now(timezone.utc)

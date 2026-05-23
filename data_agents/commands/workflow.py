@@ -721,7 +721,12 @@ def _build_step_options(agent_name: str) -> ClaudeAgentOptions:
         )
 
     # Fallback: partido persona sem MCPs (agente não encontrado no registry)
-    from data_agents.commands.party import AGENT_PERSONAS, _DEFAULT_PERSONA, _AGENT_TIERS, _PARTY_MAX_TURNS
+    from data_agents.commands.party import (
+        AGENT_PERSONAS,
+        _DEFAULT_PERSONA,
+        _AGENT_TIERS,
+        _PARTY_MAX_TURNS,
+    )
 
     logger.warning(f"Agente '{agent_name}' não encontrado no registry — usando persona fallback")
     persona = AGENT_PERSONAS.get(agent_name, _DEFAULT_PERSONA)

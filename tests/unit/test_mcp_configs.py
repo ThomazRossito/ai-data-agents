@@ -1,8 +1,14 @@
 """Testes de configuração dos servidores MCP."""
 
-from data_agents.mcp_servers.databricks.server_config import get_databricks_mcp_config, DATABRICKS_MCP_TOOLS
+from data_agents.mcp_servers.databricks.server_config import (
+    get_databricks_mcp_config,
+    DATABRICKS_MCP_TOOLS,
+)
 from data_agents.mcp_servers.fabric.server_config import get_fabric_mcp_config, ALL_FABRIC_TOOLS
-from data_agents.mcp_servers.fabric_rti.server_config import get_fabric_rti_mcp_config, FABRIC_RTI_MCP_TOOLS
+from data_agents.mcp_servers.fabric_rti.server_config import (
+    get_fabric_rti_mcp_config,
+    FABRIC_RTI_MCP_TOOLS,
+)
 from data_agents.config.mcp_servers import build_mcp_registry
 
 

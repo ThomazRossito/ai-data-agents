@@ -315,8 +315,7 @@ def check_skill(skill_path: Path, today: date) -> tuple[str | None, list[Issue]]
                     Severity.WARNING,
                     label,
                     "updated-at-invalid",
-                    f"'updated_at' value {updated_at_raw!r} could not be "
-                    f"parsed as YYYY-MM-DD",
+                    f"'updated_at' value {updated_at_raw!r} could not be parsed as YYYY-MM-DD",
                     skill_path,
                 )
             )
@@ -350,8 +349,7 @@ def check_uniqueness(skills: list[tuple[str, Path]]) -> list[Issue]:
                     Severity.ERROR,
                     _skill_label(path),
                     "name-uniqueness",
-                    f"skill name '{name}' is also used by "
-                    f"{_skill_label(seen[name])}",
+                    f"skill name '{name}' is also used by {_skill_label(seen[name])}",
                     path,
                 )
             )
@@ -426,8 +424,7 @@ def render_report(report: LintReport, quiet: bool, isatty: bool) -> str:
         for issue in issues:
             color, reset = _color_for(issue.severity, isatty)
             lines.append(
-                f"    {color}{issue.severity.value:7}{reset} "
-                f"[{issue.check}] {issue.message}"
+                f"    {color}{issue.severity.value:7}{reset} [{issue.check}] {issue.message}"
             )
         lines.append("")
 
@@ -456,14 +453,11 @@ def render_json(report: LintReport) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Structural lint for SKILL.md files. Validates frontmatter, "
-                    "name/dir consistency, description quality, and orphan domains."
+        "name/dir consistency, description quality, and orphan domains."
     )
-    parser.add_argument("--strict", action="store_true",
-                        help="Treat warnings as errors.")
-    parser.add_argument("--quiet", action="store_true",
-                        help="Suppress non-error messages.")
-    parser.add_argument("--json", action="store_true",
-                        help="Emit JSON for machine consumption.")
+    parser.add_argument("--strict", action="store_true", help="Treat warnings as errors.")
+    parser.add_argument("--quiet", action="store_true", help="Suppress non-error messages.")
+    parser.add_argument("--json", action="store_true", help="Emit JSON for machine consumption.")
     args = parser.parse_args(argv)
 
     report = LintReport()
