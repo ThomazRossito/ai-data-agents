@@ -1,0 +1,156 @@
+name: Install Matrix — verify extras isolation
+
+# Phase 8: garantir que cada combinação de extras instala e que os módulos
+# opt-in levantam ImportError claro quando o extra correspondente não está
+# presente. Sem isso, regressões silenciosas (alguém adicionar `import
+# chainlit` ao topo de um módulo do core) só apareceriam em produção.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main", "develop", "refactor/v3.0"]
+    paths:
+      - "pyproject.toml"
+      - "data_agents/ui/**"
+      - "data_agents/monitoring/**"
+      - "data_agents/visualization/**"
+      - "data_agents/memory/embedder.py"
+      - ".github/workflows/install-matrix.yml"
+  pull_request:
+    branches: ["main", "develop", "refactor/v3.0"]
+    paths:
+      - "pyproject.toml"
+      - "data_agents/ui/**"
+      - "data_agents/monitoring/**"
+      - "data_agents/visualization/**"
+      - "data_agents/memory/embedder.py"
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+  FORCE_COLOR: "1"
+
+concurrency:
+  group: install-matrix-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  matrix:
+    name: ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Core only — sanity check de que o módulo principal importa sem
+          # nenhum extra. Esse é o caso de uso "biblioteca consumidora".
+          - label: core
+            extras: ""
+            should_import:
+              - data_agents.agents.loader
+              - data_agents.config.settings
+              - data_agents.utils.frontmatter
+            should_fail:
+              - data_agents.ui.chainlit_app    # exige [ui]
+              - data_agents.monitoring.app     # exige [monitoring]
+              - data_agents.visualization.server  # exige [viz]
+
+          - label: ui
+            extras: "[ui]"
+            should_import:
+              - data_agents.agents.loader
+              - data_agents.ui.exporter        # markdown2 ok com [ui]
+            should_fail:
+              - data_agents.monitoring.app
+              - data_agents.visualization.server
+
+          - label: ui-monitoring
+            extras: "[ui,monitoring]"
+            should_import:
+              - data_agents.ui.exporter
+              - data_agents.monitoring.app
+            should_fail:
+              - data_agents.visualization.server
+
+          - label: viz
+            extras: "[viz]"
+            should_import:
+              - data_agents.visualization.server
+              - data_agents.visualization.ws_broker
+              - data_agents.visualization.watcher
+            should_fail:
+              - data_agents.ui.chainlit_app
+              - data_agents.monitoring.app
+
+          - label: memory
+            extras: "[memory]"
+            should_import:
+              - data_agents.memory.embedder
+            should_fail: []
+
+          - label: all
+            extras: "[dev,ui,monitoring,viz,memory,ontology]"
+            should_import:
+              - data_agents.ui.exporter
+              - data_agents.monitoring.app
+              - data_agents.visualization.server
+              - data_agents.memory.embedder
+            should_fail: []
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install with extras=${{ matrix.extras }}
+        run: pip install -e ".${{ matrix.extras }}"
+
+      - name: Verify imports that SHOULD work
+        env:
+          # Mock credential so settings.py doesn't warn during import
+          ANTHROPIC_API_KEY: "sk-ant-test-placeholder"
+        run: |
+          set -e
+          for mod in ${{ join(matrix.should_import, ' ') }}; do
+            echo "▶ import $mod"
+            python -c "import importlib; importlib.import_module('$mod'); print(f'  ✓ ok')"
+          done
+
+      - name: Verify imports that SHOULD fail with clear ImportError
+        env:
+          ANTHROPIC_API_KEY: "sk-ant-test-placeholder"
+        run: |
+          set -e
+          # Cada módulo na lista should_fail deve levantar ImportError
+          # mencionando "pip install" no texto (mensagem amigável).
+          for mod in ${{ join(matrix.should_fail, ' ') }}; do
+            echo "▶ expect import error: $mod"
+            if python -c "
+          import importlib
+          try:
+              importlib.import_module('$mod')
+              print('  ❌ unexpected success — module imported without extra')
+              raise SystemExit(1)
+          except ImportError as exc:
+              msg = str(exc)
+              if 'pip install' not in msg:
+                  print(f'  ❌ ImportError sem mensagem amigável: {msg}')
+                  raise SystemExit(1)
+              print(f'  ✓ ImportError clean: {msg.splitlines()[0]}')
+          "; then
+              :
+            else
+              exit 1
+            fi
+          done

@@ -7,6 +7,43 @@
 
 ## [Unreleased]
 
+### Changed — Phase 8: Optional extras isolation (lighter core)
+
+The core install (`pip install ai-data-agents`) is now significantly lighter. Optional features moved behind extras with clear `ImportError` messages.
+
+**What's now opt-in (was core or top-level imports):**
+
+| Module | Required extra | Was |
+|---|---|---|
+| `data_agents.ui.chainlit_app` | `[ui]` | top-level `import chainlit` |
+| `data_agents.ui.exporter` | `[ui]` (now bundles `markdown2`) | `markdown2` was core |
+| `data_agents.monitoring.app` | `[monitoring]` | top-level `import streamlit` |
+| `data_agents.visualization.server` | `[viz]` | top-level `import fastapi` |
+| `data_agents.visualization.ws_broker` | `[viz]` | top-level `import fastapi` |
+| `data_agents.visualization.watcher` | `[viz]` | top-level `import watchdog` |
+| `data_agents.memory.embedder` (already gold standard) | `[memory]` | lazy + clean ImportError (no change) |
+
+**Pattern applied to each top-level module:**
+
+```python
+# Phase 8: <pkg> é dep opcional do extra [X]
+try:
+    import <pkg>
+except ImportError as _exc:
+    raise ImportError(
+        "<pkg> não instalado. Para habilitar <feature>:\n"
+        "  pip install -e \".[<X>]\""
+    ) from _exc
+```
+
+**`pyproject.toml` change:**
+- `markdown2>=2.4` moved from `[project.dependencies]` to `[project.optional-dependencies.ui]`. Core install drops one dep.
+
+**New CI workflow `.github/workflows/install-matrix.yml`:**
+- Tests 6 install combinations: `core`, `[ui]`, `[ui,monitoring]`, `[viz]`, `[memory]`, `[all]`
+- For each combination, verifies a list of modules that SHOULD import successfully AND a list that SHOULD fail with `ImportError` containing the string `pip install` (proves the message is user-friendly).
+- Triggered on changes to `pyproject.toml` or any of the protected modules.
+
 ### **BREAKING — Phase 7: Python namespace migration (`data_agents/`)**
 
 All top-level Python packages have been consolidated under the `data_agents` namespace. This is a **breaking change** for any external code that imports from the project.

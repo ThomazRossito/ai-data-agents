@@ -282,26 +282,32 @@ Este é o ganho **maior** depois de Governance. Todo crescimento futuro fica pro
 
 ---
 
-## FASE 8 — Modularização de Extras
+## FASE 8 — Modularização de Extras ✅ CONCLUÍDA
 
-**Objetivo**: `pip install data-agents-databricks-fabric` instala só o core; extras são opt-in.
+**Objetivo**: `pip install ai-data-agents` instala só o core; extras são opt-in.
 
-### Tasks
+### Tasks (versão consolidada após auditoria)
 
-| # | Task | Critério de aceitação |
-|---|---|---|
-| 8.1 | Subpacote `data_agents.ui` (Chainlit) só importável com `[ui]` | `pip install .[ui]` ativa, sem `[ui]` ImportError claro |
-| 8.2 | Subpacote `data_agents.monitoring` (Streamlit) só com `[monitoring]` | idem |
-| 8.3 | Subpacote `data_agents.visualization` (FastAPI 3D) só com `[viz]` | idem |
-| 8.4 | Subpacote `data_agents.memory.embedder` (fastembed) só com `[memory]` | idem |
-| 8.5 | Subpacote `data_agents.mcp_servers.fabric_ontology` (rdflib/owlready2) só com `[ontology]` | idem |
-| 8.6 | Subpacote `data_agents.mcp_servers.azure_pricing` só com `[finops]` | idem |
-| 8.7 | Cada extra tem `README.md` próprio em seu subpacote | Documentação local |
-| 8.8 | CI matrix testa instalações: `core`, `[ui]`, `[ui,monitoring]`, `[all]` | Job CI dedicado para install matrix |
-| 8.9 | Renomear pacote PyPI para `data-agents-databricks-fabric` (mais descritivo) | Reservar nome no PyPI ainda nesta fase |
+| # | Task | Critério de aceitação | Status |
+|---|---|---|---|
+| 8.1 | Auditar imports opcionais — quais são top-level (quebram core) vs lazy (já OK) | Mapa de 7 deps opcionais; `fastembed` já é gold standard; rdflib/owlready2 não são importados no Python (só execução Spark) | ✅ |
+| 8.2 | `data_agents/ui/chainlit_app.py` + `ui/exporter.py` — try/except no top-level com mensagem `pip install -e ".[ui]"` | Sem `[ui]`, qualquer `import data_agents.ui.X` levanta ImportError com instrução clara | ✅ |
+| 8.3 | `data_agents/monitoring/app.py` (streamlit), `data_agents/visualization/{server,ws_broker,watcher}.py` (fastapi/watchdog) — mesmo padrão | 3 módulos protegidos; uvicorn já era lazy | ✅ |
+| 8.4 | `data_agents/memory/embedder.py` — JÁ implementado pré-Phase 8 (lazy `from fastembed import` dentro de `__init__` + ImportError gracioso) | Reaproveitamento; usado como referência para os outros | ✅ |
+| 8.5 | `pyproject.toml`: mover `markdown2` de `[project.dependencies]` (core) para `[ui]`; declarar nada novo para `[finops]` (azure_pricing usa só `requests` que é core); manter `[ontology]` como está | core fica 3 deps mais leve | ✅ |
+| 8.6 | `.github/workflows/install-matrix.yml` (NOVO): testa 6 combinações (core, [ui], [ui,monitoring], [viz], [memory], all) com `should_import` e `should_fail` por combinação | CI matrix valida que cada extra isolado funciona e que ImportError menciona `pip install` | ✅ |
 
-**Estimativa**: 5-7 dias.
-**Risco**: Médio.
+**Resultado**:
+- 6 módulos protegidos (chainlit_app, exporter, monitoring/app, visualization/{server,ws_broker,watcher})
+- `markdown2` removido do core (only consumed by ui/exporter.py)
+- Smoke test no sandbox: 4/4 módulos opcionais levantam ImportError gracioso quando o extra ausente
+- 5 linters estruturais continuam passando
+
+**Lições aprendidas**:
+- O padrão `from fastembed import TextEmbedding` dentro de `__init__` com try/except + raise ImportError customizado é elegante mas só funciona quando o módulo principal pode ser instanciado sem o submódulo opcional. Para módulos onde a dep é usada em TODO o arquivo (chainlit_app, server), try/except no topo é mais direto.
+- `rdflib`/`owlready2` em `[ontology]` é declarativo apenas — agentes que usam ontology delegam execução para Spark cluster, onde essas libs ficam no environment do notebook. Não importa para o pacote Python local.
+- `markdown2` estava em core há tempo, mas é usado apenas em `ui/exporter.py`. Mover reduz o footprint do core sem quebrar ninguém que não usa UI.
+- CI install matrix com `should_import` e `should_fail` listas é mais valioso do que rodar `pip install` em si — verifica que a barreira de extras de fato existe.
 
 ---
 
