@@ -182,8 +182,26 @@ echo "  - data_agents/__init__.py"
 echo "  - README.md (badge)"
 echo "  - CHANGELOG.md (Unreleased → [${NEXT}])"
 
+# ─── Sync Claude Code plugin manifests (Phase 12) ─────────────────────────────
+# build_plugin.sh propaga a versão para:
+#   - plugins/ai-data-agents/.claude-plugin/plugin.json
+#   - .claude-plugin/marketplace.json (plugins[].version)
+# Sem isso, o marketplace exposto via `claude plugin install` mostraria
+# versão antiga, mesmo após o bump do pip package.
+if [[ -x "${SCRIPT_DIR}/build_plugin.sh" ]]; then
+  echo ""
+  echo "─── Syncing plugin manifests ───"
+  bash "${SCRIPT_DIR}/build_plugin.sh" >/dev/null 2>&1 || {
+    echo "⚠ build_plugin.sh falhou — manifests do plugin podem ficar fora de sync." >&2
+    echo "  Investigue antes do commit." >&2
+  }
+  echo "✓ Plugin manifests synced to v${NEXT}"
+fi
+
 # ─── Commit + tag ─────────────────────────────────────────────────────────────
-git add VERSION pyproject.toml data_agents/__init__.py README.md CHANGELOG.md
+git add VERSION pyproject.toml data_agents/__init__.py README.md CHANGELOG.md \
+        plugins/ai-data-agents/.claude-plugin/plugin.json \
+        .claude-plugin/marketplace.json
 git commit -m "chore(release): bump to v${NEXT}"
 
 if [[ "${NO_TAG}" == "0" ]]; then
