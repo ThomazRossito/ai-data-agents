@@ -59,10 +59,6 @@ dependencies = [
     # Substitui console.input() do Rich que não suporta readline
     "prompt_toolkit>=3.0",
 
-    # Export de conversas (HTML) — usado pela UI Chainlit (/export)
-    # PDF: abrir o HTML no browser e usar Cmd+P → Salvar como PDF
-    "markdown2>=2.4",
-
     "pyyaml>=6.0",
 
     # Azure Pricing MCP — usa requests pra Retail Prices API (https://prices.azure.com)
@@ -107,6 +103,10 @@ ui = [
     "chainlit>=2.0",
     "pandas>=2.0",
     "pyyaml>=6.0",
+    # Phase 8: markdown2 era core, mas o único consumidor é o exporter
+    # HTML do UI (ui/exporter.py). Movido para cá; sem [ui] o exporter
+    # levanta ImportError com mensagem clara.
+    "markdown2>=2.4",
 ]
 viz = [
     # Visualização 3D do escritório dos agentes em tempo real.
