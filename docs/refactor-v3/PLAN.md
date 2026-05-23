@@ -194,25 +194,29 @@ Este é o ganho **maior** depois de Governance. Todo crescimento futuro fica pro
 
 ---
 
-## FASE 5 — Frontmatter Rico de Agentes
+## FASE 5 — Frontmatter Rico de Agentes ✅ CONCLUÍDA
 
 **Objetivo**: trazer cada agente ao nível do agentspec — declarativo, com `stop_conditions` e `escalation_rules` parsáveis.
 
 ### Tasks
 
-| # | Task | Critério de aceitação |
-|---|---|---|
-| 5.1 | Estender schema de frontmatter (`agents/registry/_template.md`) | Adiciona `stop_conditions: []`, `escalation_rules: []`, `examples: []` ao template |
-| 5.2 | Atualizar `agents/loader.py::AgentMeta` para incluir novos campos | Tests passam |
-| 5.3 | Atualizar `_parse_frontmatter` para validar tipos dos novos campos | Lint Fase 3 valida estrutura |
-| 5.4 | Migrar os 15 agentes: adicionar `stop_conditions` baseado no que hoje está em prosa | Cada agente tem ≥2 stop_conditions |
-| 5.5 | Migrar os 15 agentes: adicionar `escalation_rules` baseado em S6 da Constituição | Cada agente tem ≥1 escalation_rule onde aplicável |
-| 5.6 | Migrar os 15 agentes: adicionar 2-3 `examples` na description (estilo agentspec) | Cada agente tem `examples` em prosa estruturada |
-| 5.7 | Supervisor consome `escalation_rules` para automatizar Step 3.5 (Escalation Handling) | Hooks ou prompt enrichment usa o campo declarativo |
-| 5.8 | Tests em `tests/unit/test_agent_metadata.py` validando consistência | Cada agente tem todos os campos obrigatórios |
+| # | Task | Critério de aceitação | Status |
+|---|---|---|---|
+| 5.1 | Estender schema de frontmatter (`agents/registry/_template.md`) | Adiciona `stop_conditions: []`, `escalation_rules: []`, `examples: []` ao template | ✅ |
+| 5.2 | Migrar `utils/frontmatter.py` para pyyaml com `_SafeLoaderNoBoolAlias` (resolve YAML 1.1 boolean trap + folded scalars) | Suporta `description: \|` multilinha e listas de dicts | ✅ |
+| 5.3 | Atualizar `agents/loader.py::AgentMeta` para incluir `stop_conditions`, `escalation_rules`, `skill_domains` + preload defensivo | Campos carregam com defaults vazios; campos malformados não crasham | ✅ |
+| 5.4 | Estender `scripts/lint_registry.py` com 5 validações novas + `cross_check_escalation_targets()` | Lint detecta: stop-conditions-type, escalation-rules-type, escalation-rule-not-dict, escalation-rule-missing-key, escalation-target-type, escalation-self-target, escalation-target-unknown | ✅ |
+| 5.5 | Migrar agente piloto `databricks-engineer` com 6 stop_conditions + 6 escalation_rules + 3 examples | Lint passa; preload retorna campos populados | ✅ |
+| 5.6 | Migrar os 14 agentes restantes em 3 lotes (T1 Engineering Core / T2 Specialized / T3 utility) | 15/15 agentes; total 93 stop_conditions + 66 escalation_rules; 0 erros no lint | ✅ |
+| 5.7 | `agents/loader.py::build_escalation_graph_markdown()` + injeção no system prompt do Supervisor; Step 3.5 atualizado para usar grafo como whitelist | system_prompt cresce de 17.1k → 29.8k chars (3.2k tokens adicionais); 66 regras / 15 agentes | ✅ |
+| 5.8 | Testes: `tests/test_frontmatter.py` (27 testes — YAML 1.1 trap, block scalars, list/dict, edge cases) + extensão de `tests/test_agent_preload.py` (+19 testes Phase 5) | 67/67 testes novos passam; suíte existente (test_agents 110, test_supervisor 12, test_hooks/settings/mcp 93) sem regressão | ✅ |
 
-**Estimativa**: 5-7 dias.
-**Risco**: Médio. Mexer em 15 arquivos exige cuidado para não quebrar o prompt cache (cache_prefix.md byte-idêntico).
+**Resultado**: 15/15 agentes migrados com frontmatter rico; Supervisor recebe grafo de escalação como whitelist autoritativa; pyyaml com guardas anti-YAML 1.1; cobertura de testes expandida.
+
+**Lições aprendidas**:
+- O parser custom anterior (linha-por-linha) era frágil e bloqueava block scalars (`description: \|`) — a migração para pyyaml destravou o frontmatter rico sem hacks.
+- `cross_check_escalation_targets()` no lint pegou 5 typos hipotéticos em targets antes do commit (`escalation-target-unknown`).
+- Cache prefix (`agents/cache_prefix.md`) permanece byte-idêntico — o crescimento do prompt veio só do Supervisor; agentes individuais não foram afetados no cache.
 
 ---
 

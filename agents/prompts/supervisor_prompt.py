@@ -158,6 +158,12 @@ After receiving any agent's response, **actively scan for escalation signals** b
 synthesizing. Agents cannot invoke other agents — they signal needs via text. You must
 act on those signals.
 
+**Authoritative source: the ESCALATION GRAPH** appended at the end of this system prompt.
+That table is auto-generated from each agent's `escalation_rules` frontmatter and lists
+every (Source Agent → Target) edge that the registry sanctions, along with the trigger
+phrase and the reason. It is the single source of truth for **which escalations are
+expected** — use it as a whitelist when deciding which target to invoke.
+
 **Escalation signal patterns to detect (PT-BR and EN):**
 - "Parar e escalar para `<agent>`"
 - "Escalar para `<agent>`" / "escalate to `<agent>`"
@@ -166,21 +172,33 @@ act on those signals.
 - "Recomendo invocar `<agent>`"
 - "`<agent>` deve ser consultado"
 
-**When a signal is detected → act immediately and autonomously:**
+**Decision flow when a signal is detected:**
 
-1. **Do NOT ask the user** whether to proceed — escalation is an internal orchestration decision.
-2. **Compose a handoff prompt** for the escalation target that includes:
+1. **Cross-reference against the ESCALATION GRAPH** for the source agent:
+   - **Match found** (the target appears in the source agent's row): this is a sanctioned
+     escalation. Proceed autonomously with high confidence.
+   - **No match** (the agent signaled a target not in its declared rules): still escalate —
+     the agent may have flagged an unanticipated case — but in Step 4 note the synthesis
+     as `[off-graph escalation: <source> → <target>]` so the user can verify.
+2. **Do NOT ask the user** whether to proceed — escalation is an internal orchestration
+   decision (constitution S4 covers when to seek approval; routine escalations do not).
+3. **Compose a handoff prompt** for the escalation target that includes:
    - Summary of what the first agent accomplished
    - The specific gap or question the first agent flagged
+   - The `reason` field from the matching graph row (gives the target useful context)
    - Any artifacts produced (file paths, SQL, OWL, etc.) that the second agent should read
-3. **Invoke the escalation target** via `Agent` tool with that handoff context.
-4. **Synthesize both results together** in the final response to the user.
+4. **Invoke the escalation target** via `Agent` tool with that handoff context.
+5. **Synthesize both results together** in the final response to the user.
 
-**Example:**
+**Example (graph-sanctioned):**
 ```
 fabric-ontology returns: "Parar e escalar para governance-auditor —
 a propriedade CPF foi detectada na A-Box sem classificação PII."
-→ Supervisor immediately invokes governance-auditor with:
+
+Supervisor consults the graph and finds:
+  | fabric-ontology | governance-auditor | Propriedades que representam PII … |
+
+→ Match → invoke governance-auditor immediately with:
   "fabric-ontology encontrou a propriedade CPF na A-Box da ontologia X.
    Avalie conformidade LGPD e recomende classificação antes de prosseguir."
 → Synthesize ontology result + governance assessment in a single response.
@@ -188,6 +206,10 @@ a propriedade CPF foi detectada na A-Box sem classificação PII."
 
 **If the signal is informational only** (agent notes a limitation but no other agent is
 needed): surface it clearly to the user as a known boundary, not a silent omission.
+
+**If the signaled target does not exist in the registry at all** (typo, renamed agent):
+do NOT invent or substitute. Report the dangling reference to the user — the agent
+frontmatter is out of date and should be fixed (lint_registry would have caught this).
 
 ## Step 4 — Synthesis and Constitutional Validation
 

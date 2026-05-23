@@ -29,7 +29,11 @@ from typing import Any, Literal, cast
 
 from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
 
-from agents.loader import load_all_agents
+from agents.loader import (
+    build_escalation_graph_markdown,
+    load_all_agents,
+    preload_registry,
+)
 from agents.prompts.supervisor_prompt import SUPERVISOR_SYSTEM_PROMPT
 from config.mcp_servers import build_mcp_registry
 from config.settings import settings
@@ -218,6 +222,22 @@ def build_supervisor_options(
     # corretamente independente do cwd do processo (ex: Chainlit vs main.py).
     project_root = Path(__file__).parent.parent
 
+    # Phase 5 — injeta o grafo de escalação no system prompt.
+    # As `escalation_rules` declaradas em cada agente do registry são consolidadas
+    # em uma tabela Markdown que o Supervisor usa como WHITELIST em Step 3.5.
+    # O preload_registry() reaproveita o cache do load_all_agents quando possível.
+    try:
+        escalation_graph = build_escalation_graph_markdown(preload_registry())
+        system_prompt_full = SUPERVISOR_SYSTEM_PROMPT + escalation_graph
+    except Exception as exc:  # noqa: BLE001 — falha aqui não deve derrubar o Supervisor
+        import logging as _log
+
+        _log.getLogger("data_agents.supervisor").warning(
+            f"Falha ao gerar escalation graph: {exc}. "
+            "Continuando sem injeção — Step 3.5 cai no fallback de pattern matching."
+        )
+        system_prompt_full = SUPERVISOR_SYSTEM_PROMPT
+
     return ClaudeAgentOptions(
         # --- Working Directory: âncora todos os agentes na raiz do projeto ---
         cwd=project_root,
@@ -225,7 +245,7 @@ def build_supervisor_options(
         # supervisor_model = settings.default_model (kimi-k2.6 por padrão).
         # Thinking é controlado via thinking_config, não trocando o modelo.
         model=supervisor_model,
-        system_prompt=SUPERVISOR_SYSTEM_PROMPT,
+        system_prompt=system_prompt_full,
         # --- Tools do Supervisor (planejamento e delegação apenas) ---
         allowed_tools=[
             "Agent",  # Invocar subagents especialistas

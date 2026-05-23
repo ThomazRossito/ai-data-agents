@@ -7,6 +7,36 @@
 
 ## [Unreleased]
 
+### Added — Phase 5: Rich agent frontmatter + escalation graph injection
+
+- **`utils/frontmatter.py` migrated to pyyaml** with `_SafeLoaderNoBoolAlias` — a custom
+  SafeLoader subclass that removes YAML 1.1 boolean aliases (yes/no/on/off) so they
+  remain strings. Resolves two real bugs: (a) folded scalars `description: >-` (used by
+  `databricks-dbsql` and `databricks-execution-compute`) now parse as concatenated text
+  instead of literal `>-`; (b) the YAML 1.1 trap `country: NO` becoming `False` is gone.
+  Backward compatible — same `parse_yaml_frontmatter(content) -> tuple[dict, str]` signature.
+- **`agents/registry/_template.md` extended** with `description: |` block scalar (Example 1/2/3 stanzas), `stop_conditions: []` (situations where the agent must halt), and `escalation_rules: []` (structured `{trigger, target, reason}` dicts).
+- **`agents/loader.py::AgentMeta` extended** with new optional fields `stop_conditions: list[str]`, `escalation_rules: list[dict[str, str]]`, `skill_domains: list[str]`. Preload is defensive — malformed entries are coerced or skipped, never crash the loader (lint catches violations separately).
+- **15/15 agents migrated** with rich frontmatter:
+  - 93 stop_conditions total (avg ~6 per agent)
+  - 66 escalation_rules total (avg ~4 per agent)
+  - Every escalation target validated against the registry via `cross_check_escalation_targets()`
+- **`agents/loader.py::build_escalation_graph_markdown()`** consolidates all escalation_rules into a single Markdown table at Supervisor build time. The Supervisor now sees the full escalation graph (Source → Target → Trigger → Reason) appended to its system prompt as an authoritative whitelist.
+- **Supervisor Step 3.5 (Escalation Handling) upgraded** in `agents/prompts/supervisor_prompt.py` — references the injected graph as the source of truth, flags off-graph escalations in synthesis, and refuses to auto-substitute targets that don't exist in the registry.
+- **`scripts/lint_registry.py` extended** with 7 new validation rules:
+  - `stop-conditions-type` / `stop-conditions-item-type`
+  - `escalation-rules-type` / `escalation-rule-not-dict` / `escalation-rule-missing-key` / `escalation-target-type`
+  - `escalation-self-target` / `escalation-target-unknown` (cross-check phase)
+
+### Added — Tests
+
+- **`tests/test_frontmatter.py`** (NEW, 27 tests): YAML 1.1 boolean trap, block scalars (`>-`, `|`, `|-`), multiline lists, list-of-dicts, inline/block dicts, numeric types, edge cases (empty frontmatter, non-dict top-level, invalid YAML).
+- **`tests/test_agent_preload.py` extended** (+19 tests): AgentMeta defaults for Phase 5 fields, preload parsing of stop_conditions/escalation_rules/skill_domains, multiline description preservation, defensive handling of malformed entries, and full coverage of `build_escalation_graph_markdown()` (empty graph, populated graph, pipe escaping, empty-target skipping, footer rule count, registry fallback).
+
+### Changed
+
+- **`agents/supervisor.py`** now injects the escalation graph into `system_prompt` at build time via `build_escalation_graph_markdown(preload_registry())`. Falls back gracefully (logged warning) if the graph cannot be generated — Step 3.5 then uses pattern-matching fallback only.
+
 ## [2.3.0] — 2026-05-09
 
 ### Added — Chainlit UI completeness: /workflow, /geral streaming, /sessions, /resume
