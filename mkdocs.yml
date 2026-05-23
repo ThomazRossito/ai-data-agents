@@ -1,0 +1,120 @@
+# mkdocs.yml — site documentation config (ADR-010).
+#
+# Build:    make docs-build       → static HTML in site/
+# Preview:  make docs-serve       → http://127.0.0.1:8000
+# Deploy:   automatic via .github/workflows/docs.yml on push to refactor/v3.0 or main
+#
+# Source content lives in docs/site/. Other docs/ subdirs (adr/, refactor-v3/,
+# legacy/) stay as plain Markdown for git navigation and are LINKED from the
+# site, not duplicated.
+
+site_name: AI Data Agents
+site_description: >-
+  Multi-agent system for Data Engineering, Quality, Governance and Analytics on
+  Databricks + Microsoft Fabric. Built on Claude Agent SDK + Moonshot Kimi K2.6.
+site_url: https://thomazrossito.github.io/ai-data-agents/
+repo_url: https://github.com/ThomazRossito/ai-data-agents
+repo_name: ThomazRossito/ai-data-agents
+edit_uri: edit/refactor/v3.0/docs/site/
+copyright: >-
+  Copyright © 2026 Thomaz A. Rossito Neto — see
+  <a href="https://github.com/ThomazRossito/ai-data-agents/blob/refactor/v3.0/LICENSE">LICENSE</a>
+
+docs_dir: docs/site
+site_dir: site
+
+theme:
+  name: material
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  features:
+    - navigation.sections     # group nav items under section headers
+    - navigation.tabs         # top-level sections as tabs
+    - navigation.indexes      # section index pages (section/index.md)
+    - navigation.top          # back-to-top button on long pages
+    - navigation.tracking     # update URL as user scrolls
+    - search.suggest          # autocomplete in search
+    - search.highlight        # highlight matched terms
+    - content.code.copy       # copy button on code blocks
+    - content.action.edit     # "edit this page" link to GitHub
+    - content.tabs.link       # link content tabs across the page
+
+markdown_extensions:
+  # Admonitions: !!! note, !!! warning, etc.
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - tables
+  - attr_list
+  - md_in_html
+  - footnotes
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  # mkdocstrings is deferred per ADR-010 — reopen post-v3.0.0 if user demand.
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ThomazRossito/ai-data-agents
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/thomaz-antonio-rossito-neto/
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - getting-started/index.md
+      - Installation: getting-started/installation.md
+      - First Query: getting-started/first-query.md
+      - Slash Commands: getting-started/slash-commands.md
+  - Concepts:
+      - concepts/index.md
+      - Architecture: concepts/architecture.md
+      - Constitution (S1–S7): concepts/constitution.md
+      - Memory Layer: concepts/memory.md
+      - Hooks: concepts/hooks.md
+      - Tier System: concepts/tier-system.md
+  - Tutorials:
+      - tutorials/index.md
+      - Migrate SQL Server → Databricks: tutorials/migrate-sql-server.md
+      - Build a Medallion Pipeline: tutorials/medallion-pipeline.md
+  - Reference:
+      - reference/index.md
+      - Agents (15): reference/agents.md
+      - MCP Servers (17): reference/mcps.md
+      - Slash Commands (39): reference/slash-commands.md
+      - ADRs (10): reference/adrs.md
+      - Security: reference/security.md
+  - Migration:
+      - migration/index.md
+      - v2.x → v3.0: migration/v2-to-v3.md

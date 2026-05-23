@@ -18,7 +18,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from agents.loader import preload_registry, _resolve_tools  # noqa: E402
+from data_agents.agents.loader import preload_registry, _resolve_tools  # noqa: E402
 
 AUDIT_PATH = PROJECT_ROOT / "logs" / "audit.jsonl"
 

@@ -1,6 +1,9 @@
 [project]
-name = "data-agents-api"
-version = "2.3.0"
+name = "ai-data-agents"
+# Phase 9: VERSION na raiz é a single source of truth.
+# scripts/bump-version.sh sincroniza este campo + data_agents/__init__.py +
+# README badge ao bumpar. Não editar manualmente — usa o script.
+version = "3.0.0"
 description = "Sistema Multi-Agentes para Engenharia, Qualidade, Governança e Análise de Dados — Databricks + Microsoft Fabric"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -59,10 +62,6 @@ dependencies = [
     # Substitui console.input() do Rich que não suporta readline
     "prompt_toolkit>=3.0",
 
-    # Export de conversas (HTML) — usado pela UI Chainlit (/export)
-    # PDF: abrir o HTML no browser e usar Cmd+P → Salvar como PDF
-    "markdown2>=2.4",
-
     "pyyaml>=6.0",
 
     # Azure Pricing MCP — usa requests pra Retail Prices API (https://prices.azure.com)
@@ -107,6 +106,10 @@ ui = [
     "chainlit>=2.0",
     "pandas>=2.0",
     "pyyaml>=6.0",
+    # Phase 8: markdown2 era core, mas o único consumidor é o exporter
+    # HTML do UI (ui/exporter.py). Movido para cá; sem [ui] o exporter
+    # levanta ImportError com mensagem clara.
+    "markdown2>=2.4",
 ]
 viz = [
     # Visualização 3D do escritório dos agentes em tempo real.
@@ -118,35 +121,41 @@ viz = [
     "uvicorn[standard]>=0.27",
     "watchdog>=4.0",
 ]
+docs = [
+    # Phase 11: docs site (ADR-010). Só o mantenedor precisa instalar.
+    # End users consomem o site público em https://thomazrossito.github.io/ai-data-agents/
+    # Rodar: make docs-serve (preview) ou make docs-build (estático)
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "pymdown-extensions>=10.7",
+]
 
 [project.scripts]
-data-agents-api = "main:main"
-fabric-sql-mcp = "mcp_servers.fabric_sql.server:main"
-fabric-semantic-mcp = "mcp_servers.fabric_semantic.server:main"
-fabric-ontology-mcp = "mcp_servers.fabric_ontology.server:main"
-databricks-genie-mcp = "mcp_servers.databricks_genie.server:main"
-migration-source-mcp = "mcp_servers.migration_source.server:main"
-azure-pricing-mcp = "mcp_servers.azure_pricing.server:main"
+# Phase 7: entry points apontam para o namespace data_agents.*
+ai-data-agents = "data_agents.cli:main"
+fabric-sql-mcp = "data_agents.mcp_servers.fabric_sql.server:main"
+fabric-semantic-mcp = "data_agents.mcp_servers.fabric_semantic.server:main"
+fabric-ontology-mcp = "data_agents.mcp_servers.fabric_ontology.server:main"
+databricks-genie-mcp = "data_agents.mcp_servers.databricks_genie.server:main"
+migration-source-mcp = "data_agents.mcp_servers.migration_source.server:main"
+azure-pricing-mcp = "data_agents.mcp_servers.azure_pricing.server:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["."]
+# Phase 7: empacotar somente o namespace data_agents/
+packages = ["data_agents"]
 
 [tool.hatch.build.targets.sdist]
+# Phase 7: incluir o namespace + dados externos (skills, kb, tools, tests)
 include = [
-    "/config",
-    "/agents",
-    "/mcp_servers",
-    "/hooks",
-    "/commands",
+    "/data_agents",
     "/skills",
     "/kb",
     "/tools",
     "/tests",
-    "/main.py",
 ]
 
 [tool.ruff]
@@ -163,7 +172,18 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 cache_dir = ".cache/pytest"
 markers = [
-    "requires_network: testes que fazem chamadas HTTP reais (Azure Retail Prices API, etc). Skipped por default; rodar com `pytest -m requires_network`",
+    # Categorias canônicas — auto-aplicadas pelo conftest.py de cada subdir.
+    # Não decore manualmente; mova o arquivo para tests/<categoria>/ que o marker é injetado.
+    "unit: testes isolados e rápidos (< 1s). Sem rede, sem MCP real, sem LLM real. Tudo mockado.",
+    "integration: tocam DB local (SQLite), JSONL persistente ou subprocess. Offline, ~1-10s.",
+    "e2e: chamam LLM real, Databricks, Fabric ou subprocess full-stack. Exigem credenciais.",
+
+    # Categorias transversais — aplicar manualmente quando relevante.
+    "requires_network: HTTP/socket reais. Implícito em e2e; explícito em integration quando aplicável.",
+    "slow: runtime > 5s. Skip em iteração rápida com `pytest -m 'not slow'`.",
+    # Phase 10: perf benchmarks — só rodam com `-m perf` ou `make test-perf`.
+    # Skipped por default (flakeiam em runners CI compartilhados).
+    "perf: performance baselines com gate de regressão (20% acima do baseline = fail).",
 ]
 
 [tool.coverage.run]

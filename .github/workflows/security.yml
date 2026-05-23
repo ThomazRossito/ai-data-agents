@@ -1,0 +1,43 @@
+name: Security — Dependency Review
+
+# Blocks PRs that introduce dependencies with known vulnerabilities
+# or non-compliant licenses. Runs only on pull_request because it
+# compares HEAD against the base commit.
+
+on:
+  pull_request:
+    branches: ["main", "develop", "refactor/v3.0"]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    name: Review Added Dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@72eb03d02c7872a771aacd928f3123ac62ad6d3a # v4.3.3
+        with:
+          # Fail PR if new dependencies introduce HIGH+ vulnerabilities
+          fail-on-severity: high
+          # License allowlist — permissive licenses only by default
+          allow-licenses: >-
+            Apache-2.0,
+            MIT,
+            BSD-2-Clause,
+            BSD-3-Clause,
+            ISC,
+            Python-2.0,
+            PSF-2.0,
+            CC0-1.0,
+            Unlicense,
+            0BSD
+          # Optional: comment a summary on the PR
+          comment-summary-in-pr: on-failure

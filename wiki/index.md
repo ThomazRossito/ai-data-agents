@@ -1,4 +1,4 @@
-# Data Agents — Índice Central
+# AI Data Agents — Índice Central
 
 Sistema multi-agente construído sobre o Claude Agent SDK da Anthropic.
 Orquestra 14 agentes especialistas em Engenharia, Qualidade, Governança, Análise de Dados, Streaming, FinOps e Web Semântica.
@@ -73,7 +73,7 @@ Orquestra 14 agentes especialistas em Engenharia, Qualidade, Governança, Análi
 
 > Capturadas automaticamente durante sessões
 
-- [[memory/data/data-agents-api/index]] — Índice de todas as memórias ativas (do projeto atual)
+- [[memory/data/ai-data-agents/index]] — Índice de todas as memórias ativas (do projeto atual)
 
 ---
 

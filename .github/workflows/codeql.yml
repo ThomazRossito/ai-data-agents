@@ -1,0 +1,52 @@
+name: CodeQL Analysis
+
+# Static analysis for vulnerabilities in Python code.
+# Runs on pushes to main, all PRs, and weekly on a schedule.
+# Findings appear in the Security tab of the repository.
+
+on:
+  push:
+    branches: ["main", "develop", "refactor/v3.0"]
+  pull_request:
+    branches: ["main", "develop"]
+    paths:
+      - "**.py"
+      - ".github/workflows/codeql.yml"
+  schedule:
+    # Mondays at 04:00 UTC — slow scan, weekly cadence
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["python"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@cdcdbb579706841c47f7063dda365e292e5cad7a # v3.28.10
+        with:
+          languages: ${{ matrix.language }}
+          # Use 'security-and-quality' for broader coverage; 'security-extended' for tighter focus
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@cdcdbb579706841c47f7063dda365e292e5cad7a # v3.28.10
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@cdcdbb579706841c47f7063dda365e292e5cad7a # v3.28.10
+        with:
+          category: "/language:${{ matrix.language }}"

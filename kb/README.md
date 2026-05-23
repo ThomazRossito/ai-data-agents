@@ -1,4 +1,4 @@
-# Knowledge Bases (KB) — Data Agents
+# Knowledge Bases (KB) — AI Data Agents
 
 As Knowledge Bases (KBs) contêm o **conhecimento corporativo e arquitetural** do time de dados.
 Elas respondem ao *porquê* — regras de negócio, padrões de arquitetura, contratos de dados e

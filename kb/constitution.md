@@ -1,4 +1,4 @@
-# Constituição — Data Agents
+# Constituição — AI Data Agents
 
 > **O que é:** Documento único e centralizado que reúne as regras **invioláveis** do sistema
 > multi-agente. Toda decisão de qualquer agente (Supervisor ou Especialista) deve respeitar

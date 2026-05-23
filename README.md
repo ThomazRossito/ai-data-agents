@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="img/readme/banner_futuristic_new.png" alt="Data Agents" width="75%">
+  <img src="img/readme/banner_futuristic_new.png" alt="AI Data Agents" width="75%">
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-2.3.0-brightgreen" alt="Version">
+  <img src="https://img.shields.io/badge/Version-3.0.0-brightgreen" alt="Version">
   <img src="https://img.shields.io/badge/Python-3.12+-blue" alt="Python">
   <img src="https://img.shields.io/badge/Databricks-MCP-FF3621" alt="Databricks">
   <img src="https://img.shields.io/badge/Microsoft%20Fabric-MCP-0078D4" alt="Fabric">
@@ -13,12 +13,12 @@
 
 ---
 
-> ⭐ Se o Data Agents foi útil para você, deixe uma estrela — ajuda o projeto a crescer!
+> ⭐ Se o AI Data Agents foi útil para você, deixe uma estrela — ajuda o projeto a crescer!
 
 <details>
 <summary>📋 Índice</summary>
 
-- [O que é o Data Agents?](#o-que-é-o-data-agents)
+- [O que é o AI Data Agents?](#o-que-é-o-data-agents)
 - [Arquitetura](#arquitetura)
 - [Início Rápido](#início-rápido)
 - [Agentes Especialistas](#agentes-especialistas)
@@ -42,16 +42,16 @@
 
 ---
 
-## O que é o Data Agents?
+## O que é o AI Data Agents?
 
-**Data Agents** é um sistema multi-agente construído sobre o **Claude Agent SDK** da Anthropic com integração nativa via **Model Context Protocol (MCP)** ao **Databricks** e **Microsoft Fabric**. Em vez de um único assistente genérico, o sistema orquestra **14 agentes especialistas** que operam diretamente nas suas plataformas de dados, cada um com seu domínio de conhecimento, ferramentas e regras corporativas declarativas.
+**AI Data Agents** é um sistema multi-agente construído sobre o **Claude Agent SDK** da Anthropic com integração nativa via **Model Context Protocol (MCP)** ao **Databricks** e **Microsoft Fabric**. Em vez de um único assistente genérico, o sistema orquestra **<!-- INVENTORY:agents_total -->15<!-- /INVENTORY:agents_total --> agentes especialistas** que operam diretamente nas suas plataformas de dados, cada um com seu domínio de conhecimento, ferramentas e regras corporativas declarativas.
 
 ---
 
 ## Arquitetura
 
 <p align="center">
-  <img src="img/readme/architecture_futuristic_new.png" alt="Arquitetura Data Agents" width="100%">
+  <img src="img/readme/architecture_futuristic_new.png" alt="Arquitetura AI Data Agents" width="100%">
 </p>
 
 
@@ -63,12 +63,25 @@ Você envia uma mensagem — seja pelo terminal, pela interface web ou com um co
 
 ## Início Rápido
 
+> **Dois canais de instalação** — escolha um (ou os dois, eles coexistem):
+>
+> **(A) Python CLI** — feature set completo: Supervisor, 39 slash commands, 17 MCPs, hooks de segurança, memória persistente, audit JSONL. É o que está descrito abaixo.
+>
+> **(B) Claude Code plugin** — apenas os 15 agentes + 48 skills dentro do seu Claude Code. Use se você já usa o Claude Code e quer os agentes nativamente:
+>
+> ```bash
+> claude plugin marketplace add ThomazRossito/ai-data-agents
+> claude plugin install ai-data-agents@thomazrossito-marketplace
+> ```
+>
+> Comparação completa em [`docs/site/getting-started/installation.md`](docs/site/getting-started/installation.md).
+
 ```bash
 # 1. Clone e entre no diretório
-git clone git@github.com:ThomazRossito/data-agents-api.git && cd data-agents-api
+git clone git@github.com:ThomazRossito/ai-data-agents.git && cd ai-data-agents
 
 # 2. Crie o ambiente
-conda create -n data-agents-api python=3.12 && conda activate data-agents-api
+conda create -n ai-data-agents python=3.12 && conda activate ai-data-agents
 
 # 3. Instale dependências
 pip install -e ".[dev,ui,monitoring]"
@@ -490,7 +503,7 @@ LONG_TERM_EMBEDDER_ENABLED=false
 ## Interfaces
 
 ### Web UI Chainlit (porta 8513)
-Interface com steps expandíveis em tempo real mostrando cada delegação e tool call. Dois modos: **Data Agents** (sistema completo) e **Dev Assistant** (Claude direto com ferramentas de código).
+Interface com steps expandíveis em tempo real mostrando cada delegação e tool call. Dois modos: **AI Data Agents** (sistema completo) e **Dev Assistant** (Claude direto com ferramentas de código).
 
 Use `/export` em qualquer momento para baixar o histórico completo da sessão como HTML formatado — abre no browser com Cmd+P (macOS) ou Ctrl+P (Windows/Linux) para salvar como PDF.
 
@@ -564,7 +577,7 @@ make health-fabric
 Com 8+ anos em Engenharia e Arquitetura de Dados, atua na intersecção entre Big Data, Arquitetura Lakehouse e Agentic AI — aplicando agentes autônomos e GenAI no ciclo completo de dados: pipelines, discovery, migrações, governança e orquestração autônoma. Certificado 10x (Databricks 5x · Azure 4x · AWS 1x).
 
 **Projetos open-source:**
-- 🤖 **Data Agents** — framework de orquestração multi-agente para dados corporativos com 14 agentes especialistas, integrações nativas Databricks + Fabric via MCP e protocolo DOMA
+- 🤖 **AI Data Agents** — framework de orquestração multi-agente para dados corporativos com <!-- INVENTORY:agents_total -->15<!-- /INVENTORY:agents_total --> agentes especialistas, integrações nativas Databricks + Fabric via MCP e protocolo DOMA
 - 🧭 **SifTools** — engenharia de contexto via pruning semântico de tools por embeddings: entrega exatamente os MCPs que cada agente precisa, sem custo extra de inferência → [github.com/ThomazRossito/siftools](https://github.com/ThomazRossito/siftools)
 
 > *"Dados sem estratégia são apenas ruído. Agentes sem governança são apenas caos."*

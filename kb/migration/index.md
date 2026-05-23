@@ -1,3 +1,9 @@
+---
+domain: migration
+updated_at: 2026-05-22
+agents: [migration-expert]
+---
+
 # Knowledge Base — Migração de Bancos Relacionais
 
 Base de conhecimento para o agente `migration-expert`. Cobre migração de SQL Server e

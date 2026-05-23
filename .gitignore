@@ -57,6 +57,9 @@ output/
 !output/btg-open-finance-bundle/**
 memory/*
 !memory/*.py
+# Phase 7: memory data moved to data_agents/memory/data/ (settings.derive_memory_db_paths)
+# Ignore runtime DBs (SQLite) but keep the code under data_agents/memory/*.py
+data_agents/memory/data/
 reports/
 
 # Bundle do BTG OpenFinance — exceção para o DAB CLI sincronizar
@@ -110,7 +113,27 @@ mcp_servers/fabric/Fabric.Mcp.Server/
 # =============================================================================
 # DOCUMENTAÇÃO INTERNA
 # =============================================================================
-docs/
+# Por padrão, ignora todo o conteúdo de docs/ (drafts, screenshots, exports).
+# Exceções abaixo (com `!`) trazem para o git apenas docs versionáveis.
+# IMPORTANTE: usa `docs/*` (não `docs/`) — caso contrário as exceções não funcionam
+# devido à regra do git de "não é possível re-incluir filho de diretório excluído".
+docs/*
+!docs/ARCHITECTURE.md
+!docs/GAPS_E_MELHORIAS.md
+!docs/SECURITY_THREAT_MODEL.md
+!docs/adr/
+!docs/adr/**
+!docs/refactor-v3/
+!docs/refactor-v3/**
+!docs/legacy/
+!docs/legacy/**
+# Phase 11: docs site source (consumido por mkdocs.yml)
+!docs/site/
+!docs/site/**
+
+# mkdocs build output (gerado por `mkdocs build`)
+/site/
+
 reports/
 
 # =============================================================================

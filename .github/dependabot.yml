@@ -1,0 +1,78 @@
+# Dependabot configuration
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Python dependencies via pip (reads pyproject.toml)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    reviewers:
+      - "ThomazRossito"
+    commit-message:
+      prefix: "build"
+      prefix-development: "build"
+      include: "scope"
+    groups:
+      # Group all dev dependencies together to reduce PR noise
+      dev-dependencies:
+        dependency-type: "development"
+        patterns:
+          - "pytest*"
+          - "ruff"
+          - "mypy"
+          - "bandit"
+          - "types-*"
+      # Group Anthropic ecosystem updates together
+      anthropic-ecosystem:
+        patterns:
+          - "anthropic"
+          - "claude-agent-sdk"
+          - "mcp"
+      # Group Databricks ecosystem updates together
+      databricks-ecosystem:
+        patterns:
+          - "databricks-*"
+          - "mlflow"
+      # Group Azure/Fabric ecosystem updates together
+      azure-ecosystem:
+        patterns:
+          - "azure-*"
+          - "semantic-link"
+          - "microsoft-*"
+    ignore:
+      # Pin major version bumps that require manual review
+      - dependency-name: "claude-agent-sdk"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pydantic-settings"
+        update-types: ["version-update:semver-major"]
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "github-actions"
+    reviewers:
+      - "ThomazRossito"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/ThomazRossito/ai-data-agents/discussions
+    about: Ask questions, share ideas, or get help from the community
+  - name: 🔐 Security Vulnerability
+    url: https://github.com/ThomazRossito/ai-data-agents/security/advisories/new
+    about: Report a security issue privately (DO NOT open a public issue)
+  - name: 📚 Documentation
+    url: https://github.com/ThomazRossito/ai-data-agents/tree/main/docs
+    about: Read the docs before opening an issue

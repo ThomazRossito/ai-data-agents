@@ -1,4 +1,7 @@
 ---
+domain: semantic-web
+updated_at: 2026-05-22
+agents: [fabric-ontology]
 mcp_validated: "2026-05-05"
 ---
 

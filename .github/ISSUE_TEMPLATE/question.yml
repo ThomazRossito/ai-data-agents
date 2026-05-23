@@ -1,0 +1,35 @@
+name: ❓ Question
+description: Ask a question about usage, configuration, or behavior
+title: "[Question] "
+labels: ["question", "needs-triage"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For open-ended discussions, please use [GitHub Discussions](https://github.com/ThomazRossito/ai-data-agents/discussions) instead.
+        Use this template for specific, answerable questions.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: Be specific. Include what you tried and what you expected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Setup details, env, what you're trying to accomplish.
+
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Confirmations
+      options:
+        - label: I checked the README, docs/, and kb/ for an answer.
+          required: true
+        - label: I searched existing issues and discussions.
+          required: true

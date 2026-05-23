@@ -43,12 +43,21 @@ def _load_env() -> None:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Test OneLake upload via REST direto.")
-    p.add_argument("--workspace", default="poc-multiagent-fabric",
-                   help="Workspace name (default: poc-multiagent-fabric)")
-    p.add_argument("--lakehouse", default="medallion_lakehouse",
-                   help="Lakehouse name (default: medallion_lakehouse)")
-    p.add_argument("--filename", default="teste_diagnostico.txt",
-                   help="Filename to upload (default: teste_diagnostico.txt)")
+    p.add_argument(
+        "--workspace",
+        default="poc-multiagent-fabric",
+        help="Workspace name (default: poc-multiagent-fabric)",
+    )
+    p.add_argument(
+        "--lakehouse",
+        default="medallion_lakehouse",
+        help="Lakehouse name (default: medallion_lakehouse)",
+    )
+    p.add_argument(
+        "--filename",
+        default="teste_diagnostico.txt",
+        help="Filename to upload (default: teste_diagnostico.txt)",
+    )
     args = p.parse_args()
 
     _load_env()
@@ -87,7 +96,7 @@ def main() -> int:
 
     # Passo 1 — Create file (PUT ?resource=file)
     url1 = f"{base}/{args.filename}?resource=file"
-    print(f"PASSO 1 — Create file")
+    print("PASSO 1 — Create file")
     print(f"  PUT {url1}")
     r1 = requests.put(url1, headers=headers, timeout=30)
     print(f"  → HTTP {r1.status_code}")
@@ -101,7 +110,7 @@ def main() -> int:
 
     # Passo 2 — Append content (PATCH ?action=append&position=0)
     url2 = f"{base}/{args.filename}?action=append&position=0"
-    print(f"PASSO 2 — Upload bytes")
+    print("PASSO 2 — Upload bytes")
     print(f"  PATCH {url2}")
     r2 = requests.patch(
         url2,
@@ -120,7 +129,7 @@ def main() -> int:
 
     # Passo 3 — Flush (PATCH ?action=flush&position=N)
     url3 = f"{base}/{args.filename}?action=flush&position={len(content)}"
-    print(f"PASSO 3 — Flush (commit)")
+    print("PASSO 3 — Flush (commit)")
     print(f"  PATCH {url3}")
     r3 = requests.patch(url3, headers=headers, timeout=30)
     print(f"  → HTTP {r3.status_code}")
@@ -164,7 +173,7 @@ def _diagnose(status: int, body: str) -> str:
             lines.append("   Solução: usar user delegation token (login interativo)")
             lines.append("   ou upload manual pela UI do Fabric.")
         else:
-            lines.append(f"❌ HTTP 400 — verifique body acima.")
+            lines.append("❌ HTTP 400 — verifique body acima.")
     elif status == 401:
         lines.append("❌ HTTP 401 Unauthorized")
         lines.append("   Token inválido ou expirado. Refaça o login do SP.")

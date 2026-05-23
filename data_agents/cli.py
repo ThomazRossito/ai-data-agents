@@ -1,0 +1,1742 @@
+"""
+AI Data Agents — Entry Point Principal
+
+Sistema Multi-Agentes para Engenharia e Análise de Dados.
+Suporta dois modos:
+  - Interativo: loop de chat no terminal com feedback visual em tempo real
+  - Single-query: executa um único prompt (passado como argumento CLI)
+
+Uso:
+  python main.py                          # modo interativo
+  python main.py "Analise a tabela X"     # single-query
+"""
+
+# Carrega .env no os.environ antes de qualquer import que leia envs via
+# os.getenv(). A UI Chainlit já faz isso automaticamente ao ser importada; este
+# bloco dá paridade ao CLI — sem ele flags como SIFTOOLS_PRUNING_ENABLED ficam
+# invisíveis para módulos que não passam pelo Pydantic Settings.
+from pathlib import Path as _Path  # noqa: E402
+
+try:
+    from dotenv import load_dotenv as _load_dotenv
+
+    _load_dotenv(_Path(__file__).parent / ".env")
+except ImportError:
+    pass
+
+import asyncio
+import atexit
+import logging
+import signal
+import sys
+import time
+
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from rich.console import Console
+from rich.live import Live
+from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.spinner import Spinner
+from rich.text import Text
+
+from claude_agent_sdk import (
+    ClaudeSDKClient,
+    query,
+    AssistantMessage,
+    ResultMessage,
+    TextBlock,
+    ToolUseBlock,
+)
+from claude_agent_sdk.types import StreamEvent
+
+from data_agents.agents.supervisor import build_supervisor_options, build_failover_options, is_rate_limit_error
+from data_agents.agents.dispatcher import (
+    select_agents as dispatcher_select_agents,
+    apply_fallback_policy as dispatcher_apply_fallback,
+    format_dispatcher_log as dispatcher_format_log,
+)
+from data_agents.agents.loader import preload_registry
+from data_agents.commands.parser import parse_command, get_help_text
+from data_agents.config.exceptions import (
+    BudgetExceededError,
+    DataAgentsError,
+    MCPConnectionError,
+)
+from data_agents.config.logging_config import setup_logging
+from data_agents.config.settings import settings
+from data_agents.hooks.session_logger import log_session_result
+from data_agents.hooks.cost_guard_hook import reset_session_counters
+from data_agents.hooks.session_lifecycle import on_session_end, on_session_start
+from data_agents.hooks.checkpoint import (
+    save_checkpoint,
+    load_checkpoint,
+    clear_checkpoint,
+    build_resume_prompt,
+)
+from data_agents.hooks.memory_hook import flush_session_memories
+from data_agents.hooks.transcript_hook import append_turn as _append_transcript_turn
+from data_agents.memory.compiler import compile_daily_logs
+from data_agents.memory.store import MemoryStore
+from data_agents.memory.manager import MemoryManager
+from data_agents.config.agent_meta import get_agent_tiers as _get_agent_tiers
+from data_agents.commands.geral import run_geral_query
+from data_agents.commands.party import run_party_query, parse_party_args
+from data_agents.commands.analyze import (
+    ANALYZE_PROMPTS,
+    _DEFAULT_ANALYZE_PROMPT,
+    build_report,
+    parse_analyze_args,
+    save_report,
+)
+from data_agents.utils.pricing import real_cost_from_message
+
+logger = logging.getLogger("data_agents.main")
+console = Console()
+
+# Readline-capable prompt: setas, histórico, Ctrl+A/E, backspace, etc.
+# FileHistory persiste o histórico entre sessões em logs/.cli_history.
+_HISTORY_FILE = _Path(__file__).parent / "logs" / ".cli_history"
+_prompt_session: PromptSession = PromptSession(
+    history=FileHistory(str(_HISTORY_FILE)),
+    auto_suggest=AutoSuggestFromHistory(),
+    mouse_support=False,
+)
+
+# Estado exposto para atexit/signal handlers (T1.1).
+# Atualizado a cada turn bem-sucedido em run_interactive; consumido pelo
+# _emergency_checkpoint no encerramento para salvar checkpoint mesmo em
+# saídas normais (sair) ou abruptas (SIGTERM, Ctrl+C no terminal).
+_active_session: dict | None = None
+_active_session_id: str | None = None
+_checkpoint_saved_for_session: bool = False
+
+
+def _emergency_checkpoint(reason: str = "abnormal_exit") -> None:
+    """
+    Salva checkpoint se houver sessão ativa e checkpoint ainda não gravado.
+
+    Chamado por atexit (último recurso) e pelos signal handlers. Idempotente:
+    se `_checkpoint_saved_for_session` já for True, sai sem fazer nada.
+
+    Mantido minimalista — atexit não pode depender de event loop.
+    """
+    global _checkpoint_saved_for_session
+    if _checkpoint_saved_for_session or _active_session is None:
+        return
+    state = _active_session
+    if not state.get("last_prompt"):
+        return
+    try:
+        save_checkpoint(
+            last_prompt=state.get("last_prompt", ""),
+            reason=reason,
+            cost_usd=state.get("total_cost", 0.0),
+            turns=state.get("total_turns", 0),
+            session_id=_active_session_id,
+        )
+        _checkpoint_saved_for_session = True
+    except Exception as e:
+        logger.debug(f"Emergency checkpoint falhou ({reason}): {e}")
+
+
+def _signal_handler(signum: int, _frame: object) -> None:
+    """
+    Handler de SIGTERM/SIGHUP: grava checkpoint e encerra com exit(0).
+
+    SIGINT (Ctrl+C) é tratado pelo asyncio como KeyboardInterrupt dentro do
+    event loop — mantemos o fluxo original, não registramos SIGINT aqui.
+    """
+    name = signal.Signals(signum).name if hasattr(signal, "Signals") else str(signum)
+    _emergency_checkpoint(reason=f"signal_{name.lower()}")
+    # SystemExit é capturado pelo atexit que garante flush dos logs do Python
+    sys.exit(0)
+
+
+# ─── Mapeamento de tool → label amigável para o usuário ──────────────
+
+# Tier de cada agente — lido dinamicamente do registry (evita dessincronização)
+_AGENT_TIERS: dict[str, str] = _get_agent_tiers()
+
+# Labels de tools — importados de ui/ui_config.py (fonte única de verdade)
+from data_agents.ui.ui_config import TOOL_LABELS  # noqa: E402
+
+
+def _get_tool_label(tool_name: str) -> str:
+    """Retorna um label amigável para o nome da tool."""
+    if tool_name in TOOL_LABELS:
+        return TOOL_LABELS[tool_name]
+    # Fallback: formata o nome da tool de forma legível
+    clean = tool_name.replace("mcp__", "").replace("__", " → ").replace("_", " ").title()
+    return f"🔧 {clean}"
+
+
+def _get_agent_label(tool_input_json: str) -> str:
+    """Extrai o nome do agente de um input JSON de tool Agent."""
+    try:
+        import json
+
+        data = json.loads(tool_input_json) if tool_input_json else {}
+        agent_name = data.get("agent_name") or data.get("name") or ""
+        if agent_name:
+            tier = _AGENT_TIERS.get(agent_name, "")
+            tier_label = f" [dim](T{tier[1:]})[/dim]" if tier else ""
+            return f"🤖 Delegando para → [bold yellow]{agent_name}[/bold yellow]{tier_label}"
+    except Exception:
+        pass
+    return "🤖 Delegando para agente especialista"
+
+
+def print_banner() -> None:
+    """Exibe o banner de boas-vindas com informações do projeto."""
+    banner = Text()
+    banner.append("  DATA AGENTS\n", style="bold cyan")
+    banner.append("  Sistema Multi-Agentes · Databricks + Microsoft Fabric\n", style="dim")
+    banner.append("  Powered by Claude Agent SDK + MCP\n\n", style="dim")
+
+    banner.append("  Desenvolvido por: \n", style="bold cyan")
+    banner.append("  Thomaz Antonio Rossito Neto\n", style="bold")
+    banner.append(
+        "  Specialist Data & AI Solutions Architect | Center of Excellence CoE @CI&T\n", style="dim"
+    )
+    banner.append("  LinkedIn: ", style="bold")
+    banner.append("https://www.linkedin.com/in/thomaz-antonio-rossito-neto/\n", style="dim")
+    banner.append("  GitHub: ", style="bold")
+    banner.append("https://github.com/ThomazRossito/\n", style="dim")
+    console.print(Panel(banner, border_style="cyan"))
+    console.print()
+    console.print("[dim]Digite sua solicitação em linguagem natural.[/dim]")
+    console.print(
+        "[dim]Comandos: [bold]sair[/bold] para encerrar | [bold]limpar[/bold] para nova sessão "
+        "| [bold]continuar[/bold] para retomar | [bold]/help[/bold] para ajuda[/dim]"
+    )
+    console.print(
+        "[dim]Slash: [bold]/plan[/bold] | [bold]/sql[/bold] | [bold]/spark[/bold] | "
+        "[bold]/pipeline[/bold] | [bold]/fabric[/bold] | [bold]/semantic[/bold] | "
+        "[bold]/quality[/bold] | [bold]/governance[/bold] | "
+        "[bold]/ontology[/bold] | "
+        "[bold]/health[/bold] | [bold]/status[/bold] | [bold]/review[/bold] | "
+        "[bold magenta]/party[/bold magenta] [magenta](multi-agente paralelo)[/magenta] | "
+        "[bold cyan]/geral[/bold cyan] [cyan](Kimi K2.6)[/cyan] | "
+        "[bold cyan]/memory[/bold cyan] [cyan](memória persistente)[/cyan][/dim]\n"
+    )
+
+
+async def _stream_response(
+    client: ClaudeSDKClient,
+    prompt: str = "",
+    session_type: str = "interactive",
+    session_id: str | None = None,
+) -> dict:
+    """
+    Processa o stream de resposta do agente com feedback visual em tempo real.
+
+    Exibe:
+      - Spinner animado enquanto o agente está pensando
+      - Notificação imediata quando uma tool call é iniciada
+      - Texto da resposta final em Markdown
+      - Resumo de custo/turns/tempo ao finalizar
+
+    T4.1 — Transcript: se `session_id` for fornecido, o turno do assistente
+    (texto acumulado + lista de tools disparadas + métricas) é persistido em
+    `logs/sessions/<session_id>.jsonl`.
+
+    Args:
+        client: Instância ativa do ClaudeSDKClient para receber o stream.
+        prompt: Prompt original enviado ao agente. Apenas os primeiros 100
+            caracteres são usados para o log de sessão.
+        session_type: Tipo da sessão ("interactive", "plan", "sql", etc.).
+        session_id: ID da sessão para persistência do transcript. Se None,
+            o transcript não é gravado (backcompat com testes/single-query).
+
+    Returns:
+        Dict com: cost (float), turns (int), text (str — resposta completa),
+        tools_used (list[str]), duration_ms (int).
+    """
+    # Estado do streaming
+    current_tool: str | None = None
+    tool_input_buffer: str = ""
+    response_started: bool = False
+    turn_count: int = 0
+    live_status: Live | None = None
+    metrics: dict = {
+        "cost": 0.0,
+        "turns": 0,
+        "text": "",
+        "tools_used": [],
+        "duration_ms": 0,
+    }
+    _assistant_text_parts: list[str] = []
+    _tools_used: list[str] = []
+
+    # Rastreia tempo de início por tool call para exibir elapsed time
+    _step_start: float = time.monotonic()
+    _current_agent: str | None = None  # nome do agente em delegação ativa
+
+    # Estado para o ticker dinâmico do spinner inicial (mostra tempo decorrido).
+    # Usado quando o agente fica em thinking adaptive sem emitir tool calls
+    # — sem isso o usuário acha que travou.
+    _spinner_meta: dict = {
+        "start_time": None,
+        "base_msg": "",
+        "live": None,
+        "tokens_streamed": 0,  # incrementado via text_delta events
+    }
+
+    def _start_spinner(message: str) -> Live:
+        """Inicia um spinner animado com a mensagem fornecida."""
+        spinner = Spinner("dots", text=Text(message, style="dim"))
+        live = Live(spinner, console=console, refresh_per_second=4, transient=True)
+        live.start()
+        # Registra metadata pro ticker
+        _spinner_meta["start_time"] = time.monotonic()
+        _spinner_meta["base_msg"] = message
+        _spinner_meta["live"] = live
+        _spinner_meta["tokens_streamed"] = 0
+        return live
+
+    def _stop_spinner(live: Live | None) -> None:
+        """Para o spinner se estiver ativo."""
+        if live and live.is_started:
+            live.stop()
+        if _spinner_meta.get("live") is live:
+            _spinner_meta["live"] = None
+            _spinner_meta["start_time"] = None
+
+    def _refresh_spinner_text() -> None:
+        """Atualiza o spinner com tempo decorrido + tokens raciocinados (se houver)."""
+        live = _spinner_meta.get("live")
+        start = _spinner_meta.get("start_time")
+        if live is None or start is None or not live.is_started:
+            return
+        elapsed = int(time.monotonic() - start)
+        base = _spinner_meta["base_msg"]
+        tokens = _spinner_meta["tokens_streamed"]
+        # Suffix com tempo decorrido (e tokens raciocinados se streaming detectado)
+        if tokens > 0:
+            suffix = f" [⏱ {elapsed}s · {tokens} tokens raciocinados]"
+        elif elapsed >= 90:
+            suffix = f" [⏱ {elapsed}s — operação demorada, Ctrl+C cancela]"
+        elif elapsed >= 5:
+            suffix = f" [⏱ {elapsed}s]"
+        else:
+            suffix = ""
+        new_text = Text(base + suffix, style="dim")
+        live.update(Spinner("dots", text=new_text))
+
+    async def _spinner_ticker():
+        """Task assíncrona que atualiza o texto do spinner a cada segundo."""
+        try:
+            while True:
+                await asyncio.sleep(1)
+                _refresh_spinner_text()
+        except asyncio.CancelledError:
+            pass
+
+    def _elapsed() -> str:
+        """Retorna o tempo decorrido desde o início do passo atual."""
+        secs = time.monotonic() - _step_start
+        return f"{secs:.1f}s"
+
+    # Inicia o spinner de "pensando" com mensagem contextual.
+    # No /plan (DOMA Full), checamos se thinking adaptive está realmente ativo
+    # (depende do endpoint — Moonshot não suporta streaming de thinking).
+    is_plan_mode = "/plan" in (prompt or "").lower() or session_type == "plan"
+    is_moonshot = "moonshot" in (settings.anthropic_base_url or "").lower()
+    if is_plan_mode and is_moonshot:
+        initial_msg = "🧠 Agente em /plan (thinking desabilitado — Moonshot não suporta streaming)"
+    elif is_plan_mode:
+        initial_msg = "🧠 Agente raciocinando em modo /plan (thinking adaptive)"
+    else:
+        initial_msg = "🧠 Agente analisando sua solicitação"
+    live_status = _start_spinner(initial_msg)
+
+    # Task que atualiza o spinner com [⏱ Xs] enquanto o agente "pensa"
+    _ticker_task = asyncio.create_task(_spinner_ticker())
+
+    async for message in client.receive_response():
+        # ── StreamEvent: feedback em tempo real ──────────────────────
+        if isinstance(message, StreamEvent):
+            event = message.event
+            event_type = event.get("type", "")
+
+            # Tool call iniciando
+            if event_type == "content_block_start":
+                block = event.get("content_block", {})
+                if block.get("type") == "tool_use":
+                    current_tool = block.get("name", "unknown")
+                    tool_input_buffer = ""
+                    _step_start = time.monotonic()
+                    _current_agent = None
+                    _tools_used.append(current_tool)
+                    label = _get_tool_label(current_tool)
+                    _stop_spinner(live_status)
+                    live_status = _start_spinner(f"{label}...")
+
+            # Acumulando input da tool (para detectar nome do agente)
+            elif event_type == "content_block_delta":
+                delta = event.get("delta", {})
+                delta_type = delta.get("type", "")
+
+                # Captura tokens de thinking/text para mostrar atividade real
+                # no spinner — quando o agente está raciocinando sem chamar
+                # tools, ainda assim emite text_delta/thinking_delta events.
+                if delta_type in ("text_delta", "thinking_delta"):
+                    text_chunk = delta.get("text") or delta.get("thinking") or ""
+                    if text_chunk:
+                        # Estimativa grosseira: 1 token ≈ 4 chars
+                        _spinner_meta["tokens_streamed"] += max(1, len(text_chunk) // 4)
+                        # Refresh imediato ao receber tokens (sem esperar o ticker)
+                        _refresh_spinner_text()
+
+                if delta_type == "input_json_delta":
+                    tool_input_buffer += delta.get("partial_json", "")
+                    # Quando for Agent tool, mostra o nome do agente assim que disponível
+                    if current_tool == "Agent" and _current_agent is None:
+                        try:
+                            import json as _json
+
+                            data = _json.loads(tool_input_buffer)
+                            agent_name = (
+                                data.get("agent_name")
+                                or data.get("subagent_type")
+                                or data.get("name")
+                                or ""
+                            )
+                            if agent_name:
+                                _current_agent = agent_name
+                                _tier = _AGENT_TIERS.get(agent_name, "")
+                                _tier_label = f" (T{_tier[1:]})" if _tier else ""
+                                _stop_spinner(live_status)
+                                live_status = _start_spinner(
+                                    f"🤖 Delegando para → [bold yellow]{agent_name}[/bold yellow]"
+                                    f"[dim]{_tier_label}[/dim]..."
+                                )
+                        except Exception:
+                            pass
+
+            # Tool call finalizada
+            elif event_type == "content_block_stop":
+                if current_tool:
+                    elapsed = _elapsed()
+                    if current_tool == "Agent" and _current_agent:
+                        # Mostra conclusão do agente especialista com tempo
+                        _tier = _AGENT_TIERS.get(_current_agent, "")
+                        _tier_label = f" · T{_tier[1:]}" if _tier else ""
+                        _stop_spinner(live_status)
+                        console.print(
+                            f"[dim]  ✅ [bold]{_current_agent}[/bold]"
+                            f"[dim]{_tier_label}[/dim] concluído ({elapsed})[/dim]"
+                        )
+                    elif current_tool != "Agent":
+                        # Para tools não-Agent, mostra conclusão discreta
+                        label = _get_tool_label(current_tool)
+                        _stop_spinner(live_status)
+                        console.print(f"[dim]  ✓ {label} ({elapsed})[/dim]")
+                    else:
+                        _stop_spinner(live_status)
+
+                    _was_agent = current_tool == "Agent"
+                    _last_tool_name = current_tool  # preserva pra mensagem contextual
+                    current_tool = None
+                    tool_input_buffer = ""
+                    _current_agent = None
+                    turn_count += 1
+                    _step_start = time.monotonic()
+                    # Mensagem contextual baseada na última tool — evita o
+                    # genérico "Processando... (etapa N)" que não diz nada.
+                    if _was_agent:
+                        next_msg = "⚙️  Supervisor sintetizando resposta do agente..."
+                    elif _last_tool_name in ("Read", "Glob", "Grep"):
+                        next_msg = f"📖 Refletindo sobre o que leu (etapa {turn_count})..."
+                    elif _last_tool_name == "Write":
+                        next_msg = (
+                            f"✍️  Decidindo próximo passo após escrita (etapa {turn_count})..."
+                        )
+                    elif _last_tool_name == "Bash":
+                        next_msg = f"⚡ Analisando saída do comando (etapa {turn_count})..."
+                    elif _last_tool_name == "AskUserQuestion":
+                        next_msg = "💭 Aguardando sua resposta..."
+                    elif _last_tool_name and _last_tool_name.startswith("mcp__"):
+                        # Extrai server (ex: mcp__databricks__list_tables → databricks)
+                        parts = _last_tool_name.split("__")
+                        server = parts[1] if len(parts) >= 2 else "MCP"
+                        next_msg = f"🔌 Processando resposta do {server} (etapa {turn_count})..."
+                    else:
+                        next_msg = f"🧠 Raciocinando próximo passo (etapa {turn_count})..."
+                    live_status = _start_spinner(next_msg)
+
+        # ── AssistantMessage: resposta final completa ─────────────────
+        elif isinstance(message, AssistantMessage):
+            _stop_spinner(live_status)
+            live_status = None
+
+            for block in message.content:
+                if isinstance(block, TextBlock) and block.text.strip():
+                    if not response_started:
+                        console.print("[bold blue]Agente:[/bold blue]")
+                        response_started = True
+                    _assistant_text_parts.append(block.text)
+                    console.print(Markdown(block.text))
+                    console.print()
+
+                elif isinstance(block, ToolUseBlock):
+                    # Tool use visível na resposta final (ex: AskUserQuestion)
+                    if block.name == "AskUserQuestion":
+                        question = block.input.get("question", "") if block.input else ""
+                        if question:
+                            console.print(
+                                f"\n[bold yellow]❓ Agente pergunta:[/bold yellow] {question}\n"
+                            )
+
+            # Reinicia spinner para próximo turn se não for a mensagem final
+            if not response_started:
+                live_status = _start_spinner("📝 Agente formulando resposta...")
+
+        # ── ResultMessage: métricas finais ────────────────────────────
+        elif isinstance(message, ResultMessage):
+            _stop_spinner(live_status)
+            live_status = None
+
+            # Recalcula custo com preços reais Moonshot Kimi K2.6
+            # (o SDK reporta com base em prices Anthropic Sonnet — inflado ~5x).
+            real_cost = real_cost_from_message(message)
+
+            parts = []
+            if real_cost > 0:
+                parts.append(f"Custo: ${real_cost:.5f}")
+            if message.num_turns:
+                parts.append(f"Turns: {message.num_turns}")
+            if message.duration_ms:
+                parts.append(f"Tempo: {message.duration_ms / 1000:.1f}s")
+            if parts:
+                console.print(f"[dim]💰 {' | '.join(parts)}[/dim]\n")
+
+            # Persistir métricas da sessão para o dashboard de monitoramento
+            log_session_result(message, prompt_preview=prompt[:100], session_type=session_type)
+
+            # Capturar métricas para checkpoint (usando o custo real)
+            metrics["cost"] = real_cost
+            metrics["turns"] = int(message.num_turns or 0)
+            metrics["duration_ms"] = int(message.duration_ms or 0)
+
+    # Garante que o spinner seja parado em qualquer caso
+    _stop_spinner(live_status)
+
+    # Cancela o ticker do spinner dinâmico (se ainda rodando)
+    if not _ticker_task.done():
+        _ticker_task.cancel()
+        try:
+            await _ticker_task
+        except (asyncio.CancelledError, Exception):
+            pass
+
+    # Consolida texto + tools para o transcript
+    assistant_text = "\n\n".join(p for p in _assistant_text_parts if p.strip())
+    metrics["text"] = assistant_text
+    metrics["tools_used"] = list(dict.fromkeys(_tools_used))  # dedupe preservando ordem
+
+    # T4.1: persistir turno do assistente no transcript, se session_id foi passado.
+    # Falhas são absorvidas pelo próprio hook — não propagam para o loop interativo.
+    if session_id and assistant_text:
+        _append_transcript_turn(
+            session_id=session_id,
+            role="assistant",
+            content=assistant_text,
+            tools_used=metrics["tools_used"],
+            cost_usd=metrics["cost"],
+            turns=metrics["turns"],
+            duration_ms=metrics["duration_ms"],
+            metadata={"session_type": session_type},
+        )
+
+    return metrics
+
+
+async def _handle_memory_command(user_input: str) -> None:
+    """
+    Processa o slash command /memory localmente (sem Supervisor).
+
+    Subcomandos:
+      /memory status          — Exibe estatísticas do sistema de memória
+      /memory flush           — Força o flush do buffer de sessão
+      /memory compile         — Compila daily logs em knowledge articles
+      /memory lint            — Executa health checks
+      /memory search <query>  — Busca memórias relevantes via Sonnet
+      /memory clear [tipo]    — Remove memórias (all por padrão; ou tipo específico)
+      /memory clear full      — Remove memórias + checkpoint de sessão anterior
+    """
+    from data_agents.memory.lint import lint_memories
+    from data_agents.hooks.memory_hook import get_buffer_stats
+
+    parts = user_input.split(maxsplit=2)
+    sub = parts[1].lower() if len(parts) > 1 else "status"
+
+    store = MemoryStore()
+
+    if sub == "status":
+        stats = store.get_stats()
+        buf = get_buffer_stats()
+        console.print(
+            Panel(
+                f"[bold]Memórias:[/bold] {stats['active']} ativas / {stats['total']} total\n"
+                f"[bold]Por tipo:[/bold]\n"
+                + "\n".join(
+                    f"  {t}: {v['active']}/{v['total']}"
+                    for t, v in stats.get("by_type", {}).items()
+                )
+                + f"\n[bold]Superseded:[/bold] {stats.get('superseded', 0)}\n"
+                f"\n[bold]Buffer da sessão:[/bold] {buf['entries']} entradas, "
+                f"{buf['total_chars']} chars, {buf['instant_captures']} capturas instantâneas",
+                title="🧠 Memory Status",
+                border_style="cyan",
+            )
+        )
+
+    elif sub == "flush":
+        console.print("[dim]🧠 Flush: extraindo memórias do buffer da sessão...[/dim]")
+        n = flush_session_memories(session_id="manual_flush")
+        console.print(f"[bold cyan]🧠 Flush: {n} memórias extraídas e salvas.[/bold cyan]\n")
+
+    elif sub == "compile":
+        console.print("[dim]🧠 Compilando daily logs...[/dim]")
+        metrics = compile_daily_logs(store)
+        console.print(
+            f"[bold cyan]🧠 Compilação: {metrics['new_memories']} novas, "
+            f"{metrics['superseded']} substituídas, "
+            f"{metrics['skipped_dupes']} duplicatas ignoradas.[/bold cyan]\n"
+        )
+
+    elif sub == "lint":
+        console.print("[dim]🧠 Executando health checks...[/dim]")
+        report = lint_memories(store)
+        console.print(Markdown(report.to_markdown()))
+        console.print()
+
+    elif sub == "search":
+        query_text = parts[2] if len(parts) > 2 else ""
+        if not query_text:
+            console.print("[yellow]Uso: /memory search <sua query>[/yellow]")
+            return
+
+        console.print(f"[dim]🧠 Buscando memórias para: {query_text}...[/dim]")
+        from data_agents.memory.retrieval import retrieve_relevant_memories, format_memories_for_injection
+
+        memories = retrieve_relevant_memories(query_text, store)
+        if memories:
+            formatted = format_memories_for_injection(memories)
+            console.print(Markdown(formatted))
+        else:
+            console.print("[dim]Nenhuma memória relevante encontrada.[/dim]")
+        console.print()
+
+    elif sub == "clear":
+        scope = parts[2].lower() if len(parts) > 2 else "all"
+        from data_agents.memory.types import MemoryType
+
+        clear_ckpt = scope == "full"
+        if scope in ("all", "full"):
+            types_to_clear = list(MemoryType)
+            label = "todas as memórias" + (" + checkpoint" if clear_ckpt else "")
+        else:
+            try:
+                types_to_clear = [MemoryType(scope)]
+                label = f"memórias do tipo '{scope}'"
+            except ValueError:
+                valid = ", ".join(t.value for t in MemoryType)
+                console.print(
+                    f"[yellow]Tipo inválido: '{scope}'. Válidos: {valid}, all ou full[/yellow]"
+                )
+                return
+
+        # IMPORTANTE: usa prompt_async() porque estamos dentro de um event loop
+        # (_handle_memory_command é async). prompt() síncrono tenta asyncio.run()
+        # internamente e crasha com "cannot be called from a running event loop".
+        confirm = (
+            (await _prompt_session.prompt_async(f"Tem certeza que deseja apagar {label}? (s/N) "))
+            .strip()
+            .lower()
+        )
+        if confirm not in ("s", "sim", "y", "yes"):
+            console.print("[dim]Cancelado.[/dim]")
+            return
+
+        removed = 0
+        for mem_type in types_to_clear:
+            for mem in store.list_all(memory_type=mem_type):
+                if store.delete(mem.id, mem_type):
+                    removed += 1
+
+        ckpt_msg = ""
+        if clear_ckpt:
+            clear_checkpoint()
+            ckpt_msg = " + checkpoint removido"
+
+        console.print(
+            f"[bold cyan]🧠 Clear: {removed} memória(s) removida(s){ckpt_msg}.[/bold cyan]\n"
+        )
+
+    else:
+        console.print(
+            "[yellow]Subcomandos: status, flush, compile, lint, search <query>, "
+            "clear [tipo|all][/yellow]"
+        )
+
+
+# Histórico de conversa do /geral — mantido na sessão CLI.
+# A lógica central está em commands/geral.py (compartilhada com ui/chainlit_app.py).
+_geral_history: list[dict] = []
+
+
+async def _stream_geral(
+    user_message: str, session_type: str = "geral", session_id: str | None = None
+) -> dict[str, float]:
+    """
+    Wrapper CLI para run_geral_query() — adiciona feedback visual (spinner, Rich).
+
+    A lógica de query está em commands/geral.py (importada também pela UI).
+    Esta função lida apenas com apresentação específica do terminal.
+
+    T4.1 — Transcript: se `session_id` for passado, grava os turnos user e
+    assistant no transcript da sessão.
+    """
+    _geral_history.append({"role": "user", "content": user_message})
+    if session_id:
+        _append_transcript_turn(
+            session_id=session_id,
+            role="user",
+            content=user_message,
+            metadata={"session_type": session_type, "command": "/geral"},
+        )
+
+    # Emite eventos pra viz (Supervisor está pulado — sem hooks rodando)
+    from data_agents.visualization.emit import emit_delegation, emit_session_end
+
+    emit_delegation(
+        agent="geral",
+        session_id=session_id,
+        workflow="geral",
+        prompt_preview=user_message,
+    )
+
+    spinner = Spinner("dots", text=Text("💬 Geral pensando...", style="dim"))
+    live = Live(spinner, console=console, refresh_per_second=10, transient=True)
+    live.start()
+
+    metrics: dict[str, float] = {"cost": 0.0}
+
+    try:
+        response_text, raw_metrics = await run_geral_query(
+            user_message, _geral_history, session_type=session_type
+        )
+    except Exception as e:
+        if live.is_started:
+            live.stop()
+        console.print(f"\n[bold red]Erro no /geral:[/bold red] {e}\n")
+        logger.error("Geral SDK call error: %s", e, exc_info=True)
+        if _geral_history and _geral_history[-1]["role"] == "user":
+            _geral_history.pop()
+        return metrics
+
+    if live.is_started:
+        live.stop()
+
+    if response_text:
+        console.print("[bold cyan]💬 Geral:[/bold cyan]")
+        console.print(Markdown(response_text))
+        console.print()
+        _geral_history.append({"role": "assistant", "content": response_text})
+        if session_id:
+            _append_transcript_turn(
+                session_id=session_id,
+                role="assistant",
+                content=response_text,
+                cost_usd=raw_metrics.get("cost"),
+                turns=int(raw_metrics.get("turns") or 0) or None,
+                duration_ms=int((raw_metrics.get("duration") or 0) * 1000) or None,
+                metadata={"session_type": session_type, "command": "/geral"},
+            )
+
+    cost = raw_metrics["cost"]
+    parts = [f"💰 Custo: ${cost:.5f}"]
+    if raw_metrics["turns"]:
+        parts.append(f"🔢 turns: {int(raw_metrics['turns'])}")
+    if raw_metrics["duration"]:
+        parts.append(f"⏱ {raw_metrics['duration']:.1f}s")
+    console.print(f"[dim]{' | '.join(parts)}[/dim]\n")
+
+    # Encerra sessão na viz (overlay + reset de contadores)
+    emit_session_end(
+        session_id=session_id,
+        cost_usd=cost,
+        turns=int(raw_metrics.get("turns") or 1),
+        duration_s=float(raw_metrics.get("duration") or 0.0),
+        session_type="geral",
+    )
+
+    metrics["cost"] = cost
+    return metrics
+
+
+async def _stream_party(user_input: str, session_id: str | None = None) -> dict[str, float]:
+    """
+    DOMA Party Mode — spawna múltiplos agentes em paralelo e exibe perspectivas independentes.
+
+    Cada agente recebe a mesma query e responde com seu próprio contexto e expertise,
+    sem influência dos demais. O resultado é apresentado com cabeçalho por agente.
+
+    T4.1 — Transcript: se `session_id` for passado, grava o turno do usuário e
+    um turno consolidado do assistente contendo todas as respostas dos agentes.
+
+    Args:
+        user_input: Input completo do usuário incluindo /party e flags.
+        session_id: ID da sessão para persistência do transcript.
+
+    Returns:
+        Dict com métricas consolidadas: {"cost": float}.
+    """
+    agent_names, query = parse_party_args(user_input)
+
+    if not query.strip():
+        console.print(
+            "[yellow]Party Mode: forneça uma query após o comando.\n"
+            "\n"
+            "Grupos disponíveis:\n"
+            "  [bold](sem flag)[/bold]      → default: databricks-eng + databricks-ai + fabric-eng (3 agentes)\n"
+            "  [bold]--quality[/bold]       → quality + governance + RTI (3 agentes)\n"
+            "  [bold]--arch[/bold]          → mesmo grupo do default (3 agentes)\n"
+            "  [bold]--engineering[/bold]   → python + databricks-eng + databricks-ai (3 agentes)\n"
+            "  [bold]--migration[/bold]     → migration + databricks-eng + fabric-eng (3 agentes)\n"
+            "  [bold]--full[/bold]          → todos T1 + principais T2 ([bold magenta]9 agentes em paralelo[/bold magenta])\n"
+            "\n"
+            "Ou especifique agentes explicitamente:\n"
+            "  /party databricks-engineer fabric-engineer <query>\n"
+            "\n"
+            "Exemplos:\n"
+            "  /party qual a diferença entre Delta Lake e Parquet?\n"
+            "  /party --quality como validar dados incrementais?\n"
+            "  /party --full liste 5 boas práticas pra arquitetura Medallion[/yellow]\n"
+        )
+        return {"cost": 0.0}
+
+    if session_id:
+        _append_transcript_turn(
+            session_id=session_id,
+            role="user",
+            content=user_input,
+            metadata={
+                "session_type": "party",
+                "command": "/party",
+                "agents": agent_names,
+            },
+        )
+
+    console.print(
+        f"[bold magenta]🎉 [DOMA Party Mode][/bold magenta] "
+        f"Convocando: [yellow]{', '.join(agent_names)}[/yellow]"
+    )
+    console.print(f"[dim]Query: {query[:120]}{'...' if len(query) > 120 else ''}[/dim]\n")
+
+    # Spinner global enquanto todos os agentes processam em paralelo
+    spinner = Spinner("dots", text=Text("Agentes processando em paralelo...", style="dim"))
+    live = Live(spinner, console=console, refresh_per_second=10, transient=True)
+    live.start()
+
+    try:
+        results = await run_party_query(query, agent_names, session_id=session_id)
+    finally:
+        if live.is_started:
+            live.stop()
+
+    # Exibe cada resposta com cabeçalho do agente
+    total_cost = 0.0
+    agent_icons = {
+        "databricks-engineer": "🗄️",
+        "databricks-ai": "🤖",
+        "fabric-engineer": "🏗️",
+        "fabric-rti": "⚡",
+        "fabric-ontology": "🧬",
+        "migration-expert": "🔄",
+        "python-expert": "🐍",
+        "dbt-expert": "📦",
+        "data-quality-steward": "🔍",
+        "governance-auditor": "🔐",
+        "data-contracts-engineer": "📋",
+        "data-mesh-architect": "🕸️",
+        "business-analyst": "💼",
+        "geral": "💬",
+    }
+
+    for name, text, cost in results:
+        icon = agent_icons.get(name, "🤖")
+        console.print(f"[bold yellow]{icon} {name}:[/bold yellow]")
+        if text.strip():
+            console.print(Markdown(text))
+        else:
+            console.print("[dim]_Agente não retornou resposta._[/dim]")
+        console.print()
+        total_cost += cost
+
+    console.print(
+        f"[dim]💰 Party Mode — {len(results)} agentes | Custo total: ${total_cost:.5f}[/dim]\n"
+    )
+
+    # Grava um turno consolidado no transcript contendo todas as respostas.
+    if session_id and results:
+        consolidated = "\n\n".join(
+            f"## {name}\n{text.strip()}" for name, text, _ in results if text.strip()
+        )
+        if consolidated:
+            _append_transcript_turn(
+                session_id=session_id,
+                role="assistant",
+                content=consolidated,
+                cost_usd=total_cost,
+                metadata={
+                    "session_type": "party",
+                    "command": "/party",
+                    "agents": [name for name, _, _ in results],
+                },
+            )
+
+    return {"cost": total_cost}
+
+
+async def _stream_analyze(user_input: str, session_id: str | None = None) -> dict[str, float]:
+    """
+    /analyze-project — análise completa do projeto a partir de múltiplas perspectivas.
+
+    Spawna agentes especializados em paralelo, cada um analisando seu domínio,
+    consolida os resultados e salva relatório em output/analyze-project/.
+    """
+    agent_names, project_description = parse_analyze_args(user_input)
+
+    if session_id:
+        _append_transcript_turn(
+            session_id=session_id,
+            role="user",
+            content=user_input,
+            metadata={
+                "session_type": "analyze",
+                "command": "/analyze-project",
+                "agents": agent_names,
+            },
+        )
+
+    console.print(
+        f"[bold green]🔬 [Analyze][/bold green] Agentes: [yellow]{', '.join(agent_names)}[/yellow]"
+    )
+    if project_description:
+        console.print(
+            f"[dim]Projeto: {project_description[:120]}"
+            f"{'...' if len(project_description) > 120 else ''}[/dim]\n"
+        )
+    else:
+        console.print("[dim]Sem descrição — análise por template padrão de cada domínio.[/dim]\n")
+
+    # Monta queries específicas por agente
+    queries = [
+        ANALYZE_PROMPTS.get(name, _DEFAULT_ANALYZE_PROMPT).format(
+            task=project_description or "(no description provided)"
+        )
+        for name in agent_names
+    ]
+
+    # Anuncia à viz quem foi selecionado pra essa rodada (acende racks)
+    from data_agents.visualization.emit import emit_dispatcher_decision, emit_session_end
+
+    emit_dispatcher_decision(
+        selected=agent_names,
+        session_id=session_id,
+        reason=f"analyze_project ({len(agent_names)} agentes em paralelo)",
+    )
+
+    spinner = Spinner("dots", text=Text("Analisando projeto em paralelo...", style="dim"))
+    live = Live(spinner, console=console, refresh_per_second=10, transient=True)
+    live.start()
+    t0_analyze = time.monotonic()
+    try:
+        import asyncio as _asyncio
+
+        from data_agents.commands.party import _query_single_agent
+
+        tasks = [
+            _query_single_agent(name, q, session_id=session_id, workflow_label="analyze")
+            for name, q in zip(agent_names, queries)
+        ]
+        results = await _asyncio.gather(*tasks, return_exceptions=True)
+    finally:
+        if live.is_started:
+            live.stop()
+    duration_analyze = time.monotonic() - t0_analyze
+
+    # Normaliza resultados
+    clean_results: list[tuple[str, str, float]] = []
+    total_cost = 0.0
+    for i, result in enumerate(results):
+        name = agent_names[i]
+        if isinstance(result, Exception):
+            clean_results.append((name, f"_Erro: {result}_", 0.0))
+        else:
+            clean_results.append(result)  # type: ignore[arg-type]
+            total_cost += clean_results[-1][2]
+
+    # Exibe resultados
+    agent_icons = {
+        "databricks-engineer": "🗄️",
+        "fabric-engineer": "🏗️",
+        "data-quality-steward": "🔍",
+        "governance-auditor": "🔐",
+        "data-contracts-engineer": "📋",
+        "data-mesh-architect": "🕸️",
+    }
+    for name, text, _ in clean_results:
+        icon = agent_icons.get(name, "🔬")
+        console.print(f"[bold green]{icon} {name}:[/bold green]")
+        if text.strip():
+            console.print(Markdown(text))
+        console.print()
+
+    # Salva relatório consolidado
+    report = build_report(clean_results, project_description, agent_names)
+    report_path = save_report(report)
+    console.print(f"[dim]📄 Relatório salvo em: {report_path}[/dim]")
+    console.print(
+        f"[dim]💰 Analyze — {len(clean_results)} agentes | Custo total: ${total_cost:.5f}[/dim]\n"
+    )
+
+    if session_id and clean_results:
+        consolidated = "\n\n".join(
+            f"## {name}\n{text.strip()}" for name, text, _ in clean_results if text.strip()
+        )
+        if consolidated:
+            _append_transcript_turn(
+                session_id=session_id,
+                role="assistant",
+                content=consolidated,
+                cost_usd=total_cost,
+                metadata={
+                    "session_type": "analyze",
+                    "command": "/analyze-project",
+                    "agents": [name for name, _, _ in clean_results],
+                },
+            )
+
+    # Encerra sessão na viz
+    emit_session_end(
+        session_id=session_id,
+        cost_usd=total_cost,
+        turns=len(clean_results),
+        duration_s=duration_analyze,
+        session_type="analyze",
+    )
+
+    return {"cost": total_cost}
+
+
+async def run_interactive() -> None:
+    """Loop interativo com histórico de sessão mantido entre mensagens."""
+
+    # Estado de sessão para checkpoint
+    _session_state: dict = {
+        "last_prompt": "",
+        "total_cost": 0.0,
+        "total_turns": 0,
+        "last_session_type": "interactive",
+    }
+
+    # T1.1: registra o estado como "sessão ativa" para que atexit/signal handlers
+    # possam gravar checkpoint em saídas normais (sair) ou abruptas (SIGTERM).
+    # Os handlers só são registrados uma vez por processo (idempotência via flag global).
+    global _active_session, _active_session_id, _checkpoint_saved_for_session
+    _active_session = _session_state
+    _checkpoint_saved_for_session = False
+    if not getattr(run_interactive, "_handlers_installed", False):
+        atexit.register(_emergency_checkpoint, "atexit")
+        signal.signal(signal.SIGTERM, _signal_handler)
+        if hasattr(signal, "SIGHUP"):  # não existe no Windows
+            signal.signal(signal.SIGHUP, _signal_handler)
+        run_interactive._handlers_installed = True  # type: ignore[attr-defined]
+
+    # ── 1. Banner primeiro — antes de qualquer inicialização ─────────────────
+    print_banner()
+
+    # ── 2. Logging + diagnósticos aparecem DEPOIS do banner ──────────────────
+    setup_logging(
+        log_level=settings.log_level,
+        console_log_level=settings.console_log_level,
+    )
+    if hasattr(settings, "startup_diagnostics"):
+        settings.startup_diagnostics()
+
+    # ── 2.5 Compilar daily logs de memória pendentes (cost-free, apenas I/O) ──
+    try:
+        store = MemoryStore()
+        compile_metrics = compile_daily_logs(store)
+        if compile_metrics["new_memories"] > 0:
+            console.print(
+                f"[dim]🧠 Memória: {compile_metrics['new_memories']} novas memórias compiladas "
+                f"({compile_metrics['superseded']} atualizadas)[/dim]"
+            )
+    except Exception as e:
+        logger.debug(f"Compilação de memória ignorada: {e}")
+
+    # ── 3. build_supervisor_options emite "MCP servers ativos..." aqui ───────
+    try:
+        options = build_supervisor_options()
+        # Habilita streaming parcial para feedback em tempo real
+        options.include_partial_messages = True
+    except Exception as e:
+        console.print(f"\n[bold red]Erro ao inicializar o Supervisor:[/bold red] {e}")
+        logger.error(f"Falha na inicialização: {e}", exc_info=True)
+        return
+
+    # System prompt base — memória e compactação são sempre injetadas SOBRE este,
+    # nunca acumuladas no options.system_prompt diretamente.
+    _base_system_prompt: str = options.system_prompt or ""
+
+    # ── 4. ClaudeSDKClient emite "Using bundled Claude Code CLI..." aqui ─────
+    import uuid
+
+    _session_id = f"cli-{uuid.uuid4().hex[:8]}"
+    _active_session_id = _session_id  # T1.2: expõe para _emergency_checkpoint
+    memory_manager = MemoryManager()
+    try:
+        async with ClaudeSDKClient(options=options) as client:
+            # Ch.12 — Session Lifecycle: reseta contadores e prepara buffer de memória
+            on_session_start(_session_id)
+            memory_manager.start_session(_session_id)
+
+            # ── 4.1 Verificar checkpoint de sessão anterior ────────────────
+            checkpoint = load_checkpoint()
+            if checkpoint:
+                reason = checkpoint.get("reason", "unknown")
+                cost = checkpoint.get("cost_usd", 0)
+                last = checkpoint.get("last_prompt", "")
+                files = checkpoint.get("output_files", [])
+
+                console.print(
+                    Panel(
+                        f"[bold yellow]Sessão anterior interrompida[/bold yellow] "
+                        f"({reason.replace('_', ' ')})\n"
+                        f"[dim]Custo: ${cost:.4f} | Último prompt: {last[:80]}{'...' if len(last) > 80 else ''}[/dim]\n"
+                        f"[dim]Arquivos gerados: {len(files)}[/dim]\n\n"
+                        f'[bold]Digite [cyan]"continuar"[/cyan] para retomar ou qualquer outra coisa para nova sessão.[/bold]',
+                        title="🔄 Checkpoint Detectado",
+                        border_style="yellow",
+                    )
+                )
+
+            while True:
+                # T1.1: reset do flag a cada iteração — estado potencialmente
+                # novo significa que _emergency_checkpoint deve salvar de novo
+                # se o processo morrer abruptamente antes do próximo save explícito.
+                _checkpoint_saved_for_session = False
+                try:
+                    # Input com idle timeout: detecta inatividade e oferece reset.
+                    # Usamos prompt_async() (não prompt() em executor) porque o
+                    # prompt_toolkit.Application é singleton dentro de _prompt_session,
+                    # e cancelar a task do executor NÃO encerra a Application interna —
+                    # resulta em "Application is already running" no próximo loop.
+                    # prompt_async() integra com asyncio e cancela limpo no timeout.
+                    try:
+                        raw_input = await asyncio.wait_for(
+                            _prompt_session.prompt_async("Você: "),
+                            timeout=settings.idle_timeout_minutes * 60
+                            if settings.idle_timeout_minutes > 0
+                            else None,
+                        )
+                        user_input = (raw_input or "").strip()
+                    except asyncio.TimeoutError:
+                        # Salvar checkpoint antes do reset por inatividade
+                        if _session_state["last_prompt"]:
+                            save_checkpoint(
+                                last_prompt=_session_state["last_prompt"],
+                                reason="idle_timeout",
+                                cost_usd=_session_state["total_cost"],
+                                turns=_session_state["total_turns"],
+                                session_id=_session_id,
+                            )
+                            _checkpoint_saved_for_session = True
+                        console.print(
+                            f"\n[yellow]⏰ Inatividade detectada "
+                            f"({settings.idle_timeout_minutes} min). "
+                            f"Resetando sessão para economizar tokens...[/yellow]"
+                        )
+                        if _session_state["last_prompt"]:
+                            console.print(
+                                "[dim]💾 Checkpoint salvo. Digite [bold]continuar[/bold] "
+                                "para retomar.[/dim]"
+                            )
+                        reset_session_counters()
+                        _session_state["last_prompt"] = ""
+                        _session_state["total_cost"] = 0.0
+                        _session_state["total_turns"] = 0
+                        await client.disconnect()
+                        await client.connect()
+                        checkpoint = load_checkpoint()
+                        logger.info(
+                            f"Sessão resetada automaticamente por idle "
+                            f"({settings.idle_timeout_minutes} min)."
+                        )
+                        continue
+
+                    if not user_input:
+                        continue
+
+                    # --- Comandos internos do CLI ---
+                    if user_input.lower() in ("sair", "exit", "quit", "q", "/exit"):
+                        # T1.1: salva checkpoint em saída normal — até hoje a sessão
+                        # perdia contexto nesse caminho; agora é recuperável via `continuar`.
+                        if _session_state["last_prompt"]:
+                            save_checkpoint(
+                                last_prompt=_session_state["last_prompt"],
+                                reason="normal_exit",
+                                cost_usd=_session_state["total_cost"],
+                                turns=_session_state["total_turns"],
+                                session_id=_session_id,
+                            )
+                            _checkpoint_saved_for_session = True
+                            console.print(
+                                "[dim]💾 Checkpoint salvo. Digite [bold]continuar[/bold] "
+                                "na próxima sessão para retomar.[/dim]"
+                            )
+                        # Flush de memória antes de encerrar
+                        try:
+                            n_mem = flush_session_memories(session_id=_session_id)
+                            if n_mem > 0:
+                                console.print(
+                                    f"[dim]🧠 {n_mem} memórias capturadas desta sessão.[/dim]"
+                                )
+                        except Exception as e:
+                            logger.debug(f"Flush de memória ignorado: {e}")
+                        console.print("\n[bold cyan]Encerrando sessão. Até a próxima![/bold cyan]")
+                        break
+
+                    if user_input.lower() in ("limpar", "clear", "reset"):
+                        # Flush de memória antes de limpar
+                        try:
+                            flush_session_memories(session_id=_session_id)
+                        except Exception:
+                            pass
+                        # Salvar checkpoint antes de limpar
+                        if _session_state["last_prompt"]:
+                            save_checkpoint(
+                                last_prompt=_session_state["last_prompt"],
+                                reason="user_reset",
+                                cost_usd=_session_state["total_cost"],
+                                turns=_session_state["total_turns"],
+                                session_id=_session_id,
+                            )
+                            _checkpoint_saved_for_session = True
+                            console.print(
+                                "[dim]💾 Checkpoint salvo. Use [bold]continuar[/bold] "
+                                "na próxima sessão para retomar.[/dim]\n"
+                            )
+                        console.clear()
+                        print_banner()
+                        reset_session_counters()
+                        _geral_history.clear()  # Limpa histórico do /geral
+                        _session_state["last_prompt"] = ""
+                        _session_state["total_cost"] = 0.0
+                        _session_state["total_turns"] = 0
+                        await client.disconnect()
+                        await client.connect()
+                        # Verificar checkpoint recém-salvo
+                        checkpoint = load_checkpoint()
+                        if checkpoint:
+                            console.print(
+                                Panel(
+                                    "[bold yellow]Sessão anterior salva.[/bold yellow]\n"
+                                    '[bold]Digite [cyan]"continuar"[/cyan] para retomar '
+                                    "ou qualquer outra coisa para nova sessão.[/bold]",
+                                    title="🔄 Checkpoint Disponível",
+                                    border_style="yellow",
+                                )
+                            )
+                        logger.info(
+                            "Sessão reiniciada pelo usuário (contadores de custo resetados)."
+                        )
+                        continue
+
+                    if user_input.lower() in ("/help", "help", "ajuda"):
+                        console.print(get_help_text())
+                        continue
+
+                    # --- Retomar sessão anterior via checkpoint ---
+                    if (
+                        user_input.lower() in ("continuar", "continue", "retomar", "resume")
+                        and checkpoint
+                    ):
+                        resume_prompt = build_resume_prompt(checkpoint)
+                        clear_checkpoint()
+                        checkpoint = None  # Consumido
+                        console.print("[bold cyan]🔄 Retomando sessão anterior...[/bold cyan]\n")
+                        _append_transcript_turn(
+                            session_id=_session_id,
+                            role="user",
+                            content=user_input,
+                            metadata={"session_type": "resume"},
+                        )
+                        await client.query(resume_prompt)
+                        result_metrics = await _stream_response(
+                            client,
+                            prompt="[RESUME] " + resume_prompt[:100],
+                            session_type="resume",
+                            session_id=_session_id,
+                        )
+                        _session_state["last_prompt"] = resume_prompt[:200]
+                        _session_state["total_cost"] += result_metrics.get("cost", 0)
+                        _session_state["total_turns"] += result_metrics.get("turns", 0)
+                        continue
+
+                    # Se havia checkpoint mas o usuário não quis continuar, limpar
+                    if checkpoint:
+                        clear_checkpoint()
+                        checkpoint = None
+
+                    console.print()
+
+                    # --- DOMA: Slash Commands Parsing ---
+                    command_result = parse_command(user_input)
+
+                    if command_result:
+                        doma_prompt = command_result.doma_prompt
+                        _session_type = command_result.command.lstrip("/")
+                        _session_state["last_session_type"] = _session_type
+                        console.print(command_result.display_message)
+                        logger.info(
+                            f"Slash command: {command_result.command} "
+                            f"(mode={command_result.doma_mode}, agent={command_result.agent})"
+                        )
+                    else:
+                        doma_prompt = user_input
+                        _session_type = "interactive"
+                        _session_state["last_session_type"] = "interactive"
+
+                    # --- /memory → Gerenciamento local de memória, sem Supervisor ---
+                    if command_result and command_result.command == "/memory":
+                        await _handle_memory_command(user_input)
+                        continue
+
+                    # --- /eval → Resumo de avaliações de qualidade (local, sem Supervisor) ---
+                    if command_result and command_result.command == "/eval":
+                        from data_agents.commands.eval import handle_eval_command
+
+                        handle_eval_command(user_input, console)
+                        continue
+
+                    # --- /mcp → Status dos MCP servers (local, sem Supervisor) ---
+                    if command_result and command_result.command == "/mcp":
+                        from data_agents.commands.mcp import handle_mcp_command
+
+                        handle_mcp_command(user_input, console)
+                        continue
+
+                    # --- /health → Status das plataformas (local, sem Supervisor) ---
+                    if command_result and command_result.command == "/health":
+                        from data_agents.commands.health import handle_health_command
+
+                        handle_health_command(console)
+                        continue
+
+                    # --- /sessions → Lista sessões registradas (local, sem Supervisor) ---
+                    if command_result and command_result.command == "/sessions":
+                        from data_agents.commands.sessions import handle_sessions_command
+
+                        handle_sessions_command(user_input, console)
+                        continue
+
+                    # --- /resume <id>|last → Retoma sessão anterior via transcript ---
+                    if command_result and command_result.command == "/resume":
+                        from data_agents.commands.sessions import (
+                            build_resume_prompt_for_session,
+                            find_last_session_id,
+                        )
+
+                        parts = user_input.split(maxsplit=1)
+                        arg = parts[1].strip() if len(parts) > 1 else "last"
+                        target_id: str | None
+                        if arg.lower() == "last":
+                            target_id = find_last_session_id()
+                            if not target_id:
+                                console.print(
+                                    "[yellow]Nenhuma sessão disponível para retomar. "
+                                    "Use `/sessions` para listar.[/yellow]"
+                                )
+                                continue
+                        else:
+                            target_id = arg
+
+                        resume_prompt = build_resume_prompt_for_session(target_id)
+                        if not resume_prompt:
+                            console.print(
+                                f"[yellow]Sessão `{target_id}` não encontrada "
+                                f"ou sem dados para retomar.[/yellow]"
+                            )
+                            continue
+
+                        console.print(
+                            f"[bold cyan]🔄 Retomando sessão `{target_id}` "
+                            f"({len(resume_prompt)} chars de contexto)...[/bold cyan]\n"
+                        )
+                        _append_transcript_turn(
+                            session_id=_session_id,
+                            role="user",
+                            content=user_input,
+                            metadata={
+                                "session_type": "resume",
+                                "command": "/resume",
+                                "resumed_from": target_id,
+                            },
+                        )
+                        await client.query(resume_prompt)
+                        result_metrics = await _stream_response(
+                            client,
+                            prompt=f"[RESUME {target_id}] " + resume_prompt[:80],
+                            session_type="resume",
+                            session_id=_session_id,
+                        )
+                        _session_state["last_prompt"] = f"/resume {target_id}"
+                        _session_state["total_cost"] += result_metrics.get("cost", 0)
+                        _session_state["total_turns"] += result_metrics.get("turns", 0)
+                        continue
+
+                    # --- /geral → Haiku direto, sem Supervisor ---
+                    if command_result and command_result.command == "/geral":
+                        result_metrics = await _stream_geral(
+                            user_input, session_type="geral", session_id=_session_id
+                        )
+                        _session_state["last_prompt"] = user_input
+                        _session_state["total_cost"] += result_metrics.get("cost", 0)
+                        continue
+
+                    # --- /party → DOMA Party Mode: múltiplos agentes em paralelo ---
+                    if command_result and command_result.command == "/party":
+                        result_metrics = await _stream_party(user_input, session_id=_session_id)
+                        _session_state["last_prompt"] = user_input
+                        _session_state["total_cost"] += result_metrics.get("cost", 0)
+                        continue
+
+                    # --- /analyze-project → análise multi-perspectiva do projeto ---
+                    if command_result and command_result.command == "/analyze-project":
+                        result_metrics = await _stream_analyze(user_input, session_id=_session_id)
+                        _session_state["last_prompt"] = user_input
+                        _session_state["total_cost"] += result_metrics.get("cost", 0)
+                        continue
+
+                    # Ativa thinking apenas para DOMA Full (/plan) — planejamento complexo
+                    if command_result and command_result.doma_mode == "full":
+                        options.thinking = {"type": "enabled", "budget_tokens": 8000}
+                    else:
+                        options.thinking = {"type": "disabled"}
+
+                    # --- Memory Retrieval: injeta memórias relevantes no system prompt ---
+                    options.system_prompt = memory_manager.inject_context(
+                        query=doma_prompt,
+                        system_prompt=_base_system_prompt,
+                    )
+
+                    # T4.1: registrar o turno do usuário no transcript ANTES de enviar
+                    # para o Supervisor. Assim, mesmo se o turno quebrar (erro/budget),
+                    # o prompt original fica no histórico da sessão.
+                    _append_transcript_turn(
+                        session_id=_session_id,
+                        role="user",
+                        content=user_input,
+                        metadata={
+                            "session_type": _session_type,
+                            "command": command_result.command if command_result else None,
+                        },
+                    )
+
+                    # --- Enviar para o Supervisor e processar com feedback visual ---
+                    await client.query(doma_prompt)
+                    result_metrics = await _stream_response(
+                        client,
+                        prompt=doma_prompt,
+                        session_type=_session_type,
+                        session_id=_session_id,
+                    )
+
+                    # Atualizar estado da sessão para checkpoint
+                    _session_state["last_prompt"] = doma_prompt
+                    _session_state["total_cost"] += result_metrics.get("cost", 0)
+                    _session_state["total_turns"] += result_metrics.get("turns", 0)
+
+                    # --- Compactação autônoma: reconecta se o hook atingiu 80% ---
+                    from data_agents.hooks.context_budget_hook import check_and_consume_compaction
+
+                    _compaction_summary = check_and_consume_compaction()
+                    if _compaction_summary:
+                        _compaction_prefix = (
+                            f"\n\n---\n## Contexto Compactado\n"
+                            f"_Sessão {_session_id} — compactado ao atingir 80%._\n\n"
+                            f"{_compaction_summary}\n---\n\n"
+                        )
+                        _base_system_prompt = _base_system_prompt + _compaction_prefix
+                        _session_id = f"cli-{uuid.uuid4().hex[:8]}"
+                        _active_session_id = _session_id
+                        await client.disconnect()
+                        await client.connect()
+                        on_session_start(_session_id)
+                        memory_manager.start_session(_session_id)
+                        reset_session_counters()
+                        _session_state["total_cost"] = 0.0
+                        _session_state["total_turns"] = 0
+                        _session_state["last_prompt"] = ""
+                        console.print(
+                            "[dim]🔄 Contexto compactado automaticamente — nova janela iniciada.[/dim]"
+                        )
+                        logger.info(f"Auto-compactação concluída. Nova sessão: {_session_id}")
+
+                except KeyboardInterrupt:
+                    console.print("\n[yellow]Interrompido. Digite 'sair' para encerrar.[/yellow]")
+                    continue
+
+                except BudgetExceededError as e:
+                    # Flush de memória antes do checkpoint
+                    try:
+                        flush_session_memories(session_id=_session_id)
+                    except Exception:
+                        pass
+                    # Salvar checkpoint automaticamente ao exceder budget
+                    save_checkpoint(
+                        last_prompt=_session_state["last_prompt"],
+                        reason="budget_exceeded",
+                        cost_usd=_session_state["total_cost"],
+                        turns=_session_state["total_turns"],
+                        session_id=_session_id,
+                    )
+                    _checkpoint_saved_for_session = True
+                    console.print(f"\n[bold red]Orçamento excedido:[/bold red] {e.message}")
+                    console.print(
+                        "[bold yellow]💾 Checkpoint salvo automaticamente![/bold yellow]\n"
+                        "[dim]Na próxima sessão, digite [bold]continuar[/bold] para retomar "
+                        "de onde parou.[/dim]\n"
+                        "[dim]Ou aumente MAX_BUDGET_USD no .env para mais orçamento.[/dim]\n"
+                    )
+                    logger.warning(f"Budget exceeded: {e.message}")
+                    continue
+
+                except MCPConnectionError as e:
+                    console.print(
+                        f"\n[bold red]Erro de conexão MCP:[/bold red] {e.message}\n"
+                        f"[dim]Plataforma: {e.platform}. Verifique credenciais e conectividade.[/dim]\n"
+                    )
+                    logger.error(f"MCP connection error: {e.message}")
+                    continue
+
+                except DataAgentsError as e:
+                    console.print(f"\n[bold red]Erro do sistema:[/bold red] {e.message}\n")
+                    logger.error(f"DataAgentsError: {e.message}", exc_info=True)
+                    continue
+
+                except Exception as e:
+                    # ── Three-Layer Model Failover ────────────────────────────
+                    # Se o erro for rate-limit ou sobrecarga, tenta automaticamente
+                    # com o modelo de fallback (Opus → Sonnet → Haiku).
+                    if is_rate_limit_error(e):
+                        fallback_opts = build_failover_options(options)
+                        fallback_model = fallback_opts.model or "fallback"
+                        console.print(
+                            f"\n[bold yellow]⚠️  Modelo sobrecarregado — degradando para "
+                            f"[cyan]{fallback_model}[/cyan] e reenviando...[/bold yellow]\n"
+                        )
+                        logger.warning(
+                            f"Rate limit / overload detectado. Failover: "
+                            f"{options.model} → {fallback_model}. Erro: {e}"
+                        )
+                        try:
+                            async with ClaudeSDKClient(options=fallback_opts) as fallback_client:
+                                await fallback_client.query(doma_prompt)
+                                result_metrics = await _stream_response(
+                                    fallback_client,
+                                    prompt=doma_prompt,
+                                    session_type=_session_type,
+                                    session_id=_session_id,
+                                )
+                            _session_state["last_prompt"] = doma_prompt
+                            _session_state["total_cost"] += result_metrics.get("cost", 0)
+                            _session_state["total_turns"] += result_metrics.get("turns", 0)
+                            console.print(
+                                f"[dim]✓ Respondido com modelo de fallback ({fallback_model}). "
+                                "O modelo principal pode estar temporariamente sobrecarregado.[/dim]\n"
+                            )
+                        except Exception as fallback_err:
+                            console.print(
+                                f"\n[bold red]Fallback também falhou:[/bold red] {fallback_err}\n"
+                                "[dim]Aguarde alguns segundos e tente novamente.[/dim]\n"
+                            )
+                            logger.error(f"Failover também falhou: {fallback_err}", exc_info=True)
+                    else:
+                        console.print(f"\n[bold red]Erro inesperado:[/bold red] {e}\n")
+                        logger.error(f"Unexpected error: {e}", exc_info=True)
+                    continue
+    except Exception as e:
+        # Captura erros durante o encerramento do SDK (ex: hooks de teardown)
+        # Erros de teardown não devem ser exibidos ao usuário — apenas logados em debug
+        logger.debug(f"Erro no encerramento do SDK (ignorado): {e}")
+    finally:
+        # Eval loop: coleta avaliação antes de encerrar (não bloqueia se usuário pular)
+        from data_agents.commands.eval import prompt_eval_cli
+
+        prompt_eval_cli(
+            console=console,
+            session_id=_session_id,
+            session_type=_session_state.get("last_session_type", "interactive"),
+            cost_usd=_session_state.get("total_cost", 0.0),
+            turns=int(_session_state.get("total_turns", 0)),
+        )
+        # Ch.12 — Session Lifecycle: flush de memória e log de estatísticas de uso
+        on_session_end(_session_id, memory_manager=memory_manager)
+
+
+async def run_single_query(prompt: str) -> None:
+    """Executa uma única solicitação e exibe o resultado.
+
+    Suporta os mesmos atalhos de slash command do loop interativo:
+      - /geral  → resposta direta sem Supervisor (Kimi K2.6, zero MCP)
+      - /party  → DOMA Party Mode (múltiplos agentes em paralelo)
+      - /analyze-project → análise multi-perspectiva do projeto
+    Demais prompts (incluindo /plan, /sql, /pipeline, etc.) seguem o
+    fluxo do Supervisor com thinking adaptive ativado quando aplicável.
+    """
+    setup_logging(log_level=settings.log_level, enable_console=False)
+
+    # ── Dispatch de slash commands (paridade com loop interativo) ────────────
+    command_result = parse_command(prompt)
+
+    if command_result and command_result.command == "/geral":
+        await _stream_geral(prompt, session_type="geral")
+        return
+
+    if command_result and command_result.command == "/party":
+        await _stream_party(prompt)
+        return
+
+    if command_result and command_result.command == "/analyze-project":
+        await _stream_analyze(prompt)
+        return
+
+    # ── Two-Stage Routing: dispatcher leve antes do Supervisor ───────────────
+    # Para /plan e queries livres (sem slash command direto), faz roteamento
+    # leve antes de carregar o Supervisor. Reduz de ~80K → ~20K tokens fixos.
+    # Slash commands diretos (/sql, /fabric, etc.) já têm agente alvo definido
+    # via DOMA Express e pulam o dispatcher.
+    is_plan_or_free = (command_result is None) or (
+        command_result.command in ("/plan", None) or command_result.doma_mode == "full"
+    )
+    selected_agents: list[str] | None = None
+    if is_plan_or_free:
+        try:
+            available = preload_registry()
+            selected, confidence, reason = await dispatcher_select_agents(prompt, available)
+            selected_agents = dispatcher_apply_fallback(selected, confidence, available)
+            log_line = dispatcher_format_log(
+                selected, selected_agents, confidence, reason, len(available)
+            )
+            console.print(f"[dim]{log_line}[/dim]")
+        except Exception as e:
+            logger.warning(f"Dispatcher falhou, carregando todos os agentes: {e}")
+            selected_agents = None  # fallback safe
+
+    # ── Fluxo padrão: Supervisor (com thinking se /plan) ─────────────────────
+    options = build_supervisor_options(
+        enable_thinking=bool(command_result and command_result.doma_mode == "full"),
+        agent_names=selected_agents,
+    )
+    options.include_partial_messages = True
+
+    # Se o command_result existe, usa o doma_prompt (já formatado pra delegação).
+    # Senão, usa o prompt original (entrada livre pro Supervisor).
+    effective_prompt = command_result.doma_prompt if command_result else prompt
+
+    current_tool: str | None = None
+    tool_input_buffer: str = ""
+    current_agent: str | None = None
+    _step_start: float = time.monotonic()
+
+    async for message in query(prompt=effective_prompt, options=options):
+        if isinstance(message, StreamEvent):
+            event = message.event
+            event_type = event.get("type", "")
+
+            if event_type == "content_block_start":
+                block = event.get("content_block", {})
+                if block.get("type") == "tool_use":
+                    current_tool = block.get("name", "unknown")
+                    tool_input_buffer = ""
+                    current_agent = None
+                    _step_start = time.monotonic()
+                    if current_tool != "Agent":
+                        label = _get_tool_label(current_tool)
+                        console.print(f"[dim]{label}...[/dim]")
+
+            elif event_type == "content_block_delta":
+                delta = event.get("delta", {})
+                if delta.get("type") == "input_json_delta":
+                    tool_input_buffer += delta.get("partial_json", "")
+                    if current_tool == "Agent" and current_agent is None:
+                        try:
+                            import json as _json
+
+                            data = _json.loads(tool_input_buffer)
+                            agent_name = (
+                                data.get("agent_name")
+                                or data.get("subagent_type")
+                                or data.get("name")
+                                or ""
+                            )
+                            if agent_name:
+                                current_agent = agent_name
+                                _tier = _AGENT_TIERS.get(agent_name, "")
+                                _tier_label = f" · T{_tier[1:]}" if _tier else ""
+                                console.print(
+                                    f"[dim]🤖 Delegando para → [bold yellow]{agent_name}[/bold yellow]"
+                                    f"[dim]{_tier_label}[/dim]...[/dim]"
+                                )
+                        except Exception:
+                            pass
+
+            elif event_type == "content_block_stop":
+                if current_tool == "Agent" and current_agent:
+                    elapsed = f"{time.monotonic() - _step_start:.1f}s"
+                    _tier = _AGENT_TIERS.get(current_agent, "")
+                    _tier_label = f" · T{_tier[1:]}" if _tier else ""
+                    console.print(
+                        f"[dim]  ✅ [bold]{current_agent}[/bold]"
+                        f"[dim]{_tier_label}[/dim] concluído ({elapsed})[/dim]"
+                    )
+                    console.print("[dim]⚙️  Supervisor sintetizando...[/dim]")
+                current_tool = None
+                tool_input_buffer = ""
+                current_agent = None
+
+        elif isinstance(message, AssistantMessage):
+            for block in message.content:
+                if isinstance(block, TextBlock) and block.text.strip():
+                    console.print(Markdown(block.text))
+
+        elif isinstance(message, ResultMessage):
+            # Recalcula com preços reais Moonshot K2.6 (SDK reporta com prices Anthropic)
+            real_cost = real_cost_from_message(message)
+            if real_cost > 0:
+                console.print(
+                    f"\n[dim]Custo: ${real_cost:.5f} | Turns: {message.num_turns or 0}[/dim]"
+                )
+            log_session_result(message, prompt_preview=prompt[:100], session_type="single_query")
+
+
+def main() -> None:
+    """Entry point principal do AI Data Agents."""
+    if len(sys.argv) > 1:
+        prompt = " ".join(sys.argv[1:])
+        asyncio.run(run_single_query(prompt))
+    else:
+        asyncio.run(run_interactive())
+
+
+if __name__ == "__main__":
+    main()

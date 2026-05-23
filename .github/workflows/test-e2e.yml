@@ -1,0 +1,95 @@
+name: E2E — Nightly real-service smoke
+
+# Phase 6 e2e workflow (separate from ci.yml).
+#
+# Runs against REAL services (Moonshot/Anthropic, Databricks, Fabric) via
+# credentials stored in repository secrets. Designed to:
+#
+#   1. Catch regressions in the contract with external services that mock-based
+#      tests cannot detect (API changes, auth issues, MCP server crashes).
+#   2. Run on a slow cadence (nightly cron) so the cost is bounded and PR
+#      iteration is not blocked.
+#   3. Be triggerable on-demand via workflow_dispatch for release validation.
+#
+# IMPORTANT: tests/e2e/ is empty at Phase 6 close — this workflow is wired up
+# but will skip cleanly until tests are added. See tests/e2e/README.md for
+# the admission criteria and the list of candidate tests.
+
+on:
+  workflow_dispatch:  # Manual trigger from GitHub UI
+  schedule:
+    # Run every day at 03:00 UTC (= 00:00 BRT, off-peak)
+    - cron: "0 3 * * *"
+
+# Least-privilege at workflow level; jobs opt in to more as needed.
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+  FORCE_COLOR: "1"
+
+# Avoid overlapping nightly runs (e.g. if previous one is still going).
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test-e2e:
+    name: E2E tests — real services
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dev + memory + ontology dependencies
+        # E2E tests may exercise the full agent stack including memory and
+        # ontology — install all optional extras.
+        run: pip install -e ".[dev,memory,ontology]"
+
+      - name: Skip cleanly if tests/e2e/ has no test files
+        id: check_tests
+        run: |
+          count=$(find tests/e2e -name "test_*.py" -type f 2>/dev/null | wc -l | tr -d ' ')
+          echo "test_count=$count" >> "$GITHUB_OUTPUT"
+          if [ "$count" = "0" ]; then
+            echo "::notice::tests/e2e/ is empty — skipping E2E run. See tests/e2e/README.md for candidate tests."
+          fi
+
+      - name: Run E2E tests
+        if: steps.check_tests.outputs.test_count != '0'
+        env:
+          # Secrets injected from repository settings. Each test that needs a
+          # credential should pytest.skip() if the env var is empty (see
+          # tests/e2e/README.md for the canonical pattern).
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          FABRIC_WORKSPACE_ID: ${{ secrets.FABRIC_WORKSPACE_ID }}
+        run: |
+          pytest tests/e2e/ -v --tb=short -m e2e
+
+      - name: Upload E2E logs (always, for post-mortem)
+        if: always() && steps.check_tests.outputs.test_count != '0'
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: e2e-logs-${{ github.run_id }}
+          path: |
+            logs/*.jsonl
+            logs/sessions/*.jsonl
+          retention-days: 30
+          if-no-files-found: ignore

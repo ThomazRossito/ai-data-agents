@@ -1,4 +1,7 @@
 ---
+domain: sql-patterns
+updated_at: 2026-05-22
+agents: [databricks-engineer, dbt-expert, fabric-engineer, migration-expert]
 mcp_validated: "2026-04-15"
 ---
 

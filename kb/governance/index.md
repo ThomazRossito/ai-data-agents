@@ -1,4 +1,7 @@
 ---
+domain: governance
+updated_at: 2026-05-22
+agents: [data-contracts-engineer, data-mesh-architect, fabric-engineer, fabric-ontology, governance-auditor, migration-expert]
 mcp_validated: "2026-04-15"
 ---
 

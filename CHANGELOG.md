@@ -7,6 +7,310 @@
 
 ## [Unreleased]
 
+
+## [3.0.0] — 2026-05-23
+### Added — Phase 12: Claude Code plugin distribution
+
+A third distribution channel: `ai-data-agents` is now available as a
+[Claude Code plugin](https://code.claude.com/docs/en/plugin-marketplaces),
+bringing the 15 agents + 48 skills into Claude Code natively for users who
+prefer that over the Python CLI.
+
+**Install (in Claude Code):**
+
+```bash
+claude plugin marketplace add ThomazRossito/ai-data-agents
+claude plugin install ai-data-agents@thomazrossito-marketplace
+```
+
+**Scope (per ADR-011 — intentional minimal scope for v3.0-rc1):**
+
+| Included | Excluded (Python CLI only) |
+|---|---|
+| 15 specialist agents | 39 slash commands |
+| 48 operational skills | 17 MCP servers |
+| | Hooks (security, cost guard, audit) |
+| | Memory layer (SQLite + ledger) |
+
+Plugin users invoke agents via natural language inside Claude Code. The
+scope decision is documented in ADR-011 (defer commands + MCPs to v3.1+).
+
+**New files:**
+
+- `.claude-plugin/marketplace.json` — declares 1 plugin under owner
+  Thomaz Rossito
+- `plugins/ai-data-agents/.claude-plugin/plugin.json` — plugin metadata
+  (name, description, version synced from `VERSION`, keywords, license)
+- `plugins/ai-data-agents/README.md` — plugin-specific docs covering
+  install, what's included vs excluded, sync workflow
+- `plugins/ai-data-agents/agents/` — 15 generated agent `.md` files
+  (synced from `data_agents/agents/registry/`)
+- `plugins/ai-data-agents/skills/` — 48 generated skill directories
+  (flattened from `skills/<domain>/<name>/` to `skills/<name>/`)
+- `scripts/build_plugin.sh` — idempotent sync from canonical sources to
+  plugin view; collision detection on flattened skill names; version
+  injected from `VERSION` file
+- `.github/workflows/plugin-validate.yml` — 2 jobs: JSON-validate manifests
+  + assert `build_plugin.sh` produces zero diff against committed content
+- `docs/adr/ADR-011-claude-code-plugin-scope.md` — scope decision
+  documented per Michael Nygard format
+
+**Extended files:**
+
+- `.github/workflows/release.yml` — build step now also produces
+  `dist/ai-data-agents-plugin-<version>.tar.gz`; GitHub Release attaches
+  it alongside wheel/sdist (glob `dist/*.tar.gz` covers both)
+- `README.md` — Início Rápido section adds tabs (Python CLI vs Plugin)
+- `docs/site/index.md` — quickstart section adds tabs for both channels
+- `docs/site/getting-started/installation.md` — new "Claude Code plugin"
+  section with full feature comparison
+
+### Added — Phase 11: Documentation site (MkDocs Material)
+
+The project now publishes its docs as a navigable site at
+https://thomazrossito.github.io/ai-data-agents/ — built with MkDocs Material
+(see ADR-010 for the framework choice rationale).
+
+**New files:**
+
+- `mkdocs.yml` — site config with Material theme, light/dark palette,
+  4-tab navigation + Migration tab
+- `docs/site/` — source for the published site (14 pages):
+    - `index.md` — landing + 60-second overview
+    - `getting-started/` — installation, first query, slash commands
+    - `concepts/` — architecture, constitution (S1–S7), memory, hooks, tier system
+    - `tutorials/` — SQL Server → Databricks migration walkthrough, Medallion pipeline
+    - `reference/` — agents (15), MCPs (17), slash commands (39), ADRs (10), security
+    - `migration/v2-to-v3.md` — automated import rewrite for v2 consumers
+- `docs/adr/ADR-010-docs-site-mkdocs-material.md` — framework decision
+- `.github/workflows/docs.yml` — `mkdocs build --strict` on every push/PR;
+  deploy to `gh-pages` only on main/refactor branches. Path filter narrow.
+
+**New Makefile targets:**
+
+- `make docs-serve` — local preview on http://127.0.0.1:8000
+- `make docs-build` — strict static build to `site/`
+- `make docs-deploy` — manual `mkdocs gh-deploy` (CI does this automatically)
+
+**New pyproject extra:**
+
+- `[docs]` — `mkdocs`, `mkdocs-material`, `pymdown-extensions`. Only the
+  maintainer building the site needs it; end users consume the public URL.
+
+**Deferred:**
+
+- `mkdocstrings` (auto-generated API reference) — overhead of treating
+  docstrings as a public contract is premature for v3.0-rc1. Reopen post-3.0.0
+  if users ask. See ADR-010 for rationale.
+
+### Added — Phase 10: Hardening (partial — pragmatic scope)
+
+After auditing the original Phase 10 plan against the project's real use case
+(open-source + CI&T consulting, single-user), 3 of 7 tasks were deliberately
+skipped with documented justification in `docs/refactor-v3/PLAN.md`. The 4 that
+landed:
+
+- **Structured logging contract** — `data_agents/hooks/session_logger.py` now
+  includes `session_id` in every entry, completing the canonical triplet
+  (`session_id`, `agent_name`, `tool_use_id`) already enforced by
+  `audit_hook.py`. New test `tests/unit/test_structured_logging.py` (4 cases)
+  validates the contract per-file and protects against future hooks gaining
+  JSONL writes without including canonical fields.
+
+- **`make security-review`** — new `scripts/security_review.sh` running
+  bandit + pip-audit + a custom regex-based secrets scan in sequence with
+  per-step pass/fail and a consolidated summary. 8 well-known credential
+  patterns (Anthropic, Moonshot, Databricks PAT, AWS, GitHub PAT, etc.) plus
+  contextual `SECRET=value` heuristic. Negative markers (`placeholder`,
+  `<your-token>`, `os.environ`, etc.) suppress false positives. Validated
+  locally with zero hits on a 600+ file scan.
+
+- **Performance baselines (skeleton)** — `tests/perf/` with auto-marker
+  `@pytest.mark.perf` + `@pytest.mark.slow`, opt-in via `make test-perf`.
+  3 baselines: `preload_registry` (~30ms target / 100ms gate), `build_escalation_graph`
+  (~5ms / 20ms gate), `parse_yaml_frontmatter` (~2ms / 10ms gate). Not wired
+  into main CI (perf is flaky on shared GitHub Actions runners); intended
+  for local regression checks before releases. Marker `perf` registered in
+  `pyproject.toml`.
+
+- **STRIDE threat model** — `docs/SECURITY_THREAT_MODEL.md` documenting
+  4 trust boundaries (User→Supervisor, Supervisor→Subagent, Subagent→MCP,
+  MCP→Platform) + 2 cross-cutting concerns (Hooks layer, Memory layer).
+  Each threat tagged with STRIDE category, likelihood, impact, current
+  mitigation, and known debt. Top-3 priorities listed for future hardening
+  (pre-commit gitleaks, SBOM/signing, hook-bypass audit on SDK upgrades).
+
+### Skipped with justification
+
+- **OpenTelemetry tracing** — `audit_hook.py` already produces filterable JSONL
+  with session/agent/tool_use IDs. OTel would require Jaeger/Tempo standalone
+  + manual instrumentation; cost > value for a single-process system.
+- **Multi-tenancy module** — `settings.project_id` already provides filesystem
+  isolation between executions. Reopen if ai-data-agents becomes SaaS.
+- **SLA.md** — SLA is a commercial-service commitment. Open-source individual
+  project doesn't ship operational promises. Reopen if/when scope changes.
+
+### Changed — Phase 8: Optional extras isolation (lighter core)
+
+The core install (`pip install ai-data-agents`) is now significantly lighter. Optional features moved behind extras with clear `ImportError` messages.
+
+**What's now opt-in (was core or top-level imports):**
+
+| Module | Required extra | Was |
+|---|---|---|
+| `data_agents.ui.chainlit_app` | `[ui]` | top-level `import chainlit` |
+| `data_agents.ui.exporter` | `[ui]` (now bundles `markdown2`) | `markdown2` was core |
+| `data_agents.monitoring.app` | `[monitoring]` | top-level `import streamlit` |
+| `data_agents.visualization.server` | `[viz]` | top-level `import fastapi` |
+| `data_agents.visualization.ws_broker` | `[viz]` | top-level `import fastapi` |
+| `data_agents.visualization.watcher` | `[viz]` | top-level `import watchdog` |
+| `data_agents.memory.embedder` (already gold standard) | `[memory]` | lazy + clean ImportError (no change) |
+
+**Pattern applied to each top-level module:**
+
+```python
+# Phase 8: <pkg> é dep opcional do extra [X]
+try:
+    import <pkg>
+except ImportError as _exc:
+    raise ImportError(
+        "<pkg> não instalado. Para habilitar <feature>:\n"
+        "  pip install -e \".[<X>]\""
+    ) from _exc
+```
+
+**`pyproject.toml` change:**
+- `markdown2>=2.4` moved from `[project.dependencies]` to `[project.optional-dependencies.ui]`. Core install drops one dep.
+
+**New CI workflow `.github/workflows/install-matrix.yml`:**
+- Tests 6 install combinations: `core`, `[ui]`, `[ui,monitoring]`, `[viz]`, `[memory]`, `[all]`
+- For each combination, verifies a list of modules that SHOULD import successfully AND a list that SHOULD fail with `ImportError` containing the string `pip install` (proves the message is user-friendly).
+- Triggered on changes to `pyproject.toml` or any of the protected modules.
+
+### **BREAKING — Phase 7: Python namespace migration (`data_agents/`)**
+
+All top-level Python packages have been consolidated under the `data_agents` namespace. This is a **breaking change** for any external code that imports from the project.
+
+**Before (v2.x):**
+```python
+from agents.loader import preload_registry
+from config.settings import settings
+from hooks.audit_hook import audit_tool_usage
+```
+
+**After (v3.0):**
+```python
+from data_agents.agents.loader import preload_registry
+from data_agents.config.settings import settings
+from data_agents.hooks.audit_hook import audit_tool_usage
+```
+
+**Migration command for existing code (run from project root):**
+
+```bash
+# Backup first
+git stash
+
+# Rewrite all imports (Python script — safer than sed because handles indented imports too)
+python3 - << 'EOF'
+import re
+from pathlib import Path
+PKGS = "agents config hooks commands memory compression workflow utils mcp_servers evals ui visualization monitoring".split()
+for f in Path(".").rglob("*.py"):
+    text = f.read_text(encoding="utf-8")
+    new_text = text
+    for line in text.splitlines(keepends=True):
+        s = line.lstrip()
+        if not (s.startswith("from ") or s.startswith("import ")):
+            continue
+        if "data_agents." in line:
+            continue
+        m = re.match(r"^(\s*)(from|import)\s+([\w.]+)", line)
+        if m and m.group(3).split(".")[0] in PKGS:
+            new_text = new_text.replace(line, line.replace(m.group(3), f"data_agents.{m.group(3)}", 1), 1)
+    if new_text != text:
+        f.write_text(new_text, encoding="utf-8")
+EOF
+```
+
+**What moved:**
+- `agents/` → `data_agents/agents/`
+- `config/` → `data_agents/config/`
+- `hooks/` → `data_agents/hooks/`
+- `commands/` → `data_agents/commands/`
+- `memory/` → `data_agents/memory/`
+- `compression/` → `data_agents/compression/`
+- `workflow/` → `data_agents/workflow/`
+- `utils/` → `data_agents/utils/`
+- `mcp_servers/` → `data_agents/mcp_servers/`
+- `evals/` → `data_agents/evals/`
+- `ui/` → `data_agents/ui/`
+- `visualization/` → `data_agents/visualization/`
+- `monitoring/` → `data_agents/monitoring/`
+- `main.py` → `data_agents/cli.py`
+
+**What did NOT move (stays at repo root):**
+- `scripts/` — development tooling, not part of the installable package
+- `tests/` — test suite
+- `kb/`, `skills/`, `docs/`, `logs/`, `output/` — data and artifacts
+
+**Entry points (pyproject.toml):**
+- `ai-data-agents` now points to `data_agents.cli:main` (was `main:main`)
+- 6 MCP server entry points renamed to `data_agents.mcp_servers.<name>.server:main`
+
+**Migration notes for the CLI:**
+- Old: `python main.py "<query>"` → New: `python -m data_agents.cli "<query>"`
+- Old: `make test` ran everything → New: runs `unit + integration` only (Phase 6); use `make test-all` for everything including e2e
+
+### Changed — Phase 6: Test suite reorganization (unit/integration/e2e)
+
+- **`tests/` restructured** into three categorical subdirectories:
+  - `tests/unit/` — 52 files (1242 tests). Mock-only, no network, no real MCP, < 1s typical. Auto-tagged `@pytest.mark.unit` via `tests/unit/conftest.py`.
+  - `tests/integration/` — 5 files (150 tests). Touch local SQLite/JSONL as part of the contract (not just fixture storage). Auto-tagged `@pytest.mark.integration`.
+  - `tests/e2e/` — 0 files (empty by design). Auto-tagged `@pytest.mark.e2e` + `@pytest.mark.requires_network`. README documents admission criteria and candidate future tests.
+- **Files moved** preserve `tests/conftest.py` (global SQLite isolation fixture) at root — all subdirs inherit automatically.
+- **`pyproject.toml`** registers 5 markers (`unit`, `integration`, `e2e`, `requires_network`, `slow`) with descriptive help text; eliminates `PytestUnknownMarkWarning`.
+
+### Added — Phase 6 CI + Makefile targets
+
+- **`.github/workflows/ci.yml`**: `test` job replaced by parallel `test-unit` (coverage gate ≥80%, testmon cache, 10min timeout) and `test-integration` (no coverage gate, runs in parallel, 10min timeout). Both gated by quality/structure/security jobs.
+- **`.github/workflows/test-e2e.yml`** (NEW): nightly cron at `0 3 * * *` UTC + `workflow_dispatch` for manual triggering. Skips cleanly with a notice when `tests/e2e/` is empty. Injects credentials from repository secrets, uploads logs as artifacts (30-day retention).
+- **`Makefile`**: 5 new test targets — `test` (unit + integration default), `test-fast` (unit only, < 30s alvo), `test-int` (integration only), `test-e2e` (real services), `test-all` (everything). Old `test` recipe replaced with `test: test-fast test-int` aggregation.
+
+### Documentation
+
+- **`docs/refactor-v3/test-classification.md`** (NEW): inventário completo dos 57 arquivos de teste com categoria, LOC, flags, e justificativa por arquivo. Documenta a heurística aplicada ("é débito ou foi feito assim de propósito?") e por que 0 e2e existem hoje no projeto.
+
+### Added — Phase 5: Rich agent frontmatter + escalation graph injection
+
+- **`utils/frontmatter.py` migrated to pyyaml** with `_SafeLoaderNoBoolAlias` — a custom
+  SafeLoader subclass that removes YAML 1.1 boolean aliases (yes/no/on/off) so they
+  remain strings. Resolves two real bugs: (a) folded scalars `description: >-` (used by
+  `databricks-dbsql` and `databricks-execution-compute`) now parse as concatenated text
+  instead of literal `>-`; (b) the YAML 1.1 trap `country: NO` becoming `False` is gone.
+  Backward compatible — same `parse_yaml_frontmatter(content) -> tuple[dict, str]` signature.
+- **`agents/registry/_template.md` extended** with `description: |` block scalar (Example 1/2/3 stanzas), `stop_conditions: []` (situations where the agent must halt), and `escalation_rules: []` (structured `{trigger, target, reason}` dicts).
+- **`agents/loader.py::AgentMeta` extended** with new optional fields `stop_conditions: list[str]`, `escalation_rules: list[dict[str, str]]`, `skill_domains: list[str]`. Preload is defensive — malformed entries are coerced or skipped, never crash the loader (lint catches violations separately).
+- **15/15 agents migrated** with rich frontmatter:
+  - 93 stop_conditions total (avg ~6 per agent)
+  - 66 escalation_rules total (avg ~4 per agent)
+  - Every escalation target validated against the registry via `cross_check_escalation_targets()`
+- **`agents/loader.py::build_escalation_graph_markdown()`** consolidates all escalation_rules into a single Markdown table at Supervisor build time. The Supervisor now sees the full escalation graph (Source → Target → Trigger → Reason) appended to its system prompt as an authoritative whitelist.
+- **Supervisor Step 3.5 (Escalation Handling) upgraded** in `agents/prompts/supervisor_prompt.py` — references the injected graph as the source of truth, flags off-graph escalations in synthesis, and refuses to auto-substitute targets that don't exist in the registry.
+- **`scripts/lint_registry.py` extended** with 7 new validation rules:
+  - `stop-conditions-type` / `stop-conditions-item-type`
+  - `escalation-rules-type` / `escalation-rule-not-dict` / `escalation-rule-missing-key` / `escalation-target-type`
+  - `escalation-self-target` / `escalation-target-unknown` (cross-check phase)
+
+### Added — Tests
+
+- **`tests/test_frontmatter.py`** (NEW, 27 tests): YAML 1.1 boolean trap, block scalars (`>-`, `|`, `|-`), multiline lists, list-of-dicts, inline/block dicts, numeric types, edge cases (empty frontmatter, non-dict top-level, invalid YAML).
+- **`tests/test_agent_preload.py` extended** (+19 tests): AgentMeta defaults for Phase 5 fields, preload parsing of stop_conditions/escalation_rules/skill_domains, multiline description preservation, defensive handling of malformed entries, and full coverage of `build_escalation_graph_markdown()` (empty graph, populated graph, pipe escaping, empty-target skipping, footer rule count, registry fallback).
+
+### Changed
+
+- **`agents/supervisor.py`** now injects the escalation graph into `system_prompt` at build time via `build_escalation_graph_markdown(preload_registry())`. Falls back gracefully (logged warning) if the graph cannot be generated — Step 3.5 then uses pattern-matching fallback only.
+
 ## [2.3.0] — 2026-05-09
 
 ### Added — Chainlit UI completeness: /workflow, /geral streaming, /sessions, /resume

@@ -1,3 +1,9 @@
+---
+domain: data-contracts
+updated_at: 2026-05-22
+agents: [data-contracts-engineer]
+---
+
 # KB: Data Contracts — Índice
 
 Base de conhecimento para autoria, governança e evolução de Data Contracts no padrão ODCS.

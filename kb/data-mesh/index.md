@@ -1,3 +1,9 @@
+---
+domain: data-mesh
+updated_at: 2026-05-22
+agents: [data-mesh-architect]
+---
+
 # KB: Data Mesh — Índice
 
 Base de conhecimento para design e avaliação de arquitetura Data Mesh com Data Products.

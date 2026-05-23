@@ -1,9 +1,9 @@
 # ═══════════════════════════════════════════════════════════════════
-# Data Agents — Makefile
+# AI Data Agents — Makefile
 # Automação de tarefas comuns de desenvolvimento e deploy
 # ═══════════════════════════════════════════════════════════════════
 
-.PHONY: help install dev bootstrap demo evals test lint format type-check security clean run health-databricks health-fabric fabric-env deploy-staging deploy-prod refresh-skills refresh-skills-dry refresh-skills-force
+.PHONY: help install dev bootstrap demo evals test test-fast test-int test-e2e test-all lint format type-check security clean run health-databricks health-fabric fabric-env deploy-staging deploy-prod refresh-skills refresh-skills-dry refresh-skills-force
 
 # Cores para output
 CYAN := \033[36m
@@ -13,7 +13,7 @@ RESET := \033[0m
 
 help: ## Exibe esta ajuda
 	@echo ""
-	@echo "$(CYAN)Data Agents — Comandos disponíveis:$(RESET)"
+	@echo "$(CYAN)AI Data Agents — Comandos disponíveis:$(RESET)"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(RESET) %s\n", $$1, $$2}'
@@ -38,9 +38,50 @@ evals: ## Roda queries canônicas (~$$0.08) e gera scoreboard
 
 # ─── Quality ──────────────────────────────────────────────────────
 
-test: ## Executa testes com cobertura
-	TESTMON_DATAFILE=logs/.testmondata pytest tests/ -v --tb=short \
-		--cov=agents --cov=config --cov=hooks --cov=commands \
+# Phase 6 test split — categorias auto-marcadas pelos conftest.py de cada subdir:
+#   tests/unit/           → mock total, sem rede, sem MCP real, < 1s típico
+#   tests/integration/    → toca SQLite/JSONL real, offline, ~1-10s
+#   tests/e2e/            → LLM real, Databricks/Fabric real, exige credenciais
+#
+# Hierarquia:
+#   make test-fast  → só unit (iteração rápida, pre-commit)
+#   make test-int   → integration (PR check)
+#   make test-e2e   → e2e (nightly cron, exige .env completo)
+#   make test       → unit + integration (default — sem credenciais externas)
+#   make test-all   → tudo, inclusive e2e
+
+test: test-fast test-int ## Roda unit + integration com cobertura (default offline)
+
+test-fast: ## Iteração rápida — só unit/ (< 30s alvo)
+	TESTMON_DATAFILE=logs/.testmondata pytest tests/unit/ -v --tb=short \
+		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
+		--cov-report=term-missing \
+		--cov-fail-under=80
+
+test-int: ## PR check — integration/ (toca SQLite/JSONL local, ~1-10s)
+	pytest tests/integration/ -v --tb=short
+
+test-e2e: ## Nightly — e2e/ (exige credenciais reais no .env)
+	pytest tests/e2e/ -v --tb=short -m e2e
+
+test-perf: ## Phase 10 — perf baselines (skipped by default, opt-in via -m perf)
+	pytest tests/perf/ -v -m perf -s --tb=short
+
+# ─── Documentation site (Phase 11, ADR-010) ────────────────────────
+# Requires: pip install -e ".[docs]"
+
+docs-serve: ## Local preview of the docs site at http://127.0.0.1:8000
+	mkdocs serve --strict
+
+docs-build: ## Build the static docs site to site/ (gitignored)
+	mkdocs build --strict --clean
+
+docs-deploy: ## Force-deploy to gh-pages branch (CI does this automatically)
+	mkdocs gh-deploy --force --clean
+
+test-all: ## Todos os testes (unit + integration + e2e) — uso manual antes de release
+	pytest tests/ -v --tb=short \
+		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
 		--cov-report=term-missing \
 		--cov-fail-under=80
 
@@ -50,24 +91,63 @@ lint: ## Executa linter (ruff check)
 format: ## Formata código (ruff format)
 	ruff format .
 
-type-check: ## Verifica tipos (mypy)
-	mypy agents/ config/ hooks/ commands/
+type-check: ## Verifica tipos (mypy) — namespace data_agents.*
+	mypy data_agents/
 
-security: ## Scan de segurança (bandit)
-	bandit -r agents/ config/ hooks/ commands/ -ll --skip B101
+security: ## Scan de segurança (bandit apenas — rápido)
+	bandit -r data_agents/ -ll --skip B101
+
+security-review: ## Audit completo: bandit + pip-audit + secrets scan (Phase 10)
+	bash scripts/security_review.sh
+
+# ─── Structural lints (Phase 3 — drift prevention) ──────────────────
+# Each linter validates a specific structural invariant. Run individually
+# during development; run lint-all in CI to gate the whole bundle.
+
+lint-registry: ## Valida frontmatter dos 15 agentes + referências
+	python scripts/lint_registry.py
+
+lint-kb: ## Valida estrutura das 16 KBs + cross-refs com agentes
+	python scripts/lint_kb.py
+
+lint-skills: ## Valida 48 SKILL.md + name/description + orphan domains
+	python scripts/lint_skills.py
+
+lint-mcp: ## Valida MCP server_configs + aliases no loader
+	python scripts/lint_mcp_configs.py
+
+lint-commands: ## Valida config/commands.yaml (39 slash commands)
+	python scripts/lint_commands.py
+
+lint-all: lint lint-registry lint-kb lint-skills lint-mcp lint-commands sync-docs-check ## ruff + 5 lints + doc sync (CI gate)
+
+# ─── Inventory sync ─────────────────────────────────────────────────
+# README/PRODUCT/CLAUDE.md declare auto-managed counts via
+# <!-- INVENTORY:<key> -->...<!-- /INVENTORY:<key> --> markers.
+# `sync-docs` rewrites the values from the live project state.
+# `sync-docs-check` exits 1 if any value is stale (CI gate).
+
+inventory: ## Imprime inventário live (agentes/MCPs/KBs/skills/commands)
+	python scripts/gen_inventory.py --print
+
+sync-docs: ## Reescreve blocos <!-- INVENTORY:* --> nos docs
+	python scripts/gen_inventory.py --update
+
+sync-docs-check: ## Falha se algum doc tem INVENTORY: stale (CI gate)
+	python scripts/gen_inventory.py --check
 
 # ─── Execução ─────────────────────────────────────────────────────
 
-run: ## Inicia o Data Agents em modo interativo
-	python main.py
+run: ## Inicia o AI Data Agents em modo interativo
+	python -m data_agents.cli
 
 ui: ## Inicia a UI de Chat + Monitoring (./start.sh)
 	./start.sh
 
-ui-chat: ## Inicia somente a UI de Chat Chainlit (porta 8503)
+ui-chat: ## Inicia somente a UI de Chat Chainlit (porta 8513)
 	./start.sh --chat-only
 
-ui-monitor: ## Inicia somente o Monitoring (porta 8501)
+ui-monitor: ## Inicia somente o Monitoring (porta 8511)
 	./start.sh --monitor-only
 
 health-databricks: ## Verifica conectividade e credenciais do Databricks

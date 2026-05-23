@@ -1,4 +1,7 @@
 ---
+domain: spark-patterns
+updated_at: 2026-05-22
+agents: [databricks-ai, databricks-engineer, fabric-rti]
 mcp_validated: "2026-04-15"
 ---
 
