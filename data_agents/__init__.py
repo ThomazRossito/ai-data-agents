@@ -12,4 +12,4 @@ Ver CHANGELOG.md "Phase 7 migration" para o sed de migração se você tem códi
 externo que depende destes módulos.
 """
 
-__version__ = "3.0.0-rc1"
+__version__ = "3.0.0"

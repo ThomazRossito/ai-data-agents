@@ -3,7 +3,7 @@ name = "ai-data-agents"
 # Phase 9: VERSION na raiz é a single source of truth.
 # scripts/bump-version.sh sincroniza este campo + data_agents/__init__.py +
 # README badge ao bumpar. Não editar manualmente — usa o script.
-version = "3.0.0-rc1"
+version = "3.0.0"
 description = "Sistema Multi-Agentes para Engenharia, Qualidade, Governança e Análise de Dados — Databricks + Microsoft Fabric"
 readme = "README.md"
 requires-python = ">=3.11"

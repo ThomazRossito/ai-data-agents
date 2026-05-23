@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+
+## [3.0.0] — 2026-05-23
 ### Added — Phase 12: Claude Code plugin distribution
 
 A third distribution channel: `ai-data-agents` is now available as a
