@@ -116,7 +116,7 @@ viz = [
     # fastapi + uvicorn: server HTTP/WebSocket que serve a cena Three.js
     # watchdog: tail dos JSONL (audit, workflows) e push pro WebSocket
     # Instalar: pip install -e ".[viz]"
-    # Rodar: python -m visualization.server  (porta 8512 por default)
+    # Rodar: python -m data_agents.visualization.server  (porta 8512 por default)
     "fastapi>=0.110",
     "uvicorn[standard]>=0.27",
     "watchdog>=4.0",
