@@ -8,6 +8,8 @@
 ## [Unreleased]
 
 
+
+## [3.0.1] — 2026-05-23
 ## [3.0.0] — 2026-05-23
 ### Added — Phase 12: Claude Code plugin distribution
 
