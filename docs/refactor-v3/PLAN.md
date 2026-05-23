@@ -338,24 +338,36 @@ Este é o ganho **maior** depois de Governance. Todo crescimento futuro fica pro
 
 ---
 
-## FASE 10 — Hardening Enterprise
+## FASE 10 — Hardening Enterprise ✅ CONCLUÍDA (parcial — escopo reduzido por critério débito-vs-intenção)
 
 **Objetivo**: nível de maturidade para uso em clientes CI&T / produção corporativa.
 
-### Tasks
+### Tasks (versão revisada após auditoria pragmática)
 
-| # | Task | Critério de aceitação |
-|---|---|---|
-| 10.1 | Adicionar OpenTelemetry tracing nos hooks principais | Traces visíveis em Jaeger local |
-| 10.2 | Refinar structured logging: cada log tem `session_id`, `agent_name`, `tool_use_id` | grep no JSONL retorna sessões filtráveis |
-| 10.3 | Adicionar `data_agents.tenancy` para isolamento de credenciais por workspace | Tests multi-tenant passam |
-| 10.4 | `make security-review`: bandit + safety + pip-audit + secrets-scan | Comando único roda tudo |
-| 10.5 | Performance benchmarks em `tests/perf/` (custo médio por query) | Baseline documentado, regressão acima de 20% falha CI |
-| 10.6 | Adicionar `SLA.md` documentando promessas operacionais | Documento existe |
-| 10.7 | Threat model em `docs/SECURITY_THREAT_MODEL.md` | STRIDE applied to ai-data-agents |
+Aplicada a heurística "é débito ou foi feito assim de propósito?" — 3 das 7 tasks originais foram pulada com justificativa em vez de implementadas. O objetivo é showcasing de maturidade sem inflar o projeto com infra que não agrega valor real ao caso de uso (open-source individual + consultoria CI&T).
 
-**Estimativa**: 7-10 dias.
-**Risco**: Médio.
+| # | Task original | Decisão | Critério de aceitação |
+|---|---|---|---|
+| 10.1 | OpenTelemetry tracing | **PULAR** — `audit_hook.py` já produz JSONL filtrável por `session_id`/`agent_name`/`tool_use_id`. OTel exigiria Jaeger/Tempo standalone e instrumentação manual; não é multi-serviço. | — |
+| 10.2 | Structured logging refinado | **✅ FEITO** — `session_logger.py` ganhou `session_id`; novo teste `tests/unit/test_structured_logging.py` valida contrato (3 hooks que escrevem JSONL têm `session_id`/`agent_name`/`tool_use_id` quando aplicável) + protege contra regressão (hooks novos sem campo canônico falham). | Teste passa (4/4); hooks novos sem campos canônicos quebram o teste. |
+| 10.3 | Multi-tenancy module | **PULAR** — projeto é single-user (portfolio + CI&T consulting); `settings.project_id` já isola filesystem entre execuções. Reabrir em Phase 11+ se vier demanda real. | — |
+| 10.4 | `make security-review` | **✅ FEITO** — `scripts/security_review.sh` + target `make security-review`: bandit + pip-audit + secrets scan próprio (sem dep externa de gitleaks). 8 padrões de credenciais conhecidas com negative markers para reduzir FPs. | `make security-review` roda os 3 e retorna exit code consolidado. |
+| 10.5 | Performance benchmarks | **✅ FEITO (skeleton)** — `tests/perf/` com 3 baselines (preload_registry, build_escalation_graph, parse_yaml_frontmatter); auto-marker `perf` + `slow`; target `make test-perf` (opt-in). README documenta critério de aceitação 20%. CI principal NÃO roda perf (decisão: runners CI são flakey demais). | 3 baselines passam localmente; gate de 20% acima do baseline. |
+| 10.6 | SLA.md | **PULAR** — SLA é compromisso operacional de serviço comercial; projeto é OSS individual + consultoria. Reabrir se ai-data-agents virar SaaS. | — |
+| 10.7 | STRIDE threat model | **✅ FEITO** — `docs/SECURITY_THREAT_MODEL.md`: 4 trust boundaries (User→Supervisor, Supervisor→Subagent, Subagent→MCP, MCP→Platform) + 2 cross-cutting (Hooks, Memory). Cada threat com STRIDE category, likelihood, impact, current mitigation, debt. Top-3 debts priorizados para Phase 11+. | Documento existe e é versionável (`.gitignore` exception adicionada). |
+
+**Resultado**:
+- 4 tasks implementadas, 3 puladas com justificativa documentada
+- 1 novo teste estrutural (`test_structured_logging.py`) com 4 cases protegendo o contrato de logging
+- 1 script unificado de security review (`scripts/security_review.sh`)
+- 3 baselines de performance versionados em `tests/perf/`
+- 1 threat model formal STRIDE em `docs/SECURITY_THREAT_MODEL.md`
+
+**Lições aprendidas**:
+- O plano original (estimativa 7-10 dias) era excessivo para o caso de uso real. A heurística "é débito ou foi feito assim de propósito?" aplicada à v3 inteira tem produzido reduções de escopo legítimas — Fase 10 foi a maior delas (3/7 = 43% das tasks puladas).
+- `audit_hook.py` já era mais maduro do que o plano supunha (HMAC ledger opcional, error categorization, sanitização de comandos). O esforço em "10.2 refinar structured logging" virou só uma adição em `session_logger.py` + um teste de invariante.
+- O regex de "Azure SP secret" no primeiro draft de `security_review.sh` gerou 9 falsos positivos em filenames longos (`Manual_Relatorio_Tecnico_Projeto_Data_Agents.md`). Substituído por heurística contextual (`SECRET=value` / `password: "..."`), zero FPs.
+- Threat model STRIDE em prosa é mais útil que tabela porque permite documentar o "porque hoje aceitamos esse risco" — coisa que checklist binário não comporta. Vale 1 página por trust boundary.
 
 ---
 

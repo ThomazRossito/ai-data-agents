@@ -7,6 +7,53 @@
 
 ## [Unreleased]
 
+### Added — Phase 10: Hardening (partial — pragmatic scope)
+
+After auditing the original Phase 10 plan against the project's real use case
+(open-source + CI&T consulting, single-user), 3 of 7 tasks were deliberately
+skipped with documented justification in `docs/refactor-v3/PLAN.md`. The 4 that
+landed:
+
+- **Structured logging contract** — `data_agents/hooks/session_logger.py` now
+  includes `session_id` in every entry, completing the canonical triplet
+  (`session_id`, `agent_name`, `tool_use_id`) already enforced by
+  `audit_hook.py`. New test `tests/unit/test_structured_logging.py` (4 cases)
+  validates the contract per-file and protects against future hooks gaining
+  JSONL writes without including canonical fields.
+
+- **`make security-review`** — new `scripts/security_review.sh` running
+  bandit + pip-audit + a custom regex-based secrets scan in sequence with
+  per-step pass/fail and a consolidated summary. 8 well-known credential
+  patterns (Anthropic, Moonshot, Databricks PAT, AWS, GitHub PAT, etc.) plus
+  contextual `SECRET=value` heuristic. Negative markers (`placeholder`,
+  `<your-token>`, `os.environ`, etc.) suppress false positives. Validated
+  locally with zero hits on a 600+ file scan.
+
+- **Performance baselines (skeleton)** — `tests/perf/` with auto-marker
+  `@pytest.mark.perf` + `@pytest.mark.slow`, opt-in via `make test-perf`.
+  3 baselines: `preload_registry` (~30ms target / 100ms gate), `build_escalation_graph`
+  (~5ms / 20ms gate), `parse_yaml_frontmatter` (~2ms / 10ms gate). Not wired
+  into main CI (perf is flaky on shared GitHub Actions runners); intended
+  for local regression checks before releases. Marker `perf` registered in
+  `pyproject.toml`.
+
+- **STRIDE threat model** — `docs/SECURITY_THREAT_MODEL.md` documenting
+  4 trust boundaries (User→Supervisor, Supervisor→Subagent, Subagent→MCP,
+  MCP→Platform) + 2 cross-cutting concerns (Hooks layer, Memory layer).
+  Each threat tagged with STRIDE category, likelihood, impact, current
+  mitigation, and known debt. Top-3 priorities listed for future hardening
+  (pre-commit gitleaks, SBOM/signing, hook-bypass audit on SDK upgrades).
+
+### Skipped with justification
+
+- **OpenTelemetry tracing** — `audit_hook.py` already produces filterable JSONL
+  with session/agent/tool_use IDs. OTel would require Jaeger/Tempo standalone
+  + manual instrumentation; cost > value for a single-process system.
+- **Multi-tenancy module** — `settings.project_id` already provides filesystem
+  isolation between executions. Reopen if ai-data-agents becomes SaaS.
+- **SLA.md** — SLA is a commercial-service commitment. Open-source individual
+  project doesn't ship operational promises. Reopen if/when scope changes.
+
 ## [3.0.0-rc1] — 2026-05-23
 
 > First release candidate of the v3 refactor. Aggregates Phases 1-8 of the

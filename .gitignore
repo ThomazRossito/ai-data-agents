@@ -117,6 +117,7 @@ mcp_servers/fabric/Fabric.Mcp.Server/
 docs/*
 !docs/ARCHITECTURE.md
 !docs/GAPS_E_MELHORIAS.md
+!docs/SECURITY_THREAT_MODEL.md
 !docs/adr/
 !docs/adr/**
 !docs/refactor-v3/
