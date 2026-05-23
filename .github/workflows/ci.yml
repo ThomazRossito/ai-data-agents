@@ -15,9 +15,9 @@ on:
       - "**.py"
       - "pyproject.toml"
       - ".github/workflows/**"
-      - "agents/registry/**.md"
-      - "agents/prompts/**"
-      - "agents/cache_prefix.md"
+      - "data_agents/agents/registry/**.md"
+      - "data_agents/agents/prompts/**"
+      - "data_agents/agents/cache_prefix.md"
       - "*.sh"
       - "Makefile"
   pull_request:
@@ -26,9 +26,9 @@ on:
       - "**.py"
       - "pyproject.toml"
       - ".github/workflows/**"
-      - "agents/registry/**.md"
-      - "agents/prompts/**"
-      - "agents/cache_prefix.md"
+      - "data_agents/agents/registry/**.md"
+      - "data_agents/agents/prompts/**"
+      - "data_agents/agents/cache_prefix.md"
       - "*.sh"
       - "Makefile"
 
@@ -76,7 +76,7 @@ jobs:
         run: ruff format --check .
 
       - name: Type check (mypy)
-        run: mypy agents/ config/ hooks/ commands/
+        run: mypy data_agents/
 
   # ─────────────────────────────────────────────────────────────────────────
   # Job 2: Structural Lints (Phase 3 — prevent drift across registry/KB/skills/MCPs/commands)
@@ -200,7 +200,7 @@ jobs:
         run: pip install "bandit[toml]>=1.7"
 
       - name: Run bandit
-        run: bandit -r agents/ config/ hooks/ commands/ -ll --skip B101
+        run: bandit -r data_agents/ -ll --skip B101
 
   # ─────────────────────────────────────────────────────────────────────────
   # Job 5a: Unit tests (Phase 6 — fast feedback, < 2 min)
@@ -249,7 +249,7 @@ jobs:
           DATABRICKS_TOKEN: "test-token"
         run: |
           pytest tests/unit/ --testmon -v --tb=short \
-            --cov=agents --cov=config --cov=hooks --cov=commands --cov=utils \
+            --cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
             --cov-report=xml \
             --cov-report=term
 
@@ -262,7 +262,7 @@ jobs:
           DATABRICKS_TOKEN: "test-token"
         run: |
           pytest tests/unit/ -v --tb=short \
-            --cov=agents --cov=config --cov=hooks --cov=commands --cov=utils \
+            --cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
             --cov-report=xml \
             --cov-report=term \
             --cov-fail-under=80

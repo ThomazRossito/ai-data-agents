@@ -14,8 +14,8 @@ pip install -e ".[dev,ui,monitoring]"
 cp .env.example .env   # preencher credenciais
 
 # Execução
-python main.py                        # CLI interativo
-python main.py "liste tabelas silver" # single-query
+python data_agents/cli.py                        # CLI interativo
+python data_agents/cli.py "liste tabelas silver" # single-query
 ./start.sh                            # Web UI (Chat + Monitoring)
 ./start.sh --chat-only                # Só o chat Chainlit (porta 8513)
 
@@ -33,7 +33,7 @@ make health-fabric
 ## Arquitetura de Alto Nível
 
 ```
-Usuário → main.py / ui/chainlit_app.py
+Usuário → data_agents/cli.py / data_agents/ui/chainlit_app.py
   └─► Supervisor (kimi-k2.6, sem MCP direto)
         ├─► Tier 1 — Engineering Core
         │   ├─► databricks-engineer  [T1] — SQL, PySpark, LakeFlow/DLT, CDC, Jobs, diagnóstico Spark, Genie, AI/BI, KA/MAS
@@ -62,14 +62,14 @@ Sempre delega. Agentes especialistas executam com seus MCPs pré-configurados.
 ## Estrutura de Diretórios (críticos)
 
 ```
-agents/
+data_agents/agents/
   registry/       ← definições declarativas dos agentes (.md + YAML frontmatter)
   loader.py       ← carrega agentes do registry, resolve tool aliases
   supervisor.py   ← monta ClaudeAgentOptions com todos os agentes + hooks + MCPs
   prompts/        ← system prompt do Supervisor
   cache_prefix.md ← prefixo byte-idêntico injetado em TODOS os agentes (prompt caching)
 
-mcp_servers/
+data_agents/mcp_servers/
   databricks/     ← MCP oficial Databricks (50+ tools)
   databricks_genie/ ← MCP customizado: Genie Conversation API
   fabric/         ← MCP oficial Microsoft Fabric
@@ -86,11 +86,11 @@ mcp_servers/
   fabric_ontology/ ← MCP customizado: CRUD completo do Fabric IQ Ontology (Azure CLI auth)
   _template/      ← Template para novos MCPs
 
-config/
+data_agents/config/
   settings.py     ← Pydantic BaseSettings — todas as credenciais + validação
   mcp_servers.py  ← Registry centralizado de MCP servers (ALL_MCP_CONFIGS)
 
-hooks/            ← Hooks PreToolUse / PostToolUse
+data_agents/hooks/            ← Hooks PreToolUse / PostToolUse
 kb/               ← Knowledge Bases (referência, lida pelos agentes)
 skills/           ← Skills operacionais (playbooks, lidos pelos agentes)
 tests/            ← pytest — atualizar quando adicionar agentes/MCPs
@@ -100,7 +100,7 @@ tests/            ← pytest — atualizar quando adicionar agentes/MCPs
 
 ## Como Adicionar um Novo Agente
 
-**Crie `agents/registry/<nome>.md`** — o loader carrega automaticamente, sem tocar código Python.
+**Crie `data_agents/agents/registry/<nome>.md`** — o loader carrega automaticamente, sem tocar código Python.
 
 ```yaml
 ---
@@ -128,7 +128,7 @@ tier: T2                                  # T0 | T1 | T2 | T3
 | T3 | kimi-k2.6 | 5 | low | Conversacionais com tools limitadas |
 
 **Após criar o agente:**
-1. Adicionar ao `SUPERVISOR_SYSTEM_PROMPT` em `agents/prompts/supervisor_prompt.py`
+1. Adicionar ao `SUPERVISOR_SYSTEM_PROMPT` em `data_agents/agents/prompts/supervisor_prompt.py`
 2. Atualizar testes em `tests/test_agents.py` se houver invariantes específicas
 
 ---
@@ -137,13 +137,13 @@ tier: T2                                  # T0 | T1 | T2 | T3
 
 Seguir os 5 passos abaixo **sempre na mesma ordem**:
 
-### Passo 1 — Criar `mcp_servers/<nome>/`
+### Passo 1 — Criar `data_agents/mcp_servers/<nome>/`
 ```bash
-mkdir mcp_servers/<nome>
-touch mcp_servers/<nome>/__init__.py
+mkdir data_agents/mcp_servers/<nome>
+touch data_agents/mcp_servers/<nome>/__init__.py
 ```
 
-### Passo 2 — Criar `mcp_servers/<nome>/server_config.py`
+### Passo 2 — Criar `data_agents/mcp_servers/<nome>/server_config.py`
 ```python
 def get_<nome>_mcp_config() -> dict:
     from config.settings import settings  # importação local — evita circular import
@@ -160,7 +160,7 @@ MCP_TOOLS = ["mcp__<nome>__tool_name", ...]
 MCP_READONLY_TOOLS = [...]  # subconjunto opcional
 ```
 
-### Passo 3 — Registrar em `config/mcp_servers.py`
+### Passo 3 — Registrar em `data_agents/config/mcp_servers.py`
 ```python
 from mcp_servers.<nome>.server_config import get_<nome>_mcp_config, MCP_TOOLS
 
@@ -171,14 +171,14 @@ ALL_MCP_CONFIGS = {
 ```
 > Se o MCP não requer credenciais (ex: context7, memory_mcp), adicionar ao `ALWAYS_ACTIVE_MCPS` em `build_mcp_registry()`.
 
-### Passo 4 — Adicionar credenciais em `config/settings.py`
+### Passo 4 — Adicionar credenciais em `data_agents/config/settings.py`
 ```python
 # Dentro da classe Settings:
 meu_mcp_api_key: str = ""
 ```
 E adicionar à validação em `validate_platform_credentials()` e ao `startup_diagnostics()`.
 
-### Passo 5 — Adicionar aliases em `agents/loader.py` → `MCP_TOOL_SETS`
+### Passo 5 — Adicionar aliases em `data_agents/agents/loader.py` → `MCP_TOOL_SETS`
 ```python
 "<nome>_all": MCP_TOOLS,
 "<nome>_readonly": MCP_READONLY_TOOLS,  # se houver
@@ -200,7 +200,7 @@ O `<server_key>` é a chave usada em `ALL_MCP_CONFIGS`. Exemplos:
 
 ---
 
-## Tool Aliases Disponíveis (agents/loader.py → MCP_TOOL_SETS)
+## Tool Aliases Disponíveis (data_agents/agents/loader.py → MCP_TOOL_SETS)
 
 Use estes aliases no frontmatter `tools:` dos agentes em vez de listar cada tool:
 
@@ -264,7 +264,7 @@ Use estes aliases no frontmatter `tools:` dos agentes em vez de listar cada tool
 
 ---
 
-## Hooks (hooks/)
+## Hooks (data_agents/hooks/)
 
 | Hook | Tipo | O que faz |
 |------|------|-----------|
@@ -284,7 +284,7 @@ Use estes aliases no frontmatter `tools:` dos agentes em vez de listar cada tool
 
 ## Sistema de Memória (dois layers)
 
-**Layer 1 — `memory/` (episódica, existente):**
+**Layer 1 — `data_agents/memory/` (episódica, existente):**
 Captura fatos da sessão automaticamente via hook. Aplica decay temporal. Retrieval semântico
 antes de cada query ao Supervisor. Foco: "o que aconteceu nesta conversa/projeto".
 
@@ -363,7 +363,7 @@ explicando: o que é, como obter, plano gratuito se houver.
 de atualização. Ao adicionar um MCP sem credenciais, adicionar ao `CREDENTIAL_FREE_MCPS`
 em `test_settings.py`.
 
-**Cache prefix (`agents/cache_prefix.md`):** NUNCA adicionar timestamps, IDs de sessão
+**Cache prefix (`data_agents/agents/cache_prefix.md`):** NUNCA adicionar timestamps, IDs de sessão
 ou qualquer conteúdo dinâmico. O arquivo deve ser byte-idêntico a cada execução.
 
 ---
@@ -417,7 +417,7 @@ POSTGRES_URL=postgresql://...     # banco PostgreSQL
 
 | Arquivo | Propósito |
 |---------|-----------|
-| `main.py` | Entry point CLI — inicializa Supervisor, lida com args, gerencia sessão e loop |
+| `data_agents/cli.py` | Entry point CLI — inicializa Supervisor, lida com args, gerencia sessão e loop |
 | `start.sh` | Script que sobe Chainlit + Monitoring Streamlit + Business Monitor (opcional) |
 | `pyproject.toml` | Dependências, extras `[dev]` `[ui]` `[monitoring]`, config ruff/mypy/pytest |
 | `Makefile` | Targets: `test`, `lint`, `format`, `type-check`, `health-databricks`, `health-fabric` |
@@ -430,7 +430,7 @@ POSTGRES_URL=postgresql://...     # banco PostgreSQL
 | `PRODUCT.md` | Visão de produto, roadmap e decisões estratégicas |
 | `CHANGELOG.md` | Histórico de versões e mudanças |
 
-### agents/ — Orquestração e Carregamento
+### data_agents/agents/ — Orquestração e Carregamento
 
 | Arquivo | Classes / Funções chave | Propósito |
 |---------|------------------------|-----------|
@@ -449,7 +449,7 @@ POSTGRES_URL=postgresql://...     # banco PostgreSQL
 `data-quality-steward`, `governance-auditor`, `data-contracts-engineer`, `data-mesh-architect`,
 `business-analyst`, `geral`, `azure-cost-calculator`.
 
-### config/ — Configuração Central
+### data_agents/config/ — Configuração Central
 
 | Arquivo | Classes / Funções chave | Propósito |
 |---------|------------------------|-----------|
@@ -465,7 +465,7 @@ POSTGRES_URL=postgresql://...     # banco PostgreSQL
 `memory_enabled`, `memory_retrieval_enabled`, `memory_capture_enabled`,
 `inject_kb_index`.
 
-### mcp_servers/ — Servidores MCP
+### data_agents/mcp_servers/ — Servidores MCP
 
 Cada subdiretório: `__init__.py` + `server_config.py` (+ `server.py` para MCPs customizados).
 
@@ -485,7 +485,7 @@ Cada subdiretório: `__init__.py` + `server_config.py` (+ `server.py` para MCPs 
 | `memory_mcp/` | Público (npx) | Knowledge graph persistente — sem credenciais |
 | `migration_source/` | Customizado (Python) | DDL + schema extraction de SQL Server/PostgreSQL |
 
-### hooks/ — Interceptadores de Tool Calls
+### data_agents/hooks/ — Interceptadores de Tool Calls
 
 | Arquivo | Tipo | Função principal | Comportamento |
 |---------|------|-----------------|---------------|
@@ -502,7 +502,7 @@ Cada subdiretório: `__init__.py` + `server_config.py` (+ `server.py` para MCPs 
 | `checkpoint.py` | — | `save_checkpoint()`, `load_checkpoint()` | Serializa/restaura estado da sessão |
 | `transcript_hook.py` | PostToolUse | `save_transcript()` | Persiste transcript em `logs/sessions/<id>.jsonl` |
 
-### memory/ — Memória Episódica (Layer 1)
+### data_agents/memory/ — Memória Episódica (Layer 1)
 
 | Arquivo | Classes / Funções chave | Propósito |
 |---------|------------------------|-----------|
@@ -515,7 +515,7 @@ Cada subdiretório: `__init__.py` + `server_config.py` (+ `server.py` para MCPs 
 | `telemetry.py` | `log_memory_event()` | Métricas de uso da memória |
 | `lint.py` | `lint_memories()` | Valida integridade das memórias salvas |
 
-### commands/ — Handlers de Slash Commands
+### data_agents/commands/ — Handlers de Slash Commands
 
 | Arquivo | Handler | Slash Command |
 |---------|---------|---------------|
@@ -525,7 +525,7 @@ Cada subdiretório: `__init__.py` + `server_config.py` (+ `server.py` para MCPs 
 | `sessions.py` | `handle_sessions()`, `handle_resume()` | `/sessions` + `/resume` — listagem e retomada |
 | `workflow.py` | `handle_workflow()` | `/workflow` — executa workflows WF-01 a WF-05 |
 
-### compression/ — Compressão de Outputs de Tool
+### data_agents/compression/ — Compressão de Outputs de Tool
 
 | Arquivo | Classes / Funções chave | Propósito |
 |---------|------------------------|-----------|
@@ -534,7 +534,7 @@ Cada subdiretório: `__init__.py` + `server_config.py` (+ `server.py` para MCPs 
 | `metrics.py` | `CompressionMetrics`, `log_compression_event()` | Métricas de compressão |
 | `constants.py` | `MAX_OUTPUT_TOKENS`, `COMPRESSION_THRESHOLD` | Limites e thresholds |
 
-### workflow/ — Workflows Colaborativos (WF-01 a WF-05)
+### data_agents/workflow/ — Workflows Colaborativos (WF-01 a WF-05)
 
 | Arquivo | Classes / Funções chave | Propósito |
 |---------|------------------------|-----------|
@@ -542,7 +542,7 @@ Cada subdiretório: `__init__.py` + `server_config.py` (+ `server.py` para MCPs 
 | `executor.py` | `WorkflowExecutor`, `execute_workflow()` | Executa steps com context chain entre agentes |
 | `tracker.py` | `WorkflowTracker`, `log_step()` | Rastreia execução em `logs/workflows.jsonl` |
 
-### ui/ — Interface Web (Chainlit)
+### data_agents/ui/ — Interface Web (Chainlit)
 
 | Arquivo | Funções chave | Propósito |
 |---------|--------------|-----------|
@@ -550,7 +550,7 @@ Cada subdiretório: `__init__.py` + `server_config.py` (+ `server.py` para MCPs 
 | `ui_config.py` | `UIConfig`, `THEME`, `AVATAR_MAP` | Tema, avatares por agente, labels |
 | `exporter.py` | `export_session()`, `to_markdown()`, `to_html()` | Exporta sessão para download |
 
-### utils/ — Utilitários Compartilhados
+### data_agents/utils/ — Utilitários Compartilhados
 
 | Arquivo | Funções chave | Propósito |
 |---------|--------------|-----------|
@@ -618,7 +618,7 @@ Estrutura: `kb/<domain>/index.md` + `concepts/*.md` + `patterns/*.md`
 ## Fluxo de Dados — Como uma Query Percorre o Sistema
 
 ```
-1. Usuário → main.py ou chainlit_app.py
+1. Usuário → data_agents/cli.py ou chainlit_app.py
 2. inject_memory_context() enriquece system prompt com memórias relevantes
 3. Supervisor recebe query + contexto de memória
 4. Supervisor lê kb/ e avalia Clarity Checkpoint (mínimo 3/5)
@@ -651,7 +651,7 @@ project_root = Path(__file__).parent.parent
 (project_root / "output/meu.md").write_text("...")
 
 # ❌ cache_prefix.md com conteúdo dinâmico (invalida prompt cache)
-# agents/cache_prefix.md NUNCA deve conter timestamps, IDs ou estados variáveis
+# data_agents/agents/cache_prefix.md NUNCA deve conter timestamps, IDs ou estados variáveis
 
 # ❌ Supervisor executando SQL/PySpark/MCP diretamente (viola S1, S2)
 # Sempre delegar ao agente especialista correto

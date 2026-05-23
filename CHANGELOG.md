@@ -7,6 +7,81 @@
 
 ## [Unreleased]
 
+### **BREAKING — Phase 7: Python namespace migration (`data_agents/`)**
+
+All top-level Python packages have been consolidated under the `data_agents` namespace. This is a **breaking change** for any external code that imports from the project.
+
+**Before (v2.x):**
+```python
+from agents.loader import preload_registry
+from config.settings import settings
+from hooks.audit_hook import audit_tool_usage
+```
+
+**After (v3.0):**
+```python
+from data_agents.agents.loader import preload_registry
+from data_agents.config.settings import settings
+from data_agents.hooks.audit_hook import audit_tool_usage
+```
+
+**Migration command for existing code (run from project root):**
+
+```bash
+# Backup first
+git stash
+
+# Rewrite all imports (Python script — safer than sed because handles indented imports too)
+python3 - << 'EOF'
+import re
+from pathlib import Path
+PKGS = "agents config hooks commands memory compression workflow utils mcp_servers evals ui visualization monitoring".split()
+for f in Path(".").rglob("*.py"):
+    text = f.read_text(encoding="utf-8")
+    new_text = text
+    for line in text.splitlines(keepends=True):
+        s = line.lstrip()
+        if not (s.startswith("from ") or s.startswith("import ")):
+            continue
+        if "data_agents." in line:
+            continue
+        m = re.match(r"^(\s*)(from|import)\s+([\w.]+)", line)
+        if m and m.group(3).split(".")[0] in PKGS:
+            new_text = new_text.replace(line, line.replace(m.group(3), f"data_agents.{m.group(3)}", 1), 1)
+    if new_text != text:
+        f.write_text(new_text, encoding="utf-8")
+EOF
+```
+
+**What moved:**
+- `agents/` → `data_agents/agents/`
+- `config/` → `data_agents/config/`
+- `hooks/` → `data_agents/hooks/`
+- `commands/` → `data_agents/commands/`
+- `memory/` → `data_agents/memory/`
+- `compression/` → `data_agents/compression/`
+- `workflow/` → `data_agents/workflow/`
+- `utils/` → `data_agents/utils/`
+- `mcp_servers/` → `data_agents/mcp_servers/`
+- `evals/` → `data_agents/evals/`
+- `ui/` → `data_agents/ui/`
+- `visualization/` → `data_agents/visualization/`
+- `monitoring/` → `data_agents/monitoring/`
+- `main.py` → `data_agents/cli.py`
+
+**What did NOT move (stays at repo root):**
+- `scripts/` — development tooling, not part of the installable package
+- `tests/` — test suite
+- `kb/`, `skills/`, `docs/`, `logs/`, `output/` — data and artifacts
+
+**Entry points (pyproject.toml):**
+- `ai-data-agents` now points to `data_agents.cli:main` (was `main:main`)
+- 6 MCP server entry points renamed to `data_agents.mcp_servers.<name>.server:main`
+
+**Migration notes for the CLI:**
+- Old: `python main.py "<query>"` → New: `python -m data_agents.cli "<query>"`
+- Old: `make test` ran everything → New: runs `unit + integration` only (Phase 6); use `make test-all` for everything including e2e
+
 ### Changed — Phase 6: Test suite reorganization (unit/integration/e2e)
 
 - **`tests/` restructured** into three categorical subdirectories:
