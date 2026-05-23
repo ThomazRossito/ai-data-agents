@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "ai-data-agents",
-  "version": "3.0.0-rc1",
+  "version": "3.0.1",
   "description": "Multi-agent system for Data Engineering, Quality, Governance and Analytics on Databricks + Microsoft Fabric. Brings 15 specialist agents + 48 skills into Claude Code natively. Source of truth lives in https://github.com/ThomazRossito/ai-data-agents — this plugin is a generated view.",
   "author": {
     "name": "Thomaz A. Rossito Neto",

@@ -13,7 +13,7 @@
       "name": "ai-data-agents",
       "source": "./plugins/ai-data-agents",
       "description": "15 specialist agents + 48 skills for Data Engineering, Quality, Governance and Analytics on Databricks + Microsoft Fabric. Powered by Claude Agent SDK + Moonshot Kimi K2.6.",
-      "version": "3.0.0-rc1",
+      "version": "3.0.1",
       "category": "data",
       "tags": [
         "data-engineering",
