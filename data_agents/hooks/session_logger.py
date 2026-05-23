@@ -59,8 +59,14 @@ def log_session_result(
             round(total_cost_usd / num_turns, 6) if num_turns > 0 else None
         )
 
+        # Phase 10: session_id é canônico em todos os logs estruturados.
+        # Permite JOIN entre sessions.jsonl ↔ audit.jsonl ↔ transcript.jsonl
+        # via `grep '"session_id":"X"' logs/*.jsonl` ou ferramenta JSON-aware.
+        session_id = getattr(result_message, "session_id", None) or ""
+
         log_entry: dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "session_id": session_id,
             "session_type": session_type,
             "prompt_preview": _redact_secrets(prompt_preview[:100]),
             "total_cost_usd": total_cost_usd,  # custo real Moonshot K2.6
