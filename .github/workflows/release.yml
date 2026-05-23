@@ -1,0 +1,265 @@
+name: Release — build + GitHub Release on tag push
+
+# Phase 9: dispara em push de tag vX.Y.Z.
+#
+# Fluxo:
+#   1. Valida que a tag bate com [project].version do pyproject.toml.
+#   2. Roda test-unit + test-integration como gate (não pode haver release com
+#      suite vermelha).
+#   3. Build wheel + sdist via `python -m build`.
+#   4. Extrai a seção `## [vX.Y.Z]` do CHANGELOG.md como release notes.
+#   5. Cria GitHub Release com a tag + notes + artifacts (wheel/sdist anexados).
+#
+# Não publica no PyPI por default — para habilitar, descomente o job
+# `publish-pypi` e configure trusted publisher OIDC em pypi.org.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+      - "v*.*.*-rc*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (ex: v3.0.0-rc1). Must already exist."
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+  FORCE_COLOR: "1"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 1: Validate tag matches pyproject + VERSION
+  # ─────────────────────────────────────────────────────────────────────────
+  validate:
+    name: Validate version sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Parse tag and verify sync with VERSION/pyproject
+        id: parse
+        run: |
+          # Get tag name (from push event or workflow_dispatch input)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          VERSION="${TAG#v}"
+          echo "Tag:     $TAG"
+          echo "Version: $VERSION"
+
+          # Compare with VERSION file
+          VFILE="$(tr -d '[:space:]' < VERSION)"
+          if [ "$VFILE" != "$VERSION" ]; then
+            echo "::error::VERSION file ($VFILE) doesn't match tag ($VERSION)"
+            exit 1
+          fi
+
+          # Compare with pyproject.toml [project] version
+          PVERSION=$(python3 -c "
+          import re
+          p = open('pyproject.toml').read()
+          m = re.search(r'\[project\][^\[]*?version\s*=\s*\"([^\"]+)\"', p, flags=re.DOTALL)
+          print(m.group(1) if m else '')
+          ")
+          if [ "$PVERSION" != "$VERSION" ]; then
+            echo "::error::pyproject.toml version ($PVERSION) doesn't match tag ($VERSION)"
+            exit 1
+          fi
+
+          # Compare with __version__
+          IVERSION=$(python3 -c "
+          import re
+          p = open('data_agents/__init__.py').read()
+          m = re.search(r'__version__\s*=\s*\"([^\"]+)\"', p)
+          print(m.group(1) if m else '')
+          ")
+          if [ "$IVERSION" != "$VERSION" ]; then
+            echo "::error::data_agents/__init__.py __version__ ($IVERSION) doesn't match tag ($VERSION)"
+            exit 1
+          fi
+
+          echo "✓ VERSION, pyproject.toml, __version__, and tag are all $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 2: Test gate (unit + integration)
+  # ─────────────────────────────────────────────────────────────────────────
+  test:
+    name: Test gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [validate]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run unit + integration tests
+        env:
+          ANTHROPIC_API_KEY: "sk-ant-test-placeholder"
+          DATABRICKS_HOST: "https://test.azuredatabricks.net"
+          DATABRICKS_TOKEN: "test-token"
+        run: |
+          pytest tests/unit/ tests/integration/ -v --tb=short \
+            --cov=data_agents.agents --cov=data_agents.config \
+            --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
+            --cov-fail-under=80
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 3: Build wheel + sdist
+  # ─────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [test]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install build tools
+        run: pip install --upgrade pip build
+
+      - name: Build wheel + sdist
+        run: python -m build
+
+      - name: List artifacts
+        run: ls -la dist/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: dist-${{ needs.validate.outputs.version || 'unknown' }}
+          path: dist/*
+          retention-days: 90
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 4: Create GitHub Release with notes from CHANGELOG
+  # ─────────────────────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [validate, build]
+    permissions:
+      contents: write   # required to create releases
+    env:
+      VERSION: ${{ needs.validate.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: dist-${{ env.VERSION }}
+          path: dist/
+
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        run: |
+          # Extract the section "## [vVERSION]" up to (but not including) the
+          # next "## " header. Strip leading/trailing blank lines.
+          python3 - <<PY > /tmp/release-notes.md
+          import re
+          version = "${VERSION}"
+          text = open("CHANGELOG.md").read()
+          pat = rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)"
+          m = re.search(pat, text, flags=re.MULTILINE | re.DOTALL)
+          if not m:
+              raise SystemExit(f"section [{version}] not found in CHANGELOG.md")
+          notes = m.group(1).strip()
+          print(notes)
+          PY
+          echo "── release notes preview ──"
+          head -30 /tmp/release-notes.md
+          echo "..."
+          wc -l /tmp/release-notes.md
+
+      - name: Determine pre-release flag
+        id: prerelease
+        run: |
+          # Treat anything containing -rc / -alpha / -beta as a pre-release
+          if echo "${VERSION}" | grep -qE -- "-(rc|alpha|beta)"; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: v${{ env.VERSION }}
+          body_path: /tmp/release-notes.md
+          prerelease: ${{ steps.prerelease.outputs.is_prerelease }}
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          fail_on_unmatched_files: true
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 5 (OPTIONAL — descomente quando configurar trusted publisher no PyPI)
+  # ─────────────────────────────────────────────────────────────────────────
+  # publish-pypi:
+  #   name: Publish to PyPI
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 10
+  #   needs: [release]
+  #   permissions:
+  #     id-token: write   # required for OIDC trusted publishing
+  #   environment: pypi  # protect with environment-level approval
+  #   env:
+  #     VERSION: ${{ needs.validate.outputs.version }}
+  #
+  #   steps:
+  #     - name: Download dist artifacts
+  #       uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+  #       with:
+  #         name: dist-${{ env.VERSION }}
+  #         path: dist/
+  #
+  #     - name: Publish to PyPI
+  #       uses: pypa/gh-action-pypi-publish@release/v1
+  #       # No credentials needed — OIDC trusted publisher.
