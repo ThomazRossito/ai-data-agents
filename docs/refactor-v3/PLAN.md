@@ -220,25 +220,33 @@ Este é o ganho **maior** depois de Governance. Todo crescimento futuro fica pro
 
 ---
 
-## FASE 6 — Tests Reorganizados
+## FASE 6 — Tests Reorganizados ✅ CONCLUÍDA
 
 **Objetivo**: separar `tests/unit/`, `tests/integration/`, `tests/e2e/` com markers pytest.
 
 ### Tasks
 
-| # | Task | Critério de aceitação |
-|---|---|---|
-| 6.1 | Criar `tests/unit/`, `tests/integration/`, `tests/e2e/`, mover `conftest.py` | Diretórios existem |
-| 6.2 | Classificar os 58 arquivos de teste atuais por categoria | Tabela em `docs/refactor-v3/test-classification.md` |
-| 6.3 | Mover arquivos para o diretório correto | Estrutura final em `tests/` |
-| 6.4 | Adicionar markers no `pyproject.toml`: `unit`, `integration`, `e2e`, `requires_network`, `slow` | `pytest --markers` lista todos |
-| 6.5 | CI job `test-unit` (rápido, todo push) | Roda só `tests/unit/`, < 2 min |
-| 6.6 | CI job `test-integration` (push em main/develop e PRs) | Roda `tests/integration/`, < 10 min |
-| 6.7 | CI job `test-e2e` (nightly via cron) | Roda `tests/e2e/`, pode ser lento |
-| 6.8 | Atualizar `make test` para rodar tudo localmente, `make test-fast` para só unit | Comandos funcionam |
+| # | Task | Critério de aceitação | Status |
+|---|---|---|---|
+| 6.1 | Classificar os 57 arquivos de teste por categoria | Tabela completa em `docs/refactor-v3/test-classification.md` com justificativa por arquivo | ✅ |
+| 6.2 | Criar `tests/{unit,integration,e2e}/` + `__init__.py` + `conftest.py` por subdir + README e2e | Diretórios existem; `conftest.py` raiz preservado (fixtures globais de isolamento de SQLite) | ✅ |
+| 6.3 | Mover 52 unit + 5 integration via `mv` (git detecta renames) | tests/ raiz só tem `__init__.py` + `conftest.py`; subdirs povoados | ✅ |
+| 6.4 | Registrar markers `unit`, `integration`, `e2e`, `requires_network`, `slow` no `pyproject.toml` + auto-aplicação via `conftest.py` de cada subdir | `pytest --markers` lista os 5; warnings sumiram | ✅ |
+| 6.5 | CI job `test-unit` (rápido, todo push e PR) | `ci.yml`: novo job `test-unit` substitui `test`; coverage gate ≥80% aqui; testmon cache; timeout 10min | ✅ |
+| 6.6 | CI job `test-integration` (mesmas triggers, sem coverage gate) | `ci.yml`: novo job `test-integration` paralelo a `test-unit`; timeout 10min | ✅ |
+| 6.7 | CI workflow separado `test-e2e.yml` com cron nightly + workflow_dispatch | `test-e2e.yml`: cron `0 3 * * *`, secrets de credenciais, skip cleanly se `tests/e2e/` vazio, upload de logs | ✅ |
+| 6.8 | Makefile: `test` (unit+int), `test-fast` (unit), `test-int`, `test-e2e`, `test-all` | Todos os 5 targets adicionados com descrição e cobertura |  ✅ |
 
-**Estimativa**: 3-5 dias.
-**Risco**: Médio. Pode descobrir testes mal classificados (unit que é integration disfarçado).
+**Resultado**:
+- 52 unit + 5 integration + 0 e2e (genuíno) = 57 arquivos categorizados
+- Discovery validada: 1242 unit + 150 integration + 0 e2e tests
+- 5 linters estruturais continuam passando
+- 4 erros de coleta no sandbox são deps opcionais missing (markdown2/rich/mlflow) — não relacionados ao refactor
+
+**Lições aprendidas**:
+- A heurística inicial (sinalizadores como flag de network) gerou 13 falsos positivos em "e2e" — o projeto na verdade tem 0 e2e genuínos hoje porque toda chamada externa é mockada via `unittest.mock.patch` e `urllib.request.urlopen`. Inspeção arquivo a arquivo foi necessária.
+- `tests/e2e/` permanece vazio por design, com README documentando critério de admissão e candidatos futuros — evita inflar a categoria com testes que são na verdade unit/integration.
+- Auto-aplicação de markers via `conftest.py` em cada subdir elimina necessidade de decorar manualmente cada teste — o filtro `-m unit` funciona apenas pela localização do arquivo.
 
 ---
 

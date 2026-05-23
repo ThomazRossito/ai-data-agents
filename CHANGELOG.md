@@ -7,6 +7,25 @@
 
 ## [Unreleased]
 
+### Changed — Phase 6: Test suite reorganization (unit/integration/e2e)
+
+- **`tests/` restructured** into three categorical subdirectories:
+  - `tests/unit/` — 52 files (1242 tests). Mock-only, no network, no real MCP, < 1s typical. Auto-tagged `@pytest.mark.unit` via `tests/unit/conftest.py`.
+  - `tests/integration/` — 5 files (150 tests). Touch local SQLite/JSONL as part of the contract (not just fixture storage). Auto-tagged `@pytest.mark.integration`.
+  - `tests/e2e/` — 0 files (empty by design). Auto-tagged `@pytest.mark.e2e` + `@pytest.mark.requires_network`. README documents admission criteria and candidate future tests.
+- **Files moved** preserve `tests/conftest.py` (global SQLite isolation fixture) at root — all subdirs inherit automatically.
+- **`pyproject.toml`** registers 5 markers (`unit`, `integration`, `e2e`, `requires_network`, `slow`) with descriptive help text; eliminates `PytestUnknownMarkWarning`.
+
+### Added — Phase 6 CI + Makefile targets
+
+- **`.github/workflows/ci.yml`**: `test` job replaced by parallel `test-unit` (coverage gate ≥80%, testmon cache, 10min timeout) and `test-integration` (no coverage gate, runs in parallel, 10min timeout). Both gated by quality/structure/security jobs.
+- **`.github/workflows/test-e2e.yml`** (NEW): nightly cron at `0 3 * * *` UTC + `workflow_dispatch` for manual triggering. Skips cleanly with a notice when `tests/e2e/` is empty. Injects credentials from repository secrets, uploads logs as artifacts (30-day retention).
+- **`Makefile`**: 5 new test targets — `test` (unit + integration default), `test-fast` (unit only, < 30s alvo), `test-int` (integration only), `test-e2e` (real services), `test-all` (everything). Old `test` recipe replaced with `test: test-fast test-int` aggregation.
+
+### Documentation
+
+- **`docs/refactor-v3/test-classification.md`** (NEW): inventário completo dos 57 arquivos de teste com categoria, LOC, flags, e justificativa por arquivo. Documenta a heurística aplicada ("é débito ou foi feito assim de propósito?") e por que 0 e2e existem hoje no projeto.
+
 ### Added — Phase 5: Rich agent frontmatter + escalation graph injection
 
 - **`utils/frontmatter.py` migrated to pyyaml** with `_SafeLoaderNoBoolAlias` — a custom
