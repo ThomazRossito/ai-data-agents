@@ -251,8 +251,8 @@ class TestProjectIdIsolation:
         """Valor explícito não-'auto' deve ser usado como ID literal (após normalização)."""
         s = Settings(project_id="meu-projeto-x")
         assert s.project_id == "meu-projeto-x"
-        assert s.short_term_db_path == "memory/data/short_term__meu-projeto-x.db"
-        assert s.long_term_db_path == "memory/data/long_term__meu-projeto-x.db"
+        assert s.short_term_db_path == "data_agents/memory/data/short_term__meu-projeto-x.db"
+        assert s.long_term_db_path == "data_agents/memory/data/long_term__meu-projeto-x.db"
 
     def test_auto_resolves_to_cwd_name(self, tmp_path, monkeypatch):
         """project_id='auto' deve usar Path.cwd().name."""
@@ -260,7 +260,9 @@ class TestProjectIdIsolation:
         s = Settings(project_id="auto")
         # tmp_path.name é gerado pelo pytest e é sempre não-vazio
         assert s.project_id == tmp_path.name
-        assert s.short_term_db_path == f"memory/data/short_term__{tmp_path.name}.db"
+        # Phase 7: defaults agora prefixam com data_agents/memory/ (consistente
+        # com namespace migration). Ver settings.py::derive_memory_db_paths.
+        assert s.short_term_db_path == f"data_agents/memory/data/short_term__{tmp_path.name}.db"
 
     def test_empty_project_id_resolves_to_cwd_name(self, tmp_path, monkeypatch):
         """project_id vazio também aciona auto-detect (não fica vazio)."""
@@ -287,7 +289,7 @@ class TestProjectIdIsolation:
         # long_term_db_path foi setado manualmente — vence o derive
         assert s.long_term_db_path == "/tmp/custom_long.db"
         # short_term continua sendo derivado de project_id
-        assert s.short_term_db_path == "memory/data/short_term__meu-projeto.db"
+        assert s.short_term_db_path == "data_agents/memory/data/short_term__meu-projeto.db"
 
     def test_different_project_ids_produce_isolated_paths(self):
         """Garantia central do isolamento: IDs diferentes → arquivos diferentes."""
@@ -301,12 +303,12 @@ class TestProjectIdIsolation:
     def test_memory_data_dir_derived_as_subdir(self):
         """memory_data_dir vai como subdir (memory/data/<project_id>)."""
         s = Settings(project_id="meu-projeto")
-        assert s.memory_data_dir == "memory/data/meu-projeto"
+        assert s.memory_data_dir == "data_agents/memory/data/meu-projeto"
 
     def test_embedder_cache_derived_with_suffix(self):
         """embedder_cache_db_path segue mesmo padrão dos outros SQLites (sufixo)."""
         s = Settings(project_id="meu-projeto")
-        assert s.embedder_cache_db_path == "memory/data/embedder_cache__meu-projeto.db"
+        assert s.embedder_cache_db_path == "data_agents/memory/data/embedder_cache__meu-projeto.db"
 
     def test_memory_data_dir_override_wins(self):
         """MEMORY_DATA_DIR explícito sobrescreve o derive."""

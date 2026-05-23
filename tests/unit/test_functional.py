@@ -27,7 +27,8 @@ import pytest
 
 # ── Constantes de caminho ────────────────────────────────────────────────────
 
-ROOT = Path(__file__).parent.parent
+# Phase 6+7: tests vivem em tests/unit/ — repo root está 2 níveis acima.
+ROOT = Path(__file__).parent.parent.parent
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -37,14 +38,14 @@ class TestDOMARenamingNoBMADInCode:
     """BMAD não deve mais existir em nenhum arquivo .py do projeto."""
 
     PY_FILES_TO_CHECK = [
-        "commands/parser.py",
-        "commands/party.py",
-        "main.py",
-        "agents/supervisor.py",
-        "agents/prompts/supervisor_prompt.py",
-        "ui/chainlit_app.py",
-        "hooks/cost_guard_hook.py",
-        "monitoring/app.py",
+        "data_agents/commands/parser.py",
+        "data_agents/commands/party.py",
+        "data_agents/cli.py",
+        "data_agents/agents/supervisor.py",
+        "data_agents/agents/prompts/supervisor_prompt.py",
+        "data_agents/ui/chainlit_app.py",
+        "data_agents/hooks/cost_guard_hook.py",
+        "data_agents/monitoring/app.py",
         "tests/test_commands.py",
     ]
 
@@ -375,7 +376,7 @@ class TestWorkflowContextCacheSupervisorPrompt:
     """supervisor_prompt.py deve conter a instrução de Context Cache."""
 
     def _get_prompt(self) -> str:
-        path = ROOT / "agents" / "prompts" / "supervisor_prompt.py"
+        path = ROOT / "data_agents" / "agents" / "prompts" / "supervisor_prompt.py"
         return path.read_text(encoding="utf-8")
 
     def test_context_cache_instruction_present(self):
@@ -427,7 +428,7 @@ class TestSupervisorPromptUsesDOMA:
     """supervisor_prompt.py deve referenciar DOMA, não BMAD."""
 
     def _get_prompt(self) -> str:
-        path = ROOT / "agents" / "prompts" / "supervisor_prompt.py"
+        path = ROOT / "data_agents" / "agents" / "prompts" / "supervisor_prompt.py"
         return path.read_text(encoding="utf-8")
 
     def test_no_bmad_string(self):
@@ -513,7 +514,7 @@ class TestRegistryIntegrity:
 class TestUIConsistency:
     """Arquivos de UI devem usar doma_mode e doma_prompt, não bmad_*."""
 
-    @pytest.mark.parametrize("rel_path", ["ui/chainlit_app.py"])
+    @pytest.mark.parametrize("rel_path", ["data_agents/ui/chainlit_app.py"])
     def test_no_bmad_prompt_in_ui(self, rel_path):
         path = ROOT / rel_path
         if not path.exists():
@@ -523,14 +524,14 @@ class TestUIConsistency:
         assert "bmad_mode" not in content, f"'{rel_path}' ainda usa 'bmad_mode'"
 
     def test_chainlit_uses_doma_mode(self):
-        path = ROOT / "ui" / "chainlit_app.py"
+        path = ROOT / "data_agents" / "ui" / "chainlit_app.py"
         if not path.exists():
             pytest.skip("ui/chainlit_app.py não encontrado")
         content = path.read_text(encoding="utf-8")
         assert "doma_mode" in content, "ui/chainlit_app.py deve usar 'doma_mode'"
 
     def test_chainlit_badge_uses_doma(self):
-        path = ROOT / "ui" / "chainlit_app.py"
+        path = ROOT / "data_agents" / "ui" / "chainlit_app.py"
         if not path.exists():
             pytest.skip("ui/chainlit_app.py não encontrado")
         content = path.read_text(encoding="utf-8")

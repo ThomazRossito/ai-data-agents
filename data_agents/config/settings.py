@@ -488,14 +488,17 @@ class Settings(BaseSettings):
         Override manual via .env tem precedência: se o usuário definir
         explicitamente qualquer um desses paths, esse valor ganha.
         """
+        # Phase 7: memory/ vive dentro do namespace data_agents/, então os paths
+        # default são relativos a data_agents/memory/data/. Override via .env
+        # tem precedência (se o usuário quer fora do pacote, ok).
         if not self.memory_data_dir:
-            self.memory_data_dir = f"memory/data/{self.project_id}"
+            self.memory_data_dir = f"data_agents/memory/data/{self.project_id}"
         if not self.short_term_db_path:
-            self.short_term_db_path = f"memory/data/short_term__{self.project_id}.db"
+            self.short_term_db_path = f"data_agents/memory/data/short_term__{self.project_id}.db"
         if not self.long_term_db_path:
-            self.long_term_db_path = f"memory/data/long_term__{self.project_id}.db"
+            self.long_term_db_path = f"data_agents/memory/data/long_term__{self.project_id}.db"
         if not self.embedder_cache_db_path:
-            self.embedder_cache_db_path = f"memory/data/embedder_cache__{self.project_id}.db"
+            self.embedder_cache_db_path = f"data_agents/memory/data/embedder_cache__{self.project_id}.db"
         return self
 
     @field_validator(

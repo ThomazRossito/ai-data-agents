@@ -200,6 +200,21 @@ class Memory:
         if isinstance(mem_type, str):
             mem_type = MemoryType(mem_type)
 
+        # Phase 7: pyyaml SafeLoader retorna datetime/date nativos quando o YAML
+        # contém formato ISO (era string com o parser custom anterior). Aceitar
+        # ambos — datetime passa direto, string vai por fromisoformat.
+        def _parse_dt(value: Any) -> datetime:
+            if isinstance(value, datetime):
+                # YAML pode retornar datetime naive; assume UTC se sem tz.
+                return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+            if isinstance(value, str) and value:
+                return datetime.fromisoformat(value)
+            # date sem time (raro mas possível com pyyaml)
+            from datetime import date as _date
+            if isinstance(value, _date):
+                return datetime(value.year, value.month, value.day, tzinfo=timezone.utc)
+            return datetime.now(timezone.utc)
+
         created = data.get("created_at", "")
         updated = data.get("updated_at", "")
 
@@ -220,8 +235,8 @@ class Memory:
             summary=data.get("summary", ""),
             tags=data.get("tags", []),
             confidence=float(data.get("confidence", 1.0)),
-            created_at=datetime.fromisoformat(created) if created else datetime.now(timezone.utc),
-            updated_at=datetime.fromisoformat(updated) if updated else datetime.now(timezone.utc),
+            created_at=_parse_dt(created),
+            updated_at=_parse_dt(updated),
             source_session=data.get("source_session", ""),
             related_ids=data.get("related_ids", []),
             superseded_by=data.get("superseded_by"),

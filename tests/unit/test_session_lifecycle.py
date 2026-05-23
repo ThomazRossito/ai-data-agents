@@ -116,7 +116,7 @@ class TestOnSessionEnd:
     def test_context_usage_error_does_not_raise(self):
         """Erro ao obter uso de contexto não deve propagar."""
         with patch(
-            "hooks.session_lifecycle.get_context_usage",
+            "data_agents.hooks.session_lifecycle.get_context_usage",
             side_effect=Exception("contexto indisponível"),
         ):
             with patch("data_agents.hooks.session_lifecycle.flush_session_memories", MagicMock()):
@@ -137,6 +137,6 @@ class TestSessionLifecycleIntegration:
         # Simula uso durante a sessão
         budget_module._session_input_tokens = 5_000
 
-        with patch("hooks.session_lifecycle.flush_session_memories") as mock_flush:
+        with patch("data_agents.hooks.session_lifecycle.flush_session_memories") as mock_flush:
             on_session_end("full-cycle-session")
             mock_flush.assert_called_once()

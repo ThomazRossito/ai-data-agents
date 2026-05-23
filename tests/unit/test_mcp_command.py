@@ -23,7 +23,7 @@ _FAKE_STATUS = {
 def mock_settings():
     # Pydantic v2 proíbe setattr em instâncias; patchamos na classe.
     with patch(
-        "config.settings.Settings.validate_platform_credentials",
+        "data_agents.config.settings.Settings.validate_platform_credentials",
         return_value=_FAKE_STATUS,
     ):
         yield

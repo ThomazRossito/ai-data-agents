@@ -17,8 +17,10 @@ from data_agents.agents.delegation import (
     render_routing_table,
 )
 
-ROOT = Path(__file__).resolve().parent.parent
-REGISTRY_DIR = ROOT / "agents" / "registry"
+# Phase 6+7: tests vivem em tests/unit/ — repo root está 2 níveis acima.
+# Registry vive em data_agents/agents/registry/; kb/ continua na raiz do repo.
+ROOT = Path(__file__).resolve().parent.parent.parent
+REGISTRY_DIR = ROOT / "data_agents" / "agents" / "registry"
 TASK_ROUTING_MD = ROOT / "kb" / "task_routing.md"
 
 

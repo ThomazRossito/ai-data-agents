@@ -294,7 +294,7 @@ class TestFlushSessionMemories:
         with (
             patch("data_agents.memory.store.MemoryStore") as mock_store_cls,
             patch(
-                "memory.extractor.extract_memories_from_conversation",
+                "data_agents.memory.extractor.extract_memories_from_conversation",
                 return_value=[fake_memory],
             ) as mock_extract,
         ):
@@ -315,7 +315,7 @@ class TestFlushSessionMemories:
         with (
             patch("data_agents.memory.store.MemoryStore") as mock_store_cls,
             patch(
-                "memory.extractor.extract_memories_from_conversation",
+                "data_agents.memory.extractor.extract_memories_from_conversation",
                 return_value=[],
             ),
         ):
@@ -335,7 +335,7 @@ class TestFlushSessionMemories:
         with (
             patch("data_agents.memory.store.MemoryStore") as mock_store_cls,
             patch(
-                "memory.extractor.extract_memories_from_conversation",
+                "data_agents.memory.extractor.extract_memories_from_conversation",
                 return_value=[],
             ),
         ):
@@ -354,7 +354,7 @@ class TestFlushSessionMemories:
         with (
             patch("data_agents.memory.store.MemoryStore") as mock_store_cls,
             patch(
-                "memory.extractor.extract_memories_from_conversation",
+                "data_agents.memory.extractor.extract_memories_from_conversation",
                 return_value=[],
             ) as mock_extract,
         ):

@@ -110,7 +110,7 @@ class TestSaveCheckpoint:
         with patch("data_agents.hooks.checkpoint.settings", mock_settings):
             cp_path = tmp_path / "logs" / "checkpoint.json"
             with patch("data_agents.hooks.checkpoint.CHECKPOINT_PATH", cp_path):
-                with patch("hooks.checkpoint._scan_output_files") as mock_scan:
+                with patch("data_agents.hooks.checkpoint._scan_output_files") as mock_scan:
                     from data_agents.hooks.checkpoint import save_checkpoint
 
                     save_checkpoint("p", "user_reset", output_files=["already.md"])

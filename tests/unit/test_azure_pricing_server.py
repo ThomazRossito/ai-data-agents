@@ -381,8 +381,19 @@ class TestCache:
 
 
 @pytest.mark.requires_network
+@pytest.mark.skipif(
+    "AZURE_PRICING_RUN_REAL_API" not in __import__("os").environ,
+    reason="TestRealAPI bate na Azure Retail Prices API real — habilite com AZURE_PRICING_RUN_REAL_API=1",
+)
 class TestRealAPI:
-    """Testes que fazem hit real na Azure Retail Prices API. Skipped por default."""
+    """Testes que fazem hit real na Azure Retail Prices API. Skipped por default.
+
+    Por que skip por default mesmo com @requires_network:
+    - O endpoint às vezes retorna 'Connection aborted / RemoteDisconnected' por
+      throttling momentâneo, gerando flakes em CI/dev local.
+    - O teste é informativo (não cobre lógica do projeto, só sanidade da API).
+    - Para rodar manualmente: `AZURE_PRICING_RUN_REAL_API=1 pytest -k TestRealAPI`.
+    """
 
     def test_real_api_returns_storage_price(self):
         from data_agents.mcp_servers.azure_pricing import server
@@ -427,7 +438,10 @@ class TestConfigRegistration:
 
         import yaml
 
-        commands_path = Path(__file__).parent.parent / "config" / "commands.yaml"
+        # Phase 7: tests/unit/X.py — repo root é 2 níveis acima; commands.yaml
+        # está em data_agents/config/.
+        repo_root = Path(__file__).parent.parent.parent
+        commands_path = repo_root / "data_agents" / "config" / "commands.yaml"
         with open(commands_path) as f:
             data = yaml.safe_load(f)
 
@@ -437,7 +451,9 @@ class TestConfigRegistration:
     def test_agent_registry_file_exists(self):
         from pathlib import Path
 
-        path = Path(__file__).parent.parent / "agents" / "registry" / "azure-cost-calculator.md"
+        # Phase 7: registry vive em data_agents/agents/registry/.
+        repo_root = Path(__file__).parent.parent.parent
+        path = repo_root / "data_agents" / "agents" / "registry" / "azure-cost-calculator.md"
         assert path.exists()
         content = path.read_text()
         assert "name: azure-cost-calculator" in content

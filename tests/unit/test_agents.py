@@ -8,8 +8,6 @@ Cobre:
   - Compatibilidade retroativa com as factories Python legadas (definitions/)
 """
 
-from pathlib import Path
-
 import pytest
 
 from data_agents.agents.loader import load_all_agents, _parse_frontmatter, _resolve_tools

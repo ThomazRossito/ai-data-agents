@@ -44,7 +44,7 @@ def isolated_sessions(tmp_path):
         with patch("data_agents.hooks.checkpoint.settings", settings_mock):
             with patch("data_agents.hooks.checkpoint.SESSIONS_DIR", sessions_dir):
                 with patch(
-                    "hooks.checkpoint.CHECKPOINT_PATH",
+                    "data_agents.hooks.checkpoint.CHECKPOINT_PATH",
                     tmp_path / "logs" / "checkpoint.json",
                 ):
                     yield sessions_dir
