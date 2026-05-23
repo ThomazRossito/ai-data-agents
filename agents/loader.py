@@ -188,9 +188,17 @@ class AgentMeta:
     tools: list[str] = field(default_factory=list)
     mcp_servers: list[str] = field(default_factory=list)
     kb_domains: list[str] = field(default_factory=list)
+    skill_domains: list[str] = field(default_factory=list)
     max_turns: int | None = None
     effort: str | None = None
     permission_mode: str | None = None
+    # Phase 5 — rich frontmatter for declarative escalation handling.
+    # stop_conditions: list of plain-text "stop and escalate" cues for the agent
+    #   to recognize that the task is out of its scope. Surfaced in the prompt.
+    # escalation_rules: structured triggers consumed by the Supervisor in
+    #   Step 3.5 (SUPERVISOR_SYSTEM_PROMPT) to auto-escalate without user input.
+    stop_conditions: list[str] = field(default_factory=list)
+    escalation_rules: list[dict[str, str]] = field(default_factory=list)
     path: Path = field(default_factory=Path)
 
 
@@ -227,6 +235,18 @@ def preload_registry(
             max_turns_raw = metadata.get("max_turns")
             effort_raw = metadata.get("effort")
 
+            # Phase 5 — defensive load of optional rich fields. We accept None
+            # / missing / malformed inputs without crashing, because the
+            # registry will be lint-validated separately by lint_registry.py.
+            stop_conds_raw = metadata.get("stop_conditions") or []
+            escalation_rules_raw = metadata.get("escalation_rules") or []
+            stop_conds = [str(s) for s in stop_conds_raw if isinstance(s, (str, int, float))]
+            escalation_rules = [
+                {str(k): str(v) for k, v in r.items()}
+                for r in escalation_rules_raw
+                if isinstance(r, dict)
+            ]
+
             agents_meta[name] = AgentMeta(
                 name=name,
                 description=metadata.get("description", ""),
@@ -235,9 +255,12 @@ def preload_registry(
                 tools=metadata.get("tools", []),
                 mcp_servers=metadata.get("mcp_servers", []),
                 kb_domains=metadata.get("kb_domains", []),
+                skill_domains=metadata.get("skill_domains", []),
                 max_turns=int(max_turns_raw) if max_turns_raw is not None else None,
                 effort=str(effort_raw) if effort_raw is not None else None,
                 permission_mode=metadata.get("permission_mode"),
+                stop_conditions=stop_conds,
+                escalation_rules=escalation_rules,
                 path=path,
             )
         except Exception as e:
@@ -259,6 +282,79 @@ def _parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
     from utils.frontmatter import parse_yaml_frontmatter
 
     return parse_yaml_frontmatter(content)
+
+
+def build_escalation_graph_markdown(
+    agents_meta: dict[str, AgentMeta] | None = None,
+) -> str:
+    """
+    Gera uma seção Markdown com o grafo de escalação de todos os agentes.
+
+    Esta saída é injetada no system prompt do Supervisor em tempo de build
+    (ver agents/supervisor.py) para que o Step 3.5 possa usar `escalation_rules`
+    declaradas no frontmatter como WHITELIST autoritativa — em vez de depender
+    apenas de pattern matching textual.
+
+    O Supervisor consome este grafo assim:
+      1. Recebe resposta de um agente A.
+      2. Detecta sinal de escalação textual (PT-BR ou EN).
+      3. Procura na linha de A o trigger que melhor casa com o sinal.
+      4. Se houver match, invoca A.target automaticamente com handoff prompt.
+      5. Se não houver match na whitelist, ainda assim escala (fallback do Step 3.5
+         atual) mas loga `escalation-off-graph` no audit trail para revisão.
+
+    Args:
+        agents_meta: Mapa nome → AgentMeta. Se None, faz preload do registry.
+
+    Returns:
+        Bloco Markdown pronto para ser concatenado ao SUPERVISOR_SYSTEM_PROMPT.
+        Vazio (sem header) se nenhum agente tiver escalation_rules.
+    """
+    if agents_meta is None:
+        agents_meta = preload_registry()
+
+    # Coleta apenas agentes com pelo menos uma regra declarada
+    rows: list[tuple[str, str, str, str]] = []
+    for source_name in sorted(agents_meta):
+        meta = agents_meta[source_name]
+        for rule in meta.escalation_rules:
+            trigger = str(rule.get("trigger", "")).strip().replace("|", "\\|")
+            target = str(rule.get("target", "")).strip()
+            reason = str(rule.get("reason", "")).strip().replace("|", "\\|")
+            if target:
+                rows.append((source_name, target, trigger, reason))
+
+    if not rows:
+        return ""
+
+    lines: list[str] = [
+        "",
+        "---",
+        "",
+        "# ESCALATION GRAPH (auto-generated from agents/registry/*.md)",
+        "",
+        "This table is the **authoritative whitelist** of escalation paths declared by each",
+        "agent in its `escalation_rules` frontmatter. Use it in Step 3.5 — when an agent",
+        "signals escalation, look up its row, find the matching `trigger`, and invoke `target`.",
+        "",
+        "If an agent signals an escalation that is NOT in this graph, still escalate (the",
+        "agent may have flagged an unanticipated need) but flag it in the synthesis so the",
+        "user knows the escalation was off-graph.",
+        "",
+        "| Source Agent | → Target | Trigger | Reason |",
+        "|---|---|---|---|",
+    ]
+    for source, target, trigger, reason in rows:
+        lines.append(f"| `{source}` | `{target}` | {trigger} | {reason} |")
+
+    lines.extend([
+        "",
+        f"_({len(rows)} rules across {len({r[0] for r in rows})} source agents — "
+        "regenerated on each Supervisor build from agent frontmatter)_",
+        "",
+    ])
+
+    return "\n".join(lines)
 
 
 def _resolve_tools(tool_list: list[str]) -> list[str]:

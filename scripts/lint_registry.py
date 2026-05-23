@@ -453,6 +453,90 @@ def check_agent(
                     )
                 )
 
+    # ── stop_conditions validation (Phase 5) ──
+    stop_conds = metadata.get("stop_conditions")
+    if stop_conds is not None:
+        if not isinstance(stop_conds, list):
+            issues.append(
+                Issue(
+                    Severity.ERROR,
+                    declared_name,
+                    "stop-conditions-type",
+                    f"'stop_conditions' must be a list, got {type(stop_conds).__name__}",
+                    agent_file,
+                )
+            )
+        else:
+            for i, entry in enumerate(stop_conds):
+                if not isinstance(entry, str):
+                    issues.append(
+                        Issue(
+                            Severity.ERROR,
+                            declared_name,
+                            "stop-conditions-item-type",
+                            f"stop_conditions[{i}] must be a string, "
+                            f"got {type(entry).__name__}",
+                            agent_file,
+                        )
+                    )
+
+    # ── escalation_rules validation (Phase 5) ──
+    escalation_rules = metadata.get("escalation_rules")
+    if escalation_rules is not None:
+        if not isinstance(escalation_rules, list):
+            issues.append(
+                Issue(
+                    Severity.ERROR,
+                    declared_name,
+                    "escalation-rules-type",
+                    f"'escalation_rules' must be a list, got "
+                    f"{type(escalation_rules).__name__}",
+                    agent_file,
+                )
+            )
+        else:
+            required_keys = {"trigger", "target", "reason"}
+            for i, rule in enumerate(escalation_rules):
+                if not isinstance(rule, dict):
+                    issues.append(
+                        Issue(
+                            Severity.ERROR,
+                            declared_name,
+                            "escalation-rule-not-dict",
+                            f"escalation_rules[{i}] must be a dict with "
+                            f"keys {sorted(required_keys)}",
+                            agent_file,
+                        )
+                    )
+                    continue
+                missing = required_keys - set(rule.keys())
+                if missing:
+                    issues.append(
+                        Issue(
+                            Severity.ERROR,
+                            declared_name,
+                            "escalation-rule-missing-key",
+                            f"escalation_rules[{i}] missing key(s) {sorted(missing)} "
+                            f"— required: {sorted(required_keys)}",
+                            agent_file,
+                        )
+                    )
+                target = rule.get("target")
+                # The target agent must exist in the registry. We can't check
+                # it here (the registry isn't fully loaded yet); the cross-check
+                # phase below will catch it. We just type-check now.
+                if target is not None and not isinstance(target, str):
+                    issues.append(
+                        Issue(
+                            Severity.ERROR,
+                            declared_name,
+                            "escalation-target-type",
+                            f"escalation_rules[{i}].target must be string, "
+                            f"got {type(target).__name__}",
+                            agent_file,
+                        )
+                    )
+
     return declared_name, issues
 
 
@@ -475,6 +559,49 @@ def check_uniqueness(names: list[str], files: list[Path]) -> list[Issue]:
             )
         else:
             seen[name] = file
+    return issues
+
+
+def cross_check_escalation_targets(
+    agent_metadata: dict[str, dict[str, Any]],
+) -> list[Issue]:
+    """Each escalation_rules.target must reference a real agent in the registry.
+    A dangling target is a silent bug — the supervisor cannot auto-escalate.
+    """
+    issues: list[Issue] = []
+    known_agents = set(agent_metadata.keys())
+
+    for agent_name, meta in agent_metadata.items():
+        rules = meta.get("escalation_rules") or []
+        if not isinstance(rules, list):
+            continue
+        for i, rule in enumerate(rules):
+            if not isinstance(rule, dict):
+                continue
+            target = rule.get("target")
+            if not isinstance(target, str) or not target:
+                continue
+            if target == agent_name:
+                issues.append(
+                    Issue(
+                        Severity.ERROR,
+                        agent_name,
+                        "escalation-self-target",
+                        f"escalation_rules[{i}].target='{target}' refers to "
+                        f"the agent itself — escalation must point elsewhere",
+                    )
+                )
+                continue
+            if target not in known_agents:
+                issues.append(
+                    Issue(
+                        Severity.ERROR,
+                        agent_name,
+                        "escalation-target-unknown",
+                        f"escalation_rules[{i}].target='{target}' is not in "
+                        f"the registry (typo? renamed?)",
+                    )
+                )
     return issues
 
 
@@ -680,6 +807,8 @@ def main(argv: list[str] | None = None) -> int:
     for issue in check_uniqueness(agent_names, agent_files):
         report.add(issue)
     for issue in cross_check_kb_vs_agents(agent_metadata, valid_kbs):
+        report.add(issue)
+    for issue in cross_check_escalation_targets(agent_metadata):
         report.add(issue)
 
     # Output
