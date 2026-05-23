@@ -611,6 +611,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#claude-code-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claude Code plugin
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Claude Code plugin">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-plugin-does-not-include-vs-python-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the plugin does NOT include (vs Python CLI)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-step" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1450,6 +1478,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#claude-code-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claude Code plugin
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Claude Code plugin">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-plugin-does-not-include-vs-python-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the plugin does NOT include (vs Python CLI)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-step" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1486,6 +1542,30 @@
 
 
 <h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
+<p>Three ways to install, picked by what you want to do:</p>
+<table>
+<thead>
+<tr>
+<th>Channel</th>
+<th>When to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Python CLI</strong> (this page, below)</td>
+<td>Full feature set — Supervisor, hooks, memory, audit, MCPs. Use for production work, automation, CLI scripts.</td>
+</tr>
+<tr>
+<td><strong>Claude Code plugin</strong> (<a href="#claude-code-plugin">install instructions</a>)</td>
+<td>If you already use Claude Code and want the 15 agents + 48 skills available natively inside it.</td>
+</tr>
+<tr>
+<td><strong>From source</strong></td>
+<td>Contributors who want to develop on the project. <code>git clone &amp;&amp; pip install -e ".[dev]"</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h2 id="core-install">Core install<a class="headerlink" href="#core-install" title="Permanent link">&para;</a></h2>
 <p>Only what's needed to run the Supervisor + 15 agents + 17 MCPs in CLI mode:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>ai-data-agents
@@ -1567,6 +1647,44 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from data_agents.agents.loader import preload_registry; print(len(preload_registry()), &#39;agents loaded&#39;)&quot;</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># expected: 15 agents loaded</span>
 </span></code></pre></div>
+<h2 id="claude-code-plugin">Claude Code plugin<a class="headerlink" href="#claude-code-plugin" title="Permanent link">&para;</a></h2>
+<p>If you already use <a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a> and want the 15 agents + 48 skills available natively (without <code>pip install</code>), use the plugin distribution:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># 1. Add the marketplace</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>claude<span class="w"> </span>plugin<span class="w"> </span>marketplace<span class="w"> </span>add<span class="w"> </span>ThomazRossito/ai-data-agents
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># 2. Install the plugin</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>claude<span class="w"> </span>plugin<span class="w"> </span>install<span class="w"> </span>ai-data-agents@thomazrossito-marketplace
+</span></code></pre></div>
+<p>Restart your Claude Code session. The 15 specialist agents and 48 skills become available.</p>
+<h3 id="what-the-plugin-does-not-include-vs-python-cli">What the plugin does NOT include (vs Python CLI)<a class="headerlink" href="#what-the-plugin-does-not-include-vs-python-cli" title="Permanent link">&para;</a></h3>
+<p>To keep the plugin minimal and resilient to spec changes, the v3.0-rc1 plugin includes only <strong>agents</strong> and <strong>skills</strong>. These features are Python-CLI-only:</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Why not in plugin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>39 slash commands (<code>/sql</code>, <code>/fabric</code>, <code>/migrate</code>, ...)</td>
+<td>Plugin spec uses individual <code>.md</code> files per command; mapping from <code>commands.yaml</code> waits for v3.1+</td>
+</tr>
+<tr>
+<td>17 MCP servers (Databricks, Fabric, Genie, ...)</td>
+<td>Users configure their own MCPs in Claude Code separately — these are platform-coupled and need user credentials</td>
+</tr>
+<tr>
+<td>Hooks (security, cost guard, audit, output compression)</td>
+<td>Tightly coupled to the Python orchestration loop</td>
+</tr>
+<tr>
+<td>Memory layer (ShortTerm + LongTerm + Ledger)</td>
+<td>Stateful SQLite DBs; not portable as plugin content</td>
+</tr>
+</tbody>
+</table>
+<p>If you want all of this, use the Python CLI install above. <strong>The two channels coexist</strong> — you can install both, and they share the same source-of-truth agents/skills.</p>
 <h2 id="next-step">Next step<a class="headerlink" href="#next-step" title="Permanent link">&para;</a></h2>
 <p>→ <strong><a href="../first-query/">First Query</a></strong> for credential setup and your first prompt.</p>
 
