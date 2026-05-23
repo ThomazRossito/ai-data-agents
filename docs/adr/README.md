@@ -38,7 +38,8 @@ ADRs are append-only — never delete one. If a decision is reversed, write a ne
 | [007](ADR-007-kb-as-markdown.md) | Knowledge Base stored as Markdown with YAML frontmatter | Accepted | 2026-05-22 |
 | [008](ADR-008-cross-platform-databricks-fabric.md) | Cross-platform coverage of Databricks AND Fabric (not specialization) | Accepted | 2026-05-22 |
 | [009](ADR-009-structural-lints.md) | Structural lints as CI gate against declarative drift | Accepted | 2026-05-22 |
+| [010](ADR-010-docs-site-mkdocs-material.md) | Docs site built with MkDocs Material, deployed via GitHub Pages | Accepted | 2026-05-23 |
 
 ---
 
-*Future ADRs (planned)*: MkDocs choice, Plugin Claude Code adoption, OpenTelemetry vs JSONL, package rename, namespace layout.
+*Future ADRs (planned)*: Plugin Claude Code adoption (Phase 12), OpenTelemetry vs JSONL (Phase 10+), package rename to `data-agents-databricks-fabric`, mkdocstrings reopening post-v3.0.0.
