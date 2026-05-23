@@ -201,7 +201,7 @@ if [[ "$WITH_VIZ" == true ]] && [[ "$CHAT_ONLY" == false ]] && [[ "$MONITOR_ONLY
   if "$PYTHON_CMD" -c "import fastapi, uvicorn, watchdog" &>/dev/null; then
     rotate_log "$SCRIPT_DIR/logs/visualization.log"
     echo -e "  ${GREEN}▶${RESET}  Visualization  →  ${BOLD}http://localhost:$VISUALIZATION_PORT${RESET}"
-    "$PYTHON_CMD" -m visualization.server \
+    "$PYTHON_CMD" -m data_agents.visualization.server \
       > logs/visualization.log 2>&1 &
     VIZ_PID=$!
   else
