@@ -59,7 +59,7 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from utils.frontmatter import parse_yaml_frontmatter  # noqa: E402
+from data_agents.utils.frontmatter import parse_yaml_frontmatter  # noqa: E402
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -85,7 +85,7 @@ INVENTORY_BLOCK = re.compile(
 
 def _list_agents() -> list[dict[str, Any]]:
     """Returns [{'name': ..., 'tier': ...}] for each agent in registry."""
-    registry = PROJECT_ROOT / "agents" / "registry"
+    registry = PROJECT_ROOT / "data_agents" / "agents" / "registry"
     items: list[dict[str, Any]] = []
     if not registry.is_dir():
         return items
@@ -110,7 +110,7 @@ def _list_mcps() -> dict[str, list[str]]:
     An external MCP only declares a server_config.py and shells out to
     a third-party process (via npx/uvx).
     """
-    root = PROJECT_ROOT / "mcp_servers"
+    root = PROJECT_ROOT / "data_agents" / "mcp_servers"
     result: dict[str, list[str]] = {"custom": [], "external": []}
     if not root.is_dir():
         return result
@@ -129,7 +129,7 @@ def _list_all_mcp_configs() -> list[str]:
     Falls back to an empty list if the module cannot be imported (e.g. in
     a stripped-down environment without pydantic)."""
     try:
-        from config.mcp_servers import ALL_MCP_CONFIGS
+        from data_agents.config.mcp_servers import ALL_MCP_CONFIGS
         return sorted(ALL_MCP_CONFIGS.keys())
     except Exception:  # noqa: BLE001 — defensive: never let import errors break --print
         return []
@@ -184,7 +184,7 @@ def _list_skill_domains() -> list[str]:
 def _list_commands() -> dict[str, list[str]]:
     """Returns {mode: [command_names]} from config/commands.yaml."""
     import yaml
-    cmds_file = PROJECT_ROOT / "config" / "commands.yaml"
+    cmds_file = PROJECT_ROOT / "data_agents" / "config" / "commands.yaml"
     by_mode: dict[str, list[str]] = {"express": [], "full": [], "internal": []}
     if not cmds_file.is_file():
         return by_mode
@@ -205,7 +205,7 @@ def _list_commands() -> dict[str, list[str]]:
 
 def _count_hooks() -> int:
     """Counts hook .py files (excluding __init__.py)."""
-    hooks_dir = PROJECT_ROOT / "hooks"
+    hooks_dir = PROJECT_ROOT / "data_agents" / "hooks"
     if not hooks_dir.is_dir():
         return 0
     return sum(

@@ -10,7 +10,7 @@ Invariants:
 import re
 from pathlib import Path
 
-from agents.delegation import (
+from data_agents.agents.delegation import (
     Route,
     classify,
     load_delegation_map,

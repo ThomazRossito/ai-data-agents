@@ -55,7 +55,7 @@ def _check_api_key() -> bool:
 
 
 async def _run_demo() -> int:
-    from commands.geral import run_geral_query
+    from data_agents.commands.geral import run_geral_query
 
     print("━" * 60)
     print(" AI Data Agents — Demo (Kimi K2.6, zero MCP)")

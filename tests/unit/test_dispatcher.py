@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agents.dispatcher import (
+from data_agents.agents.dispatcher import (
     _NEIGHBOR_AGENTS,
     _NEVER_DELEGATED,
     apply_fallback_policy,

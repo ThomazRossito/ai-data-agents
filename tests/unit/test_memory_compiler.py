@@ -17,9 +17,9 @@ import json
 
 import pytest
 
-from memory.types import Memory, MemoryType
-from memory.store import MemoryStore
-from memory.compiler import (
+from data_agents.memory.types import Memory, MemoryType
+from data_agents.memory.store import MemoryStore
+from data_agents.memory.compiler import (
     _parse_daily_entries,
     _entry_to_memory,
     _filter_contradiction_candidates,

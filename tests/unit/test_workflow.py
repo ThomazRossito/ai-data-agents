@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from commands.workflow import (
+from data_agents.commands.workflow import (
     WORKFLOW_REGISTRY,
     StepCallback,
     StepResult,
@@ -266,7 +266,7 @@ class TestWorkflowRunner:
 
             yield FakeResult()
 
-        with patch("commands.workflow.sdk_query", side_effect=mock_query):
+        with patch("data_agents.commands.workflow.sdk_query", side_effect=mock_query):
             result = await runner.run("query de teste")
 
         assert isinstance(result, WorkflowResult)
@@ -296,7 +296,7 @@ class TestWorkflowRunner:
             human_pause_callback=deny_callback,
         )
 
-        with patch("commands.workflow.sdk_query", side_effect=mock_query):
+        with patch("data_agents.commands.workflow.sdk_query", side_effect=mock_query):
             result = await runner.run("query")
 
         assert result.aborted is True
@@ -317,7 +317,7 @@ class TestWorkflowRunner:
             yield FakeResult()
 
         runner = WorkflowRunner(wf_id="WF-TEST", steps=steps, step_callback=step_cb)
-        with patch("commands.workflow.sdk_query", side_effect=mock_query):
+        with patch("data_agents.commands.workflow.sdk_query", side_effect=mock_query):
             result = await runner.run("query")
 
         assert ("WF-TEST", "P1", "databricks-engineer", "start") in events
@@ -337,7 +337,7 @@ class TestWorkflowRunner:
             yield  # make it a generator
 
         runner = WorkflowRunner(wf_id="WF-TEST", steps=steps, step_callback=step_cb)
-        with patch("commands.workflow.sdk_query", side_effect=mock_query_raise):
+        with patch("data_agents.commands.workflow.sdk_query", side_effect=mock_query_raise):
             result = await runner.run("query")
 
         assert ("WF-TEST", "P1", "databricks-engineer", "start") in events
@@ -355,7 +355,7 @@ class TestWorkflowRunner:
             yield FakeResult()
 
         runner = WorkflowRunner(wf_id="WF-TEST", steps=steps, step_callback=None)
-        with patch("commands.workflow.sdk_query", side_effect=mock_query):
+        with patch("data_agents.commands.workflow.sdk_query", side_effect=mock_query):
             result = await runner.run("query")
 
         assert result.success is True

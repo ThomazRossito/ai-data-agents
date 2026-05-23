@@ -12,7 +12,7 @@ import os
 import sys
 import tempfile
 
-from config.logging_config import JSONLFormatter, setup_logging
+from data_agents.config.logging_config import JSONLFormatter, setup_logging
 
 
 class TestJSONLFormatter:

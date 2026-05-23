@@ -15,9 +15,9 @@ from datetime import datetime, timezone, timedelta
 
 import pytest
 
-from memory.types import Memory, MemoryType
-from memory.store import MemoryStore
-from memory.lint import lint_memories, LintReport, LintIssue
+from data_agents.memory.types import Memory, MemoryType
+from data_agents.memory.store import MemoryStore
+from data_agents.memory.lint import lint_memories, LintReport, LintIssue
 
 
 # ─── Fixture ─────────────────────────────────────────────────────────

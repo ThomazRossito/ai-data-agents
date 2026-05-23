@@ -87,14 +87,14 @@ def mock_hour_based_response():
 class TestImports:
     def test_server_module_importable(self):
         """server.py deve importar sem erros."""
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         assert hasattr(server, "mcp")
         assert hasattr(server, "main")
 
     def test_server_config_importable(self):
         """server_config.py deve importar e expor as constantes."""
-        from mcp_servers.azure_pricing.server_config import (
+        from data_agents.mcp_servers.azure_pricing.server_config import (
             AZURE_PRICING_MCP_READONLY_TOOLS,
             AZURE_PRICING_MCP_TOOLS,
             get_azure_pricing_mcp_config,
@@ -106,7 +106,7 @@ class TestImports:
 
     def test_all_tools_use_correct_prefix(self):
         """Tools devem seguir convenção mcp__azure_pricing__*."""
-        from mcp_servers.azure_pricing.server_config import AZURE_PRICING_MCP_TOOLS
+        from data_agents.mcp_servers.azure_pricing.server_config import AZURE_PRICING_MCP_TOOLS
 
         for tool in AZURE_PRICING_MCP_TOOLS:
             assert tool.startswith("mcp__azure_pricing__"), (
@@ -115,7 +115,7 @@ class TestImports:
 
     def test_readonly_is_subset_of_full(self):
         """Tools readonly devem ser subset das tools completas."""
-        from mcp_servers.azure_pricing.server_config import (
+        from data_agents.mcp_servers.azure_pricing.server_config import (
             AZURE_PRICING_MCP_READONLY_TOOLS,
             AZURE_PRICING_MCP_TOOLS,
         )
@@ -128,7 +128,7 @@ class TestImports:
 
 class TestHelpers:
     def test_default_region(self):
-        from mcp_servers.azure_pricing.server import _default_region
+        from data_agents.mcp_servers.azure_pricing.server import _default_region
 
         # Default fallback se env não setado
         with patch.dict(os.environ, {}, clear=False):
@@ -136,27 +136,27 @@ class TestHelpers:
             assert _default_region() == "brazilsouth"
 
     def test_default_currency(self):
-        from mcp_servers.azure_pricing.server import _default_currency
+        from data_agents.mcp_servers.azure_pricing.server import _default_currency
 
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("AZURE_PRICING_DEFAULT_CURRENCY", None)
             assert _default_currency() == "USD"
 
     def test_hours_per_month(self):
-        from mcp_servers.azure_pricing.server import _hours_per_month
+        from data_agents.mcp_servers.azure_pricing.server import _hours_per_month
 
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("AZURE_PRICING_HOURS_PER_MONTH", None)
             assert _hours_per_month() == 730.0
 
     def test_hours_per_month_invalid_falls_back(self):
-        from mcp_servers.azure_pricing.server import _hours_per_month
+        from data_agents.mcp_servers.azure_pricing.server import _hours_per_month
 
         with patch.dict(os.environ, {"AZURE_PRICING_HOURS_PER_MONTH": "abc"}):
             assert _hours_per_month() == 730.0
 
     def test_now_iso_format(self):
-        from mcp_servers.azure_pricing.server import _now_iso
+        from data_agents.mcp_servers.azure_pricing.server import _now_iso
 
         ts = _now_iso()
         # Formato esperado: YYYY-MM-DDTHH:MM:SSZ
@@ -170,12 +170,12 @@ class TestHelpers:
 
 class TestTools:
     def test_diagnostics_returns_status(self, mock_retail_response):
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         # Limpa cache pra garantir hit no mock
         server._PRICE_CACHE.clear()
 
-        with patch("mcp_servers.azure_pricing.server.requests") as mock_req:
+        with patch("data_agents.mcp_servers.azure_pricing.server.requests") as mock_req:
             mock_response = MagicMock()
             mock_response.json.return_value = mock_retail_response
             mock_response.raise_for_status = MagicMock()
@@ -190,11 +190,11 @@ class TestTools:
         assert "timestamp" in data
 
     def test_get_retail_price_builds_correct_filter(self, mock_retail_response):
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         server._PRICE_CACHE.clear()
 
-        with patch("mcp_servers.azure_pricing.server.requests") as mock_req:
+        with patch("data_agents.mcp_servers.azure_pricing.server.requests") as mock_req:
             mock_response = MagicMock()
             mock_response.json.return_value = mock_retail_response
             mock_response.raise_for_status = MagicMock()
@@ -217,11 +217,11 @@ class TestTools:
 
     def test_estimate_monthly_cost_hour_based_uses_730(self, mock_hour_based_response):
         """Recurso cobrado por hora deve ser × 730 pra mensal."""
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         server._PRICE_CACHE.clear()
 
-        with patch("mcp_servers.azure_pricing.server.requests") as mock_req:
+        with patch("data_agents.mcp_servers.azure_pricing.server.requests") as mock_req:
             mock_response = MagicMock()
             mock_response.json.return_value = mock_hour_based_response
             mock_response.raise_for_status = MagicMock()
@@ -249,14 +249,14 @@ class TestTools:
         assert abs(item["monthly_cost"] - expected) < 0.5
 
     def test_estimate_monthly_cost_invalid_json(self):
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         result = server.azure_pricing_estimate_monthly_cost(resources_json="not valid json")
         data = json.loads(result)
         assert "error" in data
 
     def test_estimate_monthly_cost_not_a_list(self):
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         result = server.azure_pricing_estimate_monthly_cost(resources_json='{"not": "a list"}')
         data = json.loads(result)
@@ -264,11 +264,11 @@ class TestTools:
 
     def test_estimate_monthly_cost_unmatched(self):
         """Resource sem match deve aparecer em warnings."""
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         server._PRICE_CACHE.clear()
 
-        with patch("mcp_servers.azure_pricing.server.requests") as mock_req:
+        with patch("data_agents.mcp_servers.azure_pricing.server.requests") as mock_req:
             mock_response = MagicMock()
             mock_response.json.return_value = {"Items": [], "NextPageLink": None}
             mock_response.raise_for_status = MagicMock()
@@ -290,7 +290,7 @@ class TestTools:
         assert len(data["warnings"]) > 0
 
     def test_currency_convert_same_currency_returns_amount(self):
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         result = server.azure_pricing_currency_convert(
             amount=100.0, from_currency="USD", to_currency="USD"
@@ -301,7 +301,7 @@ class TestTools:
         assert data["exchange_rate"] == 1.0
 
     def test_list_regions_returns_structured_data(self):
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         result = server.azure_pricing_list_regions()
         data = json.loads(result)
@@ -312,7 +312,7 @@ class TestTools:
         assert data["total_regions"] > 30
 
     def test_savings_plan_calc_recommends_overcommitted_low_usage(self):
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         result = server.azure_pricing_savings_plan_calc(
             hourly_commitment_usd=10.0,
@@ -323,7 +323,7 @@ class TestTools:
         assert data["recommendation"] == "overcommitted"
 
     def test_savings_plan_calc_recommends_good_fit_high_usage(self):
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         result = server.azure_pricing_savings_plan_calc(
             hourly_commitment_usd=10.0,
@@ -334,7 +334,7 @@ class TestTools:
         assert data["recommendation"] == "good_fit"
 
     def test_generate_calculator_url_returns_links(self):
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         resources = json.dumps([{"label": "AI Search", "service_name": "Azure AI Search"}])
         result = server.azure_pricing_generate_calculator_url(resources_json=resources)
@@ -345,7 +345,7 @@ class TestTools:
         assert len(data["resources_to_add_manually"]) == 1
 
     def test_generate_calculator_url_invalid_json(self):
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         result = server.azure_pricing_generate_calculator_url(resources_json="invalid")
         data = json.loads(result)
@@ -358,11 +358,11 @@ class TestTools:
 class TestCache:
     def test_cache_hit_avoids_second_api_call(self, mock_retail_response):
         """Segunda chamada idêntica não deve fazer HTTP."""
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         server._PRICE_CACHE.clear()
 
-        with patch("mcp_servers.azure_pricing.server.requests") as mock_req:
+        with patch("data_agents.mcp_servers.azure_pricing.server.requests") as mock_req:
             mock_response = MagicMock()
             mock_response.json.return_value = mock_retail_response
             mock_response.raise_for_status = MagicMock()
@@ -385,7 +385,7 @@ class TestRealAPI:
     """Testes que fazem hit real na Azure Retail Prices API. Skipped por default."""
 
     def test_real_api_returns_storage_price(self):
-        from mcp_servers.azure_pricing import server
+        from data_agents.mcp_servers.azure_pricing import server
 
         server._PRICE_CACHE.clear()
         result = server._query_retail_api(
@@ -403,19 +403,19 @@ class TestRealAPI:
 
 class TestConfigRegistration:
     def test_registered_in_all_mcp_configs(self):
-        from config.mcp_servers import ALL_MCP_CONFIGS
+        from data_agents.config.mcp_servers import ALL_MCP_CONFIGS
 
         assert "azure_pricing" in ALL_MCP_CONFIGS
         assert callable(ALL_MCP_CONFIGS["azure_pricing"])
 
     def test_in_always_active_mcps(self):
         """azure_pricing não precisa de credenciais — deve estar always-active."""
-        from config.mcp_servers import ALWAYS_ACTIVE_MCPS
+        from data_agents.config.mcp_servers import ALWAYS_ACTIVE_MCPS
 
         assert "azure_pricing" in ALWAYS_ACTIVE_MCPS
 
     def test_aliases_in_loader(self):
-        from agents.loader import MCP_TOOL_SETS
+        from data_agents.agents.loader import MCP_TOOL_SETS
 
         assert "azure_pricing_all" in MCP_TOOL_SETS
         assert "azure_pricing_readonly" in MCP_TOOL_SETS

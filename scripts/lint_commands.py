@@ -57,11 +57,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import yaml  # noqa: E402  (pyyaml is a direct dependency in pyproject.toml)
 
-from utils.frontmatter import parse_yaml_frontmatter  # noqa: E402
+from data_agents.utils.frontmatter import parse_yaml_frontmatter  # noqa: E402
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
-COMMANDS_YAML = PROJECT_ROOT / "config" / "commands.yaml"
+# Phase 7: config/ vive dentro do namespace data_agents/
+COMMANDS_YAML = PROJECT_ROOT / "data_agents" / "config" / "commands.yaml"
 
 VALID_DOMA_MODES: frozenset[str] = frozenset({"express", "full", "internal"})
 
@@ -150,8 +151,8 @@ class LintReport:
 
 
 def _list_valid_agents() -> set[str]:
-    """Returns names of agents present in agents/registry/."""
-    registry = PROJECT_ROOT / "agents" / "registry"
+    """Returns names of agents present in data_agents/agents/registry/."""
+    registry = PROJECT_ROOT / "data_agents" / "agents" / "registry"
     names: set[str] = set()
     if not registry.is_dir():
         return names

@@ -53,7 +53,7 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from utils.frontmatter import parse_yaml_frontmatter  # noqa: E402
+from data_agents.utils.frontmatter import parse_yaml_frontmatter  # noqa: E402
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -128,8 +128,8 @@ class LintReport:
 
 
 def _list_valid_agents() -> set[str]:
-    """Returns the set of agent names defined in agents/registry/."""
-    registry = PROJECT_ROOT / "agents" / "registry"
+    """Returns the set of agent names defined in data_agents/agents/registry/."""
+    registry = PROJECT_ROOT / "data_agents" / "agents" / "registry"
     names: set[str] = set()
     if not registry.is_dir():
         return names

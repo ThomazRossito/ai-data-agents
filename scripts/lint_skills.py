@@ -57,7 +57,7 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from utils.frontmatter import parse_yaml_frontmatter  # noqa: E402
+from data_agents.utils.frontmatter import parse_yaml_frontmatter  # noqa: E402
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -171,7 +171,7 @@ def _parse_date_loose(value: Any) -> date | None:
 
 def _list_referenced_skill_domains() -> set[str]:
     """Returns the set of skill_domains declared by any agent in the registry."""
-    registry = PROJECT_ROOT / "agents" / "registry"
+    registry = PROJECT_ROOT / "data_agents" / "agents" / "registry"
     domains: set[str] = set()
     if not registry.is_dir():
         return domains

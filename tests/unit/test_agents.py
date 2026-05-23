@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from agents.loader import load_all_agents, _parse_frontmatter, _resolve_tools
+from data_agents.agents.loader import load_all_agents, _parse_frontmatter, _resolve_tools
 
 
 # ─── Testes do Loader Dinâmico ────────────────────────────────────────────────
@@ -151,7 +151,7 @@ class TestDatabricksEngineer:
         assert "databricks-engineer" in agents, "databricks-engineer não encontrado no registry"
 
     def test_databricks_engineer_tier_is_t1(self):
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
 
         path = AGENTS_REGISTRY_DIR / "databricks-engineer.md"
         content = path.read_text(encoding="utf-8")
@@ -204,7 +204,7 @@ class TestDatabricksAi:
         assert "databricks-ai" in agents, "databricks-ai não encontrado no registry"
 
     def test_databricks_ai_tier_is_t1(self):
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
 
         path = AGENTS_REGISTRY_DIR / "databricks-ai.md"
         content = path.read_text(encoding="utf-8")
@@ -347,7 +347,7 @@ class TestDbtExpert:
         assert len(context7_tools) > 0, "dbt-expert deve ter tools do context7"
 
     def test_dbt_expert_tier_is_t2(self):
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
 
         path = AGENTS_REGISTRY_DIR / "dbt-expert.md"
         content = path.read_text(encoding="utf-8")
@@ -363,7 +363,7 @@ class TestFabricEngineer:
         assert "fabric-engineer" in agents, "fabric-engineer não encontrado no registry"
 
     def test_fabric_engineer_tier_is_t1(self):
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
 
         path = AGENTS_REGISTRY_DIR / "fabric-engineer.md"
         content = path.read_text(encoding="utf-8")
@@ -401,7 +401,9 @@ class TestFabricEngineer:
 class TestRegistryFiles:
     """Testes de integridade dos arquivos de registry."""
 
-    REGISTRY_DIR = Path(__file__).parent.parent / "agents" / "registry"
+    # Phase 7: o registry agora vive em data_agents/agents/registry/.
+    # Em vez de calcular path manualmente (frágil), reutiliza o constant do loader.
+    from data_agents.agents.loader import AGENTS_REGISTRY_DIR as REGISTRY_DIR
 
     def test_all_registry_files_have_valid_frontmatter(self):
         """Todos os arquivos .md no registry (exceto _template) devem ter frontmatter válido."""
@@ -461,7 +463,7 @@ class TestTokenBudgetsByTier:
 
     def test_no_tier_map_leaves_max_turns_none(self):
         """Sem tier_turns_map, maxTurns deve ser None (exceto agentes com override no frontmatter)."""
-        from agents.loader import preload_registry
+        from data_agents.agents.loader import preload_registry
 
         # Agentes com max_turns explícito no frontmatter preservam seu valor mesmo sem tier_map
         frontmatter_overrides = {
@@ -474,7 +476,7 @@ class TestTokenBudgetsByTier:
 
     def test_no_effort_map_leaves_effort_none(self):
         """Sem tier_effort_map, effort deve ser None (exceto agentes com override no frontmatter)."""
-        from agents.loader import preload_registry
+        from data_agents.agents.loader import preload_registry
 
         # Agentes com effort explícito no frontmatter preservam seu valor mesmo sem tier_map
         frontmatter_overrides = {
@@ -495,7 +497,7 @@ class TestTokenBudgetsByTier:
             encoding="utf-8",
         )
 
-        from agents.loader import load_agent
+        from data_agents.agents.loader import load_agent
 
         _, agent = load_agent(
             agent_file,
@@ -514,7 +516,7 @@ class TestTokenBudgetsByTier:
             encoding="utf-8",
         )
 
-        from agents.loader import load_agent
+        from data_agents.agents.loader import load_agent
 
         _, agent = load_agent(
             agent_file,
@@ -551,7 +553,7 @@ class TestFabricRti:
 
     def test_fabric_rti_tier_is_t2(self):
         """fabric-rti é especializado — deve ser Tier T2."""
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
 
         path = AGENTS_REGISTRY_DIR / "fabric-rti.md"
         content = path.read_text(encoding="utf-8")
@@ -591,7 +593,7 @@ class TestGeral:
 
     def test_geral_agent_is_t0(self):
         """geral deve ter tier T0 — tier exclusivo que nunca é coberto pelo TIER_MODEL_MAP."""
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
 
         path = AGENTS_REGISTRY_DIR / "geral.md"
         content_md = path.read_text(encoding="utf-8")
@@ -615,7 +617,7 @@ class TestGeral:
 
     def test_geral_agent_has_no_mcp_servers(self):
         """geral não deve ter MCP servers — resposta direta do modelo sem tools externas."""
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
 
         path = AGENTS_REGISTRY_DIR / "geral.md"
         content_md = path.read_text(encoding="utf-8")
@@ -625,7 +627,7 @@ class TestGeral:
 
     def test_geral_t0_not_in_tier_model_map_default(self):
         """T0 não deve aparecer no TIER_MODEL_MAP default — protege Haiku de override acidental."""
-        from config.settings import Settings
+        from data_agents.config.settings import Settings
 
         default_settings = Settings()
         tier_map = default_settings.tier_model_map
@@ -677,7 +679,7 @@ class TestModelRoutingByTier:
 
     def test_all_t1_agents_have_tier_field(self):
         """Todos os agentes T1 devem declarar tier no frontmatter."""
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
 
         t1_agents = [
             "databricks-engineer",
@@ -694,7 +696,7 @@ class TestModelRoutingByTier:
 
     def test_all_t2_agents_have_tier_field(self):
         """Todos os agentes T2 devem declarar tier no frontmatter."""
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
 
         t2_agents = [
             "data-quality-steward",
@@ -771,14 +773,14 @@ class TestKBInjection:
 
     def test_kb_injection_with_invalid_domain_ignores_gracefully(self, tmp_path):
         """Domínios inválidos no kb_domains são silenciosamente ignorados."""
-        from agents.loader import _load_kb_indexes
+        from data_agents.agents.loader import _load_kb_indexes
 
         result = _load_kb_indexes(["dominio-inexistente"], kb_base_dir=tmp_path)
         assert result == ""
 
     def test_load_kb_indexes_returns_empty_for_empty_list(self):
         """Lista vazia de kb_domains retorna string vazia."""
-        from agents.loader import _load_kb_indexes
+        from data_agents.agents.loader import _load_kb_indexes
 
         result = _load_kb_indexes([])
         assert result == ""
@@ -797,7 +799,7 @@ class TestCachePrefix:
 
     def test_load_cache_prefix_returns_string(self):
         """_load_cache_prefix deve retornar uma string não-vazia."""
-        from agents.loader import _load_cache_prefix
+        from data_agents.agents.loader import _load_cache_prefix
 
         prefix = _load_cache_prefix()
         assert isinstance(prefix, str)
@@ -805,7 +807,7 @@ class TestCachePrefix:
 
     def test_load_cache_prefix_missing_file_returns_empty(self, tmp_path):
         """Se o arquivo não existe, retorna string vazia sem lançar exceção."""
-        from agents.loader import _load_cache_prefix
+        from data_agents.agents.loader import _load_cache_prefix
 
         nonexistent = tmp_path / "nao_existe.md"
         result = _load_cache_prefix(nonexistent)
@@ -813,7 +815,7 @@ class TestCachePrefix:
 
     def test_load_cache_prefix_content_is_stable(self):
         """Duas chamadas seguidas devem retornar bytes idênticos."""
-        from agents.loader import _load_cache_prefix
+        from data_agents.agents.loader import _load_cache_prefix
 
         first = _load_cache_prefix()
         second = _load_cache_prefix()
@@ -826,7 +828,7 @@ class TestCachePrefix:
         Se qualquer agente tiver um prefixo diferente, o cache de prompt da API
         do Claude não será ativado para aquele agente.
         """
-        from agents.loader import _load_cache_prefix
+        from data_agents.agents.loader import _load_cache_prefix
 
         agents = load_all_agents(inject_cache_prefix=True)
         prefix = _load_cache_prefix()
@@ -842,7 +844,7 @@ class TestCachePrefix:
 
     def test_prefix_separator_present_between_prefix_and_body(self):
         """O separador '---' deve estar presente entre o prefixo e o corpo do agente."""
-        from agents.loader import _load_cache_prefix, _CACHE_PREFIX_SEPARATOR
+        from data_agents.agents.loader import _load_cache_prefix, _CACHE_PREFIX_SEPARATOR
 
         agents = load_all_agents(inject_cache_prefix=True)
         prefix = _load_cache_prefix()
@@ -856,7 +858,7 @@ class TestCachePrefix:
 
     def test_inject_cache_prefix_false_omits_prefix(self, tmp_path):
         """Com inject_cache_prefix=False, o prompt não deve conter o prefixo."""
-        from agents.loader import _load_cache_prefix
+        from data_agents.agents.loader import _load_cache_prefix
 
         prefix = _load_cache_prefix()
         agents_without = load_all_agents(inject_cache_prefix=False)
@@ -868,7 +870,7 @@ class TestCachePrefix:
 
     def test_inject_cache_prefix_default_is_true(self):
         """O padrão de inject_cache_prefix deve ser True (cache ativado por padrão)."""
-        from agents.loader import _load_cache_prefix
+        from data_agents.agents.loader import _load_cache_prefix
 
         prefix = _load_cache_prefix()
         # load_all_agents() sem argumentos deve incluir o prefixo
@@ -886,7 +888,7 @@ class TestCachePrefix:
         O Claude API cria cache a partir de ~1024 tokens (~800 chars).
         Um prefixo muito curto não seria cacheado de forma eficiente.
         """
-        from agents.loader import _load_cache_prefix
+        from data_agents.agents.loader import _load_cache_prefix
 
         prefix = _load_cache_prefix()
         assert len(prefix) >= 500, (
@@ -900,7 +902,7 @@ class TestCachePrefix:
 
         Timestamps, IDs de sessão ou qualquer conteúdo variável invalida o cache.
         """
-        from agents.loader import _load_cache_prefix
+        from data_agents.agents.loader import _load_cache_prefix
         import re
 
         prefix = _load_cache_prefix()
@@ -930,7 +932,7 @@ class TestCachePrefix:
             encoding="utf-8",
         )
 
-        from agents.loader import load_agent
+        from data_agents.agents.loader import load_agent
 
         _, agent = load_agent(
             agent_file,
@@ -955,7 +957,7 @@ class TestFabricOntology:
 
     def test_fabric_ontology_tier_is_t2(self):
         """fabric-ontology é especializado — deve ser Tier T2."""
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
 
         path = AGENTS_REGISTRY_DIR / "fabric-ontology.md"
         content = path.read_text(encoding="utf-8")
@@ -1003,7 +1005,7 @@ class TestFabricOntology:
         )
 
     def test_fabric_ontology_has_semantic_web_kb_domain(self):
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
 
         path = AGENTS_REGISTRY_DIR / "fabric-ontology.md"
         content = path.read_text(encoding="utf-8")
@@ -1023,7 +1025,7 @@ class TestFabricOntology:
 
     def test_fabric_official_has_core_create_item(self):
         """fabric_official deve ter core_create-item para criar Notebooks no workspace."""
-        from mcp_servers.fabric.server_config import FABRIC_OFFICIAL_MCP_TOOLS
+        from data_agents.mcp_servers.fabric.server_config import FABRIC_OFFICIAL_MCP_TOOLS
 
         assert "mcp__fabric_official__core_create-item" in FABRIC_OFFICIAL_MCP_TOOLS, (
             "FABRIC_OFFICIAL_MCP_TOOLS deve incluir core_create-item "
@@ -1031,7 +1033,7 @@ class TestFabricOntology:
         )
 
     def test_fabric_ontology_has_ontology_skill_domain(self):
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
 
         path = AGENTS_REGISTRY_DIR / "fabric-ontology.md"
         content = path.read_text(encoding="utf-8")
@@ -1044,7 +1046,7 @@ class TestMigrationExpert:
     """Testes específicos para o migration-expert."""
 
     def test_migration_expert_is_tier_t1(self):
-        from agents.loader import preload_registry
+        from data_agents.agents.loader import preload_registry
 
         registry = preload_registry()
         assert "migration-expert" in registry
@@ -1075,7 +1077,7 @@ class TestMigrationExpert:
         )
 
     def test_migration_expert_has_migration_kb_domain(self):
-        from agents.loader import preload_registry
+        from data_agents.agents.loader import preload_registry
 
         registry = preload_registry()
         meta = registry["migration-expert"]
@@ -1083,7 +1085,7 @@ class TestMigrationExpert:
         assert "migration" in kb_domains, "migration-expert deve ter 'migration' em kb_domains"
 
     def test_migration_expert_has_pipeline_design_kb(self):
-        from agents.loader import preload_registry
+        from data_agents.agents.loader import preload_registry
 
         registry = preload_registry()
         meta = registry["migration-expert"]

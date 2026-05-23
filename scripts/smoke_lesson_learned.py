@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 def _lesson_dir() -> Path:
     """Resolve diretório de lessons via settings (per-project isolation)."""
-    from config.settings import settings
+    from data_agents.config.settings import settings
 
     return Path(settings.memory_data_dir) / "lesson_learned"
 
@@ -53,7 +53,7 @@ def _info(msg: str) -> None:
 async def test_error_trigger() -> None:
     _section("FASE 1 — trigger: error (execute_sql com tabela inexistente)")
 
-    from hooks.memory_hook import _maybe_capture_lesson, reset_lesson_state
+    from data_agents.hooks.memory_hook import _maybe_capture_lesson, reset_lesson_state
 
     reset_lesson_state()
 
@@ -102,7 +102,7 @@ async def test_error_trigger() -> None:
 async def test_high_cost_trigger() -> None:
     _section("FASE 2 — trigger: high_cost (6 chamadas a run_job_now)")
 
-    from hooks.memory_hook import (
+    from data_agents.hooks.memory_hook import (
         _HIGH_COST_THRESHOLD,
         _maybe_capture_lesson,
         _track_lesson_state,
@@ -146,8 +146,8 @@ async def test_high_cost_trigger() -> None:
 def test_deduplication() -> None:
     _section("FASE 3 — deduplicação de lessons similares")
 
-    from memory.compiler import deduplicate_lessons
-    from memory.store import MemoryStore
+    from data_agents.memory.compiler import deduplicate_lessons
+    from data_agents.memory.store import MemoryStore
 
     store = MemoryStore()
     metrics = deduplicate_lessons(store)
@@ -160,9 +160,9 @@ def test_deduplication() -> None:
 def test_injection() -> None:
     _section("FASE 4 — injeção no system prompt")
 
-    from memory.retrieval import format_memories_for_injection
-    from memory.store import MemoryStore
-    from memory.types import MemoryType
+    from data_agents.memory.retrieval import format_memories_for_injection
+    from data_agents.memory.store import MemoryStore
+    from data_agents.memory.types import MemoryType
 
     store = MemoryStore()
     lessons = store.list_all(memory_type=MemoryType.LESSON_LEARNED, active_only=True)
@@ -187,8 +187,8 @@ def test_injection() -> None:
 def show_summary() -> None:
     _section("RESUMO FINAL")
 
-    from memory.store import MemoryStore
-    from memory.types import MemoryType
+    from data_agents.memory.store import MemoryStore
+    from data_agents.memory.types import MemoryType
 
     store = MemoryStore()
     lessons = store.list_all(memory_type=MemoryType.LESSON_LEARNED, active_only=False)

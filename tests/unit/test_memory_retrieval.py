@@ -10,9 +10,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from memory.types import Memory, MemoryType
-from memory.store import MemoryStore
-from memory.retrieval import (
+from data_agents.memory.types import Memory, MemoryType
+from data_agents.memory.store import MemoryStore
+from data_agents.memory.retrieval import (
     retrieve_relevant_memories,
     format_memories_for_injection,
 )
@@ -71,7 +71,7 @@ class TestRetrieveRelevantMemories:
         assert len(result) <= 5
 
     def test_long_term_param_bypasses_lazy_creation(self, store):
-        from memory.long_term import LongTermMemory
+        from data_agents.memory.long_term import LongTermMemory
 
         mock_lt = MagicMock(spec=LongTermMemory)
         mock_lt.search.return_value = []
@@ -79,7 +79,7 @@ class TestRetrieveRelevantMemories:
         mock_lt.search.assert_called_once()
 
     def test_returns_memory_objects(self, store):
-        from memory.types import Memory as MemType
+        from data_agents.memory.types import Memory as MemType
 
         mem = _make_memory(summary="databricks unity catalog configuration setup")
         store.save(mem)

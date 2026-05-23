@@ -66,7 +66,7 @@ class TestCommandResultFieldNames:
     """CommandResult deve ter doma_prompt e doma_mode, não bmad_*."""
 
     def test_command_result_has_doma_prompt(self):
-        from commands.parser import CommandResult
+        from data_agents.commands.parser import CommandResult
         import dataclasses
 
         field_names = {f.name for f in dataclasses.fields(CommandResult)}
@@ -74,7 +74,7 @@ class TestCommandResultFieldNames:
         assert "bmad_prompt" not in field_names, "Campo 'bmad_prompt' não deve mais existir"
 
     def test_command_result_has_doma_mode(self):
-        from commands.parser import CommandResult
+        from data_agents.commands.parser import CommandResult
         import dataclasses
 
         field_names = {f.name for f in dataclasses.fields(CommandResult)}
@@ -82,7 +82,7 @@ class TestCommandResultFieldNames:
         assert "bmad_mode" not in field_names, "Campo 'bmad_mode' não deve mais existir"
 
     def test_parse_sql_returns_doma_fields(self):
-        from commands.parser import parse_command
+        from data_agents.commands.parser import parse_command
 
         result = parse_command("/sql SELECT 1")
         assert result is not None
@@ -91,14 +91,14 @@ class TestCommandResultFieldNames:
         assert "DOMA EXPRESS" in result.doma_prompt
 
     def test_parse_plan_returns_full_mode(self):
-        from commands.parser import parse_command
+        from data_agents.commands.parser import parse_command
 
         result = parse_command("/plan criar pipeline Medallion")
         assert result is not None
         assert result.doma_mode == "full"
 
     def test_parse_health_returns_internal_mode(self):
-        from commands.parser import parse_command
+        from data_agents.commands.parser import parse_command
 
         result = parse_command("/health")
         assert result is not None
@@ -112,35 +112,35 @@ class TestPartyModeArgParsing:
     """parse_party_args deve extrair corretamente agentes e query."""
 
     def test_default_group_no_flag(self):
-        from commands.party import parse_party_args, PARTY_GROUPS
+        from data_agents.commands.party import parse_party_args, PARTY_GROUPS
 
         agents, query = parse_party_args("/party qual a diferença entre Delta Lake e Parquet?")
         assert agents == PARTY_GROUPS["default"]
         assert "Delta Lake" in query
 
     def test_quality_flag(self):
-        from commands.party import parse_party_args, PARTY_GROUPS
+        from data_agents.commands.party import parse_party_args, PARTY_GROUPS
 
         agents, query = parse_party_args("/party --quality como validar dados incrementais?")
         assert agents == PARTY_GROUPS["quality"]
         assert "incrementais" in query
 
     def test_arch_flag(self):
-        from commands.party import parse_party_args, PARTY_GROUPS
+        from data_agents.commands.party import parse_party_args, PARTY_GROUPS
 
         agents, query = parse_party_args("/party --arch descreva a arquitetura Medallion")
         assert agents == PARTY_GROUPS["arch"]
         assert "Medallion" in query
 
     def test_full_flag(self):
-        from commands.party import parse_party_args, PARTY_GROUPS
+        from data_agents.commands.party import parse_party_args, PARTY_GROUPS
 
         agents, query = parse_party_args("/party --full explique o Unity Catalog")
         assert agents == PARTY_GROUPS["full"]
         assert "Unity Catalog" in query
 
     def test_explicit_agents(self):
-        from commands.party import parse_party_args
+        from data_agents.commands.party import parse_party_args
 
         agents, query = parse_party_args(
             "/party databricks-engineer databricks-ai analise este schema"
@@ -150,19 +150,19 @@ class TestPartyModeArgParsing:
         assert "analise este schema" in query
 
     def test_empty_query_returns_empty_string(self):
-        from commands.party import parse_party_args
+        from data_agents.commands.party import parse_party_args
 
         agents, query = parse_party_args("/party")
         assert query == ""
         assert len(agents) > 0  # grupo padrão
 
     def test_default_group_has_three_agents(self):
-        from commands.party import PARTY_GROUPS
+        from data_agents.commands.party import PARTY_GROUPS
 
         assert len(PARTY_GROUPS["default"]) == 3
 
     def test_full_group_has_at_least_six_agents(self):
-        from commands.party import PARTY_GROUPS
+        from data_agents.commands.party import PARTY_GROUPS
 
         assert len(PARTY_GROUPS["full"]) >= 6
 
@@ -191,7 +191,7 @@ class TestPartyModeGroups:
     }
 
     def test_all_group_agents_are_valid(self):
-        from commands.party import PARTY_GROUPS
+        from data_agents.commands.party import PARTY_GROUPS
 
         for group_name, agents in PARTY_GROUPS.items():
             for agent in agents:
@@ -200,22 +200,22 @@ class TestPartyModeGroups:
                 )
 
     def test_quality_group_has_data_quality_steward(self):
-        from commands.party import PARTY_GROUPS
+        from data_agents.commands.party import PARTY_GROUPS
 
         assert "data-quality-steward" in PARTY_GROUPS["quality"]
 
     def test_quality_group_has_governance_auditor(self):
-        from commands.party import PARTY_GROUPS
+        from data_agents.commands.party import PARTY_GROUPS
 
         assert "governance-auditor" in PARTY_GROUPS["quality"]
 
     def test_default_group_has_databricks_engineer(self):
-        from commands.party import PARTY_GROUPS
+        from data_agents.commands.party import PARTY_GROUPS
 
         assert "databricks-engineer" in PARTY_GROUPS["default"]
 
     def test_no_duplicate_agents_in_any_group(self):
-        from commands.party import PARTY_GROUPS
+        from data_agents.commands.party import PARTY_GROUPS
 
         for group_name, agents in PARTY_GROUPS.items():
             assert len(agents) == len(set(agents)), (
@@ -230,24 +230,24 @@ class TestPartyCommandInRegistry:
     """/party deve estar presente e bem configurado no COMMAND_REGISTRY."""
 
     def test_party_in_registry(self):
-        from commands.parser import COMMAND_REGISTRY
+        from data_agents.commands.parser import COMMAND_REGISTRY
 
         assert "party" in COMMAND_REGISTRY, "/party não encontrado no COMMAND_REGISTRY"
 
     def test_party_is_internal_mode(self):
-        from commands.parser import COMMAND_REGISTRY
+        from data_agents.commands.parser import COMMAND_REGISTRY
 
         assert COMMAND_REGISTRY["party"].doma_mode == "internal"
 
     def test_party_has_no_agent(self):
-        from commands.parser import COMMAND_REGISTRY
+        from data_agents.commands.parser import COMMAND_REGISTRY
 
         assert COMMAND_REGISTRY["party"].agent is None, (
             "/party não deve ter agente alvo (é tratado diretamente no CLI)"
         )
 
     def test_party_parse_returns_correct_command(self):
-        from commands.parser import parse_command
+        from data_agents.commands.parser import parse_command
 
         result = parse_command("/party teste query")
         assert result is not None
@@ -255,7 +255,7 @@ class TestPartyCommandInRegistry:
         assert result.doma_mode == "internal"
 
     def test_party_appears_in_help_text(self):
-        from commands.parser import get_help_text
+        from data_agents.commands.parser import get_help_text
 
         help_text = get_help_text()
         assert "/party" in help_text
@@ -268,7 +268,7 @@ class TestPartyModePersonas:
     """Todos os agentes nos grupos default/quality/arch/full devem ter persona definida."""
 
     def test_all_default_agents_have_persona(self):
-        from commands.party import PARTY_GROUPS, AGENT_PERSONAS
+        from data_agents.commands.party import PARTY_GROUPS, AGENT_PERSONAS
 
         for agent in PARTY_GROUPS["default"]:
             assert agent in AGENT_PERSONAS, (
@@ -276,7 +276,7 @@ class TestPartyModePersonas:
             )
 
     def test_all_quality_agents_have_persona(self):
-        from commands.party import PARTY_GROUPS, AGENT_PERSONAS
+        from data_agents.commands.party import PARTY_GROUPS, AGENT_PERSONAS
 
         for agent in PARTY_GROUPS["quality"]:
             assert agent in AGENT_PERSONAS, (
@@ -284,7 +284,7 @@ class TestPartyModePersonas:
             )
 
     def test_all_full_agents_have_persona(self):
-        from commands.party import PARTY_GROUPS, AGENT_PERSONAS
+        from data_agents.commands.party import PARTY_GROUPS, AGENT_PERSONAS
 
         for agent in PARTY_GROUPS["full"]:
             assert agent in AGENT_PERSONAS, (
@@ -292,7 +292,7 @@ class TestPartyModePersonas:
             )
 
     def test_all_personas_mention_data_engineering(self):
-        from commands.party import AGENT_PERSONAS
+        from data_agents.commands.party import AGENT_PERSONAS
 
         keywords = [
             "Databricks",
@@ -314,7 +314,7 @@ class TestPartyModePersonas:
             )
 
     def test_all_personas_instruct_language(self):
-        from commands.party import AGENT_PERSONAS
+        from data_agents.commands.party import AGENT_PERSONAS
 
         for agent, persona in AGENT_PERSONAS.items():
             p = persona.lower()
@@ -466,7 +466,7 @@ class TestRegistryIntegrity:
     """O registry completo deve estar íntegro após as mudanças."""
 
     def test_all_commands_use_doma_mode(self):
-        from commands.parser import COMMAND_REGISTRY
+        from data_agents.commands.parser import COMMAND_REGISTRY
         import dataclasses
 
         for name, definition in COMMAND_REGISTRY.items():
@@ -475,7 +475,7 @@ class TestRegistryIntegrity:
             assert "bmad_mode" not in fields, f"Comando '/{name}' ainda tem campo 'bmad_mode'"
 
     def test_all_express_commands_have_doma_express_in_prompt(self):
-        from commands.parser import COMMAND_REGISTRY
+        from data_agents.commands.parser import COMMAND_REGISTRY
 
         express_commands = [
             name for name, d in COMMAND_REGISTRY.items() if d.doma_mode == "express"
@@ -487,18 +487,18 @@ class TestRegistryIntegrity:
             ), f"Comando '/{name}' (express) deve ter 'DOMA' no prompt_template"
 
     def test_brief_command_has_doma_intake_in_prompt(self):
-        from commands.parser import COMMAND_REGISTRY
+        from data_agents.commands.parser import COMMAND_REGISTRY
 
         assert "DOMA INTAKE" in COMMAND_REGISTRY["brief"].prompt_template
 
     def test_plan_command_has_doma_passo_1_in_prompt(self):
-        from commands.parser import COMMAND_REGISTRY
+        from data_agents.commands.parser import COMMAND_REGISTRY
 
         assert "DOMA Passo 1" in COMMAND_REGISTRY["plan"].prompt_template
 
     def test_total_commands_count(self):
         """Verifica que o /party foi adicionado sem remover nenhum command existente."""
-        from commands.parser import COMMAND_REGISTRY
+        from data_agents.commands.parser import COMMAND_REGISTRY
 
         # Os 13 originais + /party = 14
         expected_minimum = 14
@@ -547,28 +547,28 @@ class TestPartyModuleImport:
 
     def test_party_module_imports_without_error(self):
         try:
-            import commands.party as party_module  # noqa: F401
+            import data_agents.commands.party as party_module  # noqa: F401
         except ImportError as e:
             pytest.fail(f"commands/party.py falhou ao importar: {e}")
 
     def test_party_module_exports_run_party_query(self):
-        from commands.party import run_party_query
+        from data_agents.commands.party import run_party_query
 
         assert callable(run_party_query)
 
     def test_party_module_exports_parse_party_args(self):
-        from commands.party import parse_party_args
+        from data_agents.commands.party import parse_party_args
 
         assert callable(parse_party_args)
 
     def test_party_module_exports_party_groups(self):
-        from commands.party import PARTY_GROUPS
+        from data_agents.commands.party import PARTY_GROUPS
 
         assert isinstance(PARTY_GROUPS, dict)
         assert len(PARTY_GROUPS) > 0
 
     def test_party_module_exports_agent_personas(self):
-        from commands.party import AGENT_PERSONAS
+        from data_agents.commands.party import AGENT_PERSONAS
 
         assert isinstance(AGENT_PERSONAS, dict)
         assert len(AGENT_PERSONAS) > 0
@@ -581,27 +581,27 @@ class TestPartyModeQueryExtraction:
     """Query extraída pelo parse_party_args deve ser precisa em cada modo."""
 
     def test_default_preserves_full_query(self):
-        from commands.party import parse_party_args
+        from data_agents.commands.party import parse_party_args
 
         _, query = parse_party_args("/party explique Delta Lake em detalhes")
         assert query == "explique Delta Lake em detalhes"
 
     def test_quality_flag_removes_flag_from_query(self):
-        from commands.party import parse_party_args
+        from data_agents.commands.party import parse_party_args
 
         _, query = parse_party_args("/party --quality valide os dados de vendas")
         assert "--quality" not in query
         assert "valide os dados de vendas" == query
 
     def test_arch_flag_removes_flag_from_query(self):
-        from commands.party import parse_party_args
+        from data_agents.commands.party import parse_party_args
 
         _, query = parse_party_args("/party --arch pipeline cross-platform")
         assert "--arch" not in query
         assert "pipeline cross-platform" == query
 
     def test_explicit_agents_removes_agent_names_from_query(self):
-        from commands.party import parse_party_args
+        from data_agents.commands.party import parse_party_args
 
         _, query = parse_party_args(
             "/party databricks-engineer como otimizar queries no Databricks?"
@@ -610,7 +610,7 @@ class TestPartyModeQueryExtraction:
         assert "como otimizar queries no Databricks?" == query
 
     def test_multi_word_query_preserved(self):
-        from commands.party import parse_party_args
+        from data_agents.commands.party import parse_party_args
 
         long_query = "qual é a melhor estratégia de particionamento para tabelas Delta com bilhões de registros?"
         _, query = parse_party_args(f"/party {long_query}")
@@ -624,8 +624,8 @@ class TestPartyModeAgentTiers:
     """Agentes do Party Mode devem existir no registry e ter tier correto."""
 
     def test_party_agents_exist_in_registry(self):
-        from commands.party import PARTY_GROUPS
-        from agents.loader import load_all_agents
+        from data_agents.commands.party import PARTY_GROUPS
+        from data_agents.agents.loader import load_all_agents
 
         agents = load_all_agents()
         all_party_agents = set()
@@ -639,8 +639,8 @@ class TestPartyModeAgentTiers:
 
     def test_party_default_agents_have_valid_prompts(self):
         """Agentes do grupo default devem ter prompts completos no registry."""
-        from commands.party import PARTY_GROUPS
-        from agents.loader import load_all_agents
+        from data_agents.commands.party import PARTY_GROUPS
+        from data_agents.agents.loader import load_all_agents
 
         agents = load_all_agents()
         for agent_name in PARTY_GROUPS["default"]:
@@ -651,8 +651,8 @@ class TestPartyModeAgentTiers:
 
     def test_party_quality_agents_are_tier_2(self):
         """Agentes do grupo quality devem ser T2 no registry."""
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
-        from commands.party import PARTY_GROUPS
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.commands.party import PARTY_GROUPS
 
         for agent_name in PARTY_GROUPS["quality"]:
             path = AGENTS_REGISTRY_DIR / f"{agent_name}.md"
@@ -667,7 +667,7 @@ class TestPartyModeAgentTiers:
 
     def test_party_default_core_agents_are_tier_1(self):
         """databricks-engineer, databricks-ai e fabric-engineer devem ser T1."""
-        from agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
 
         tier1_in_default = ["databricks-engineer", "databricks-ai", "fabric-engineer"]
         for agent_name in tier1_in_default:

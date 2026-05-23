@@ -15,14 +15,14 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_servers.databricks_genie.server import (
+from data_agents.mcp_servers.databricks_genie.server import (
     _error_response,
     _get_credentials,
     _get_spaces_registry,
     _resolve_friendly_name,
     _resolve_space_id,
 )
-from mcp_servers.databricks_genie.server_config import (
+from data_agents.mcp_servers.databricks_genie.server_config import (
     DATABRICKS_GENIE_MCP_READONLY_TOOLS,
     DATABRICKS_GENIE_MCP_TOOLS,
     get_databricks_genie_mcp_config,

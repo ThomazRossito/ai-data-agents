@@ -10,7 +10,7 @@ Cobre:
 import pytest
 from unittest.mock import MagicMock
 
-from config.snapshot import ConfigSnapshot, freeze, detect_drift
+from data_agents.config.snapshot import ConfigSnapshot, freeze, detect_drift
 
 
 def _make_settings(**overrides):

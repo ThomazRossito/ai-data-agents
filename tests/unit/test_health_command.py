@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from commands.health import (
+from data_agents.commands.health import (
     _build_platform_rows,
     _check_url,
     _tcp_reachable,
@@ -39,24 +39,24 @@ class TestCheckUrl:
         assert "URL" in detail
 
     def test_reachable_url(self):
-        with patch("commands.health._tcp_reachable", return_value=True):
+        with patch("data_agents.commands.health._tcp_reachable", return_value=True):
             ok, detail = _check_url("https://example.com")
         assert ok is True
         assert "TCP OK" in detail
 
     def test_unreachable_url(self):
-        with patch("commands.health._tcp_reachable", return_value=False):
+        with patch("data_agents.commands.health._tcp_reachable", return_value=False):
             ok, detail = _check_url("https://unreachable.invalid")
         assert ok is False
         assert "timeout" in detail.lower() or "recusada" in detail.lower()
 
     def test_http_defaults_to_port_80(self):
-        with patch("commands.health._tcp_reachable", return_value=True) as mock_tcp:
+        with patch("data_agents.commands.health._tcp_reachable", return_value=True) as mock_tcp:
             _check_url("http://example.com")
         mock_tcp.assert_called_once_with("example.com", 80, 3.0)
 
     def test_https_defaults_to_port_443(self):
-        with patch("commands.health._tcp_reachable", return_value=True) as mock_tcp:
+        with patch("data_agents.commands.health._tcp_reachable", return_value=True) as mock_tcp:
             _check_url("https://example.com")
         mock_tcp.assert_called_once_with("example.com", 443, 3.0)
 
@@ -86,9 +86,9 @@ class TestBuildPlatformRows:
             creds, databricks_host="https://adb.azuredatabricks.net"
         )
         with (
-            patch("config.settings.settings", mock_settings),
-            patch("config.mcp_servers.ALWAYS_ACTIVE_MCPS", []),
-            patch("commands.health._check_url", return_value=(True, "TCP OK")),
+            patch("data_agents.config.settings.settings", mock_settings),
+            patch("data_agents.config.mcp_servers.ALWAYS_ACTIVE_MCPS", []),
+            patch("data_agents.commands.health._check_url", return_value=(True, "TCP OK")),
         ):
             rows, ok, warn, err = _build_platform_rows()
 
@@ -99,8 +99,8 @@ class TestBuildPlatformRows:
         creds = {"databricks": {"ready": False, "missing": ["DATABRICKS_TOKEN"]}}
         mock_settings = _make_mock_settings(creds)
         with (
-            patch("config.settings.settings", mock_settings),
-            patch("config.mcp_servers.ALWAYS_ACTIVE_MCPS", []),
+            patch("data_agents.config.settings.settings", mock_settings),
+            patch("data_agents.config.mcp_servers.ALWAYS_ACTIVE_MCPS", []),
         ):
             rows, ok, warn, err = _build_platform_rows()
 
@@ -116,9 +116,9 @@ class TestBuildPlatformRows:
             creds, databricks_host="https://adb.azuredatabricks.net"
         )
         with (
-            patch("config.settings.settings", mock_settings),
-            patch("config.mcp_servers.ALWAYS_ACTIVE_MCPS", []),
-            patch("commands.health._check_url", return_value=(True, "TCP OK")),
+            patch("data_agents.config.settings.settings", mock_settings),
+            patch("data_agents.config.mcp_servers.ALWAYS_ACTIVE_MCPS", []),
+            patch("data_agents.commands.health._check_url", return_value=(True, "TCP OK")),
         ):
             rows, ok, warn, err = _build_platform_rows()
 
@@ -133,9 +133,9 @@ class TestBuildPlatformRows:
             creds, databricks_host="https://adb.azuredatabricks.net"
         )
         with (
-            patch("config.settings.settings", mock_settings),
-            patch("config.mcp_servers.ALWAYS_ACTIVE_MCPS", []),
-            patch("commands.health._check_url", return_value=(False, "Conexão recusada / timeout")),
+            patch("data_agents.config.settings.settings", mock_settings),
+            patch("data_agents.config.mcp_servers.ALWAYS_ACTIVE_MCPS", []),
+            patch("data_agents.commands.health._check_url", return_value=(False, "Conexão recusada / timeout")),
         ):
             rows, ok, warn, err = _build_platform_rows()
 
@@ -147,8 +147,8 @@ class TestBuildPlatformRows:
         creds = {"context7": {"ready": False, "missing": []}}
         mock_settings = _make_mock_settings(creds)
         with (
-            patch("config.settings.settings", mock_settings),
-            patch("config.mcp_servers.ALWAYS_ACTIVE_MCPS", ["context7"]),
+            patch("data_agents.config.settings.settings", mock_settings),
+            patch("data_agents.config.mcp_servers.ALWAYS_ACTIVE_MCPS", ["context7"]),
         ):
             rows, ok, warn, err = _build_platform_rows()
 
@@ -170,14 +170,14 @@ class TestHandleHealthCommand:
                 "missing": [],
             }
         ]
-        with patch("commands.health._build_platform_rows", return_value=(fake_rows, 1, 0, 0)):
+        with patch("data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 1, 0, 0)):
             console = MagicMock()
             handle_health_command(console)
 
         assert console.print.called
 
     def test_handles_empty_rows(self):
-        with patch("commands.health._build_platform_rows", return_value=([], 0, 0, 0)):
+        with patch("data_agents.commands.health._build_platform_rows", return_value=([], 0, 0, 0)):
             console = MagicMock()
             handle_health_command(console)
 
@@ -198,7 +198,7 @@ class TestHandleHealthCommandChainlit:
                 "missing": [],
             }
         ]
-        with patch("commands.health._build_platform_rows", return_value=(fake_rows, 1, 0, 0)):
+        with patch("data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 1, 0, 0)):
             result = handle_health_command_chainlit()
 
         assert isinstance(result, str)
@@ -222,7 +222,7 @@ class TestHandleHealthCommandChainlit:
                 "missing": ["FABRIC_SQL_ENDPOINT"],
             },
         ]
-        with patch("commands.health._build_platform_rows", return_value=(fake_rows, 1, 0, 1)):
+        with patch("data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 1, 0, 1)):
             result = handle_health_command_chainlit()
 
         assert "1 OK" in result
@@ -238,7 +238,7 @@ class TestHandleHealthCommandChainlit:
                 "missing": ["AZURE_TENANT_ID"],
             }
         ]
-        with patch("commands.health._build_platform_rows", return_value=(fake_rows, 0, 0, 1)):
+        with patch("data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 0, 0, 1)):
             result = handle_health_command_chainlit()
 
         assert "❌" in result
@@ -253,13 +253,13 @@ class TestHandleHealthCommandChainlit:
                 "missing": [],
             }
         ]
-        with patch("commands.health._build_platform_rows", return_value=(fake_rows, 0, 1, 0)):
+        with patch("data_agents.commands.health._build_platform_rows", return_value=(fake_rows, 0, 1, 0)):
             result = handle_health_command_chainlit()
 
         assert "⚠️" in result
 
     def test_empty_rows_returns_valid_markdown(self):
-        with patch("commands.health._build_platform_rows", return_value=([], 0, 0, 0)):
+        with patch("data_agents.commands.health._build_platform_rows", return_value=([], 0, 0, 0)):
             result = handle_health_command_chainlit()
 
         assert isinstance(result, str)

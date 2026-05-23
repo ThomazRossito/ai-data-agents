@@ -17,13 +17,13 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_servers.fabric_sql.server import (
+from data_agents.mcp_servers.fabric_sql.server import (
     _error_response,
     _get_registry,
     _resolve_connection_params,
     _serialize_row,
 )
-from mcp_servers.fabric_sql.server_config import (
+from data_agents.mcp_servers.fabric_sql.server_config import (
     FABRIC_SQL_MCP_TOOLS,
     get_fabric_sql_mcp_config,
 )

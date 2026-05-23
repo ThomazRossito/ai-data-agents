@@ -16,7 +16,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 
-from mcp_servers.fabric_semantic.server import (
+from data_agents.mcp_servers.fabric_semantic.server import (
     _build_measure_tmdl_block,
     _inject_measures_into_tmdl,
     _parse_tmdl_text_table,
@@ -291,8 +291,8 @@ class TestFabricSemanticUpdateDefinition:
         return resp
 
     @patch.dict("os.environ", ENV)
-    @patch("mcp_servers.fabric_semantic.server._get_token")
-    @patch("mcp_servers.fabric_semantic.server.requests")
+    @patch("data_agents.mcp_servers.fabric_semantic.server._get_token")
+    @patch("data_agents.mcp_servers.fabric_semantic.server.requests")
     def test_insert_new_measure_success(self, mock_requests, mock_token):
         mock_token.return_value = "fake-token"
         parts = _make_parts(SAMPLE_TMDL_TABLE)
@@ -316,8 +316,8 @@ class TestFabricSemanticUpdateDefinition:
         assert result["measures_updated"] == []
 
     @patch.dict("os.environ", ENV)
-    @patch("mcp_servers.fabric_semantic.server._get_token")
-    @patch("mcp_servers.fabric_semantic.server.requests")
+    @patch("data_agents.mcp_servers.fabric_semantic.server._get_token")
+    @patch("data_agents.mcp_servers.fabric_semantic.server.requests")
     def test_update_existing_measure_success(self, mock_requests, mock_token):
         mock_token.return_value = "fake-token"
         parts = _make_parts(SAMPLE_TMDL_TABLE)
@@ -341,8 +341,8 @@ class TestFabricSemanticUpdateDefinition:
         assert result["measures_inserted"] == []
 
     @patch.dict("os.environ", ENV)
-    @patch("mcp_servers.fabric_semantic.server._get_token")
-    @patch("mcp_servers.fabric_semantic.server.requests")
+    @patch("data_agents.mcp_servers.fabric_semantic.server._get_token")
+    @patch("data_agents.mcp_servers.fabric_semantic.server.requests")
     def test_dax_syntax_error_blocks_publish(self, mock_requests, mock_token):
         """Validação DAX falha → updateDefinition NÃO deve ser chamado."""
         mock_token.return_value = "fake-token"
@@ -368,8 +368,8 @@ class TestFabricSemanticUpdateDefinition:
         assert mock_requests.post.call_count == 2
 
     @patch.dict("os.environ", ENV)
-    @patch("mcp_servers.fabric_semantic.server._get_token")
-    @patch("mcp_servers.fabric_semantic.server.requests")
+    @patch("data_agents.mcp_servers.fabric_semantic.server._get_token")
+    @patch("data_agents.mcp_servers.fabric_semantic.server.requests")
     def test_table_not_found_returns_error(self, mock_requests, mock_token):
         mock_token.return_value = "fake-token"
         parts = _make_parts(SAMPLE_TMDL_TABLE)
@@ -388,8 +388,8 @@ class TestFabricSemanticUpdateDefinition:
         assert "tabela_inexistente" in result["error"]
 
     @patch.dict("os.environ", ENV)
-    @patch("mcp_servers.fabric_semantic.server._get_token")
-    @patch("mcp_servers.fabric_semantic.server.requests")
+    @patch("data_agents.mcp_servers.fabric_semantic.server._get_token")
+    @patch("data_agents.mcp_servers.fabric_semantic.server.requests")
     def test_get_definition_http_error_returns_error(self, mock_requests, mock_token):
         mock_token.return_value = "fake-token"
         err_resp = MagicMock()

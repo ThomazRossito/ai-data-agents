@@ -5,9 +5,9 @@ import os
 import pytest
 from unittest.mock import patch
 
-from hooks.security_hook import block_destructive_commands, check_sql_cost, _detect_expensive_sql
-from hooks.audit_hook import audit_tool_usage, _classify_operation
-from hooks.cost_guard_hook import (
+from data_agents.hooks.security_hook import block_destructive_commands, check_sql_cost, _detect_expensive_sql
+from data_agents.hooks.audit_hook import audit_tool_usage, _classify_operation
+from data_agents.hooks.cost_guard_hook import (
     log_cost_generating_operations,
     get_session_cost_summary,
     reset_session_counters,
@@ -401,7 +401,7 @@ class TestAuditHookLogging:
     @pytest.mark.asyncio
     async def test_logs_tool_call_to_file(self, tmp_path):
         log_file = str(tmp_path / "audit.jsonl")
-        with patch("hooks.audit_hook.settings") as mock_settings:
+        with patch("data_agents.hooks.audit_hook.settings") as mock_settings:
             mock_settings.audit_log_path = log_file
             result = await audit_tool_usage(
                 {
@@ -427,7 +427,7 @@ class TestAuditHookLogging:
     @pytest.mark.asyncio
     async def test_handles_unknown_tool_name(self, tmp_path):
         log_file = str(tmp_path / "audit.jsonl")
-        with patch("hooks.audit_hook.settings") as mock_settings:
+        with patch("data_agents.hooks.audit_hook.settings") as mock_settings:
             mock_settings.audit_log_path = log_file
             result = await audit_tool_usage(
                 {"tool_name": "", "tool_input": {}},
@@ -438,7 +438,7 @@ class TestAuditHookLogging:
 
     @pytest.mark.asyncio
     async def test_fallback_on_io_error(self, caplog):
-        with patch("hooks.audit_hook.settings") as mock_settings:
+        with patch("data_agents.hooks.audit_hook.settings") as mock_settings:
             mock_settings.audit_log_path = "/nonexistent_dir/audit.jsonl"
             result = await audit_tool_usage(
                 {"tool_name": "Bash", "tool_input": {"command": "ls"}},
@@ -527,7 +527,7 @@ class TestResetSessionCounters:
 
     def test_reset_clears_counters(self):
         """reset_session_counters deve limpar todos os contadores."""
-        from hooks.cost_guard_hook import _session_counters, reset_session_counters
+        from data_agents.hooks.cost_guard_hook import _session_counters, reset_session_counters
 
         # Simula contadores acumulados
         _session_counters["mcp__databricks__execute_sql"] = 10
@@ -539,7 +539,7 @@ class TestResetSessionCounters:
 
     def test_reset_is_idempotent(self):
         """Chamar reset_session_counters em contadores já vazios não deve falhar."""
-        from hooks.cost_guard_hook import _session_counters, reset_session_counters
+        from data_agents.hooks.cost_guard_hook import _session_counters, reset_session_counters
 
         _session_counters.clear()
         reset_session_counters()  # Não deve levantar exceção

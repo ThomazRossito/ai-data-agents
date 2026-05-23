@@ -20,7 +20,7 @@ from unittest.mock import patch
 
 def _patch_sessions_dir(tmp_path: Path):
     """Context helper: redireciona SESSIONS_DIR para tmp_path."""
-    return patch("hooks.transcript_hook.SESSIONS_DIR", tmp_path / "sessions")
+    return patch("data_agents.hooks.transcript_hook.SESSIONS_DIR", tmp_path / "sessions")
 
 
 # ---------------------------------------------------------------------------
@@ -33,14 +33,14 @@ class TestAppendTurn:
 
     def test_creates_file_on_first_append(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import append_turn, get_transcript_path
+            from data_agents.hooks.transcript_hook import append_turn, get_transcript_path
 
             append_turn("sess-1", "user", "oi")
             assert get_transcript_path("sess-1").exists()
 
     def test_entry_has_mandatory_fields(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import append_turn, get_transcript_path
+            from data_agents.hooks.transcript_hook import append_turn, get_transcript_path
 
             append_turn("sess-2", "user", "consulta X")
             line = get_transcript_path("sess-2").read_text(encoding="utf-8").strip()
@@ -53,7 +53,7 @@ class TestAppendTurn:
 
     def test_optional_fields_persisted(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import append_turn, get_transcript_path
+            from data_agents.hooks.transcript_hook import append_turn, get_transcript_path
 
             append_turn(
                 "sess-3",
@@ -76,7 +76,7 @@ class TestAppendTurn:
 
     def test_optional_fields_omitted_when_none(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import append_turn, get_transcript_path
+            from data_agents.hooks.transcript_hook import append_turn, get_transcript_path
 
             append_turn("sess-4", "user", "algo")
             entry = json.loads(get_transcript_path("sess-4").read_text(encoding="utf-8").strip())
@@ -87,7 +87,7 @@ class TestAppendTurn:
 
     def test_appends_multiple_entries(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import append_turn, get_transcript_path
+            from data_agents.hooks.transcript_hook import append_turn, get_transcript_path
 
             append_turn("sess-5", "user", "pergunta 1")
             append_turn("sess-5", "assistant", "resposta 1")
@@ -101,14 +101,14 @@ class TestAppendTurn:
 
     def test_skips_when_session_id_empty(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import append_turn
+            from data_agents.hooks.transcript_hook import append_turn
 
             append_turn("", "user", "oi")
         assert not (tmp_path / "sessions").exists()
 
     def test_skips_when_role_empty(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import append_turn, get_transcript_path
+            from data_agents.hooks.transcript_hook import append_turn, get_transcript_path
 
             append_turn("sess-6", "", "oi")
         assert not get_transcript_path("sess-6").exists()
@@ -117,7 +117,7 @@ class TestAppendTurn:
         with _patch_sessions_dir(tmp_path):
             with patch("builtins.open", side_effect=OSError("disk full")):
                 with patch("os.makedirs"):
-                    from hooks.transcript_hook import append_turn
+                    from data_agents.hooks.transcript_hook import append_turn
 
                     # Não deve lançar exceção
                     append_turn("sess-7", "user", "x")
@@ -133,13 +133,13 @@ class TestLoadTranscript:
 
     def test_returns_empty_when_no_file(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import load_transcript
+            from data_agents.hooks.transcript_hook import load_transcript
 
             assert load_transcript("ghost") == []
 
     def test_returns_entries_in_order(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import append_turn, load_transcript
+            from data_agents.hooks.transcript_hook import append_turn, load_transcript
 
             append_turn("sess-8", "user", "A")
             append_turn("sess-8", "assistant", "B")
@@ -161,7 +161,7 @@ class TestLoadTranscript:
             encoding="utf-8",
         )
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import load_transcript
+            from data_agents.hooks.transcript_hook import load_transcript
 
             entries = load_transcript("sess-9")
         assert len(entries) == 2
@@ -172,7 +172,7 @@ class TestLoadTranscript:
         (sessions_dir / "sess-10.jsonl").write_text("{}\n", encoding="utf-8")
         with _patch_sessions_dir(tmp_path):
             with patch("builtins.open", side_effect=OSError("boom")):
-                from hooks.transcript_hook import load_transcript
+                from data_agents.hooks.transcript_hook import load_transcript
 
                 assert load_transcript("sess-10") == []
 
@@ -187,13 +187,13 @@ class TestListTranscripts:
 
     def test_returns_empty_when_dir_missing(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import list_transcripts
+            from data_agents.hooks.transcript_hook import list_transcripts
 
             assert list_transcripts() == []
 
     def test_aggregates_per_session(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import append_turn, list_transcripts
+            from data_agents.hooks.transcript_hook import append_turn, list_transcripts
 
             append_turn("sess-A", "user", "primeiro prompt")
             append_turn("sess-A", "assistant", "resposta", cost_usd=0.1)
@@ -234,7 +234,7 @@ class TestListTranscripts:
             encoding="utf-8",
         )
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import list_transcripts
+            from data_agents.hooks.transcript_hook import list_transcripts
 
             result = list_transcripts()
 
@@ -246,7 +246,7 @@ class TestListTranscripts:
         sessions_dir.mkdir()
         (sessions_dir / "empty.jsonl").write_text("", encoding="utf-8")
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import list_transcripts
+            from data_agents.hooks.transcript_hook import list_transcripts
 
             assert list_transcripts() == []
 
@@ -261,13 +261,13 @@ class TestBuildResumePromptFromTranscript:
 
     def test_returns_none_when_no_transcript(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import build_resume_prompt_from_transcript
+            from data_agents.hooks.transcript_hook import build_resume_prompt_from_transcript
 
             assert build_resume_prompt_from_transcript("ghost") is None
 
     def test_prompt_contains_user_and_assistant_turns(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import (
+            from data_agents.hooks.transcript_hook import (
                 append_turn,
                 build_resume_prompt_from_transcript,
             )
@@ -284,7 +284,7 @@ class TestBuildResumePromptFromTranscript:
 
     def test_limits_to_max_turns(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import (
+            from data_agents.hooks.transcript_hook import (
                 append_turn,
                 build_resume_prompt_from_transcript,
             )
@@ -301,7 +301,7 @@ class TestBuildResumePromptFromTranscript:
 
     def test_truncates_content_per_turn(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import (
+            from data_agents.hooks.transcript_hook import (
                 append_turn,
                 build_resume_prompt_from_transcript,
             )
@@ -316,7 +316,7 @@ class TestBuildResumePromptFromTranscript:
 
     def test_includes_tools_used_line(self, tmp_path):
         with _patch_sessions_dir(tmp_path):
-            from hooks.transcript_hook import (
+            from data_agents.hooks.transcript_hook import (
                 append_turn,
                 build_resume_prompt_from_transcript,
             )

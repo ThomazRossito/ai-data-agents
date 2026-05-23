@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from agents.loader import (
+from data_agents.agents.loader import (
     SKILLS_BASE_DIR,
     _load_skills_index,
     _parse_frontmatter,

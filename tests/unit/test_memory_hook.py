@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from hooks.memory_hook import (
+from data_agents.hooks.memory_hook import (
     _check_instant_patterns,
     _format_context_entry,
     capture_session_context,
@@ -277,7 +277,7 @@ class TestFlushSessionMemories:
     @pytest.mark.asyncio
     async def test_flush_calls_extractor_and_saves(self):
         """Com buffer preenchido, deve chamar extractor e salvar memórias."""
-        from memory.types import Memory, MemoryType
+        from data_agents.memory.types import Memory, MemoryType
 
         fake_memory = Memory(
             type=MemoryType.USER,
@@ -292,7 +292,7 @@ class TestFlushSessionMemories:
         )
 
         with (
-            patch("memory.store.MemoryStore") as mock_store_cls,
+            patch("data_agents.memory.store.MemoryStore") as mock_store_cls,
             patch(
                 "memory.extractor.extract_memories_from_conversation",
                 return_value=[fake_memory],
@@ -313,7 +313,7 @@ class TestFlushSessionMemories:
         await capture_session_context(_input("Write", {"file_path": "x.py"}, "ok"), None, None)
 
         with (
-            patch("memory.store.MemoryStore") as mock_store_cls,
+            patch("data_agents.memory.store.MemoryStore") as mock_store_cls,
             patch(
                 "memory.extractor.extract_memories_from_conversation",
                 return_value=[],
@@ -333,7 +333,7 @@ class TestFlushSessionMemories:
         await capture_session_context(_input("Write", {"file_path": "y.py"}, "content"), None, None)
 
         with (
-            patch("memory.store.MemoryStore") as mock_store_cls,
+            patch("data_agents.memory.store.MemoryStore") as mock_store_cls,
             patch(
                 "memory.extractor.extract_memories_from_conversation",
                 return_value=[],
@@ -352,7 +352,7 @@ class TestFlushSessionMemories:
         await capture_session_context(_input("Write", {"file_path": "z.py"}, "info"), None, None)
 
         with (
-            patch("memory.store.MemoryStore") as mock_store_cls,
+            patch("data_agents.memory.store.MemoryStore") as mock_store_cls,
             patch(
                 "memory.extractor.extract_memories_from_conversation",
                 return_value=[],

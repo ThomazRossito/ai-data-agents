@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from evals.runner import (
+from data_agents.evals.runner import (
     DEFAULT_QUERIES_PATH,
     EvalResult,
     Query,
@@ -175,13 +175,13 @@ class TestFilterQueries:
 
 class TestLoadLatestRun:
     def test_returns_none_when_no_logs_dir(self, tmp_path: Path, monkeypatch):
-        import evals.runner as runner_mod
+        import data_agents.evals.runner as runner_mod
 
         monkeypatch.setattr(runner_mod, "REPO_ROOT", tmp_path)
         assert load_latest_run() is None
 
     def test_returns_none_when_no_jsonl_files(self, tmp_path: Path, monkeypatch):
-        import evals.runner as runner_mod
+        import data_agents.evals.runner as runner_mod
 
         (tmp_path / "logs" / "evals").mkdir(parents=True)
         monkeypatch.setattr(runner_mod, "REPO_ROOT", tmp_path)
@@ -189,7 +189,7 @@ class TestLoadLatestRun:
 
     def test_loads_scores_from_latest_file(self, tmp_path: Path, monkeypatch):
         import json
-        import evals.runner as runner_mod
+        import data_agents.evals.runner as runner_mod
 
         evals_dir = tmp_path / "logs" / "evals"
         evals_dir.mkdir(parents=True)
@@ -205,7 +205,7 @@ class TestLoadLatestRun:
 
     def test_picks_most_recent_file(self, tmp_path: Path, monkeypatch):
         import json
-        import evals.runner as runner_mod
+        import data_agents.evals.runner as runner_mod
 
         evals_dir = tmp_path / "logs" / "evals"
         evals_dir.mkdir(parents=True)

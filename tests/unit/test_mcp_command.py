@@ -34,7 +34,7 @@ def mock_settings():
 
 class TestHandleMcpCommandChainlit:
     def test_returns_markdown_string(self, mock_settings):
-        from commands.mcp import handle_mcp_command_chainlit
+        from data_agents.commands.mcp import handle_mcp_command_chainlit
 
         result = handle_mcp_command_chainlit("/mcp")
         assert isinstance(result, str)
@@ -42,40 +42,40 @@ class TestHandleMcpCommandChainlit:
         assert "|" in result  # é uma tabela Markdown
 
     def test_active_mcps_shown_as_green(self, mock_settings):
-        from commands.mcp import handle_mcp_command_chainlit
+        from data_agents.commands.mcp import handle_mcp_command_chainlit
 
         result = handle_mcp_command_chainlit("/mcp")
         assert "🟢 ATIVO" in result
 
     def test_inactive_mcps_show_missing_keys(self, mock_settings):
-        from commands.mcp import handle_mcp_command_chainlit
+        from data_agents.commands.mcp import handle_mcp_command_chainlit
 
         result = handle_mcp_command_chainlit("/mcp")
         assert "🔴 INATIVO" in result
         assert "TAVILY_API_KEY" in result
 
     def test_always_active_mcps_no_credential_message(self, mock_settings):
-        from commands.mcp import handle_mcp_command_chainlit
+        from data_agents.commands.mcp import handle_mcp_command_chainlit
 
         result = handle_mcp_command_chainlit("/mcp")
         assert "Sem credenciais" in result
 
     def test_filter_by_name(self, mock_settings):
-        from commands.mcp import handle_mcp_command_chainlit
+        from data_agents.commands.mcp import handle_mcp_command_chainlit
 
         result = handle_mcp_command_chainlit("/mcp tavily")
         assert "tavily" in result
         assert "databricks" not in result
 
     def test_filter_no_match_returns_header_only(self, mock_settings):
-        from commands.mcp import handle_mcp_command_chainlit
+        from data_agents.commands.mcp import handle_mcp_command_chainlit
 
         result = handle_mcp_command_chainlit("/mcp nonexistent_xyz")
         assert "Status dos MCP Servers" in result
         assert "databricks" not in result
 
     def test_anthropic_entry_excluded(self, mock_settings):
-        from commands.mcp import handle_mcp_command_chainlit
+        from data_agents.commands.mcp import handle_mcp_command_chainlit
 
         result = handle_mcp_command_chainlit("/mcp")
         # anthropic não deve aparecer na tabela de MCPs
@@ -83,7 +83,7 @@ class TestHandleMcpCommandChainlit:
         assert len(lines) == 0
 
     def test_summary_line_with_counts(self, mock_settings):
-        from commands.mcp import handle_mcp_command_chainlit
+        from data_agents.commands.mcp import handle_mcp_command_chainlit
 
         result = handle_mcp_command_chainlit("/mcp")
         # Deve conter contagens de ativos e inativos
@@ -96,14 +96,14 @@ class TestHandleMcpCommandChainlit:
 
 class TestHandleMcpCommandCli:
     def test_prints_table_to_console(self, mock_settings):
-        from commands.mcp import handle_mcp_command
+        from data_agents.commands.mcp import handle_mcp_command
 
         console = MagicMock()
         handle_mcp_command("/mcp", console)
         assert console.print.called
 
     def test_filter_restricts_output(self, mock_settings):
-        from commands.mcp import handle_mcp_command
+        from data_agents.commands.mcp import handle_mcp_command
 
         console = MagicMock()
         handle_mcp_command("/mcp context7", console)
@@ -111,7 +111,7 @@ class TestHandleMcpCommandCli:
         assert console.print.called
 
     def test_no_summary_line_when_filter_active(self, mock_settings):
-        from commands.mcp import handle_mcp_command
+        from data_agents.commands.mcp import handle_mcp_command
 
         console = MagicMock()
         handle_mcp_command("/mcp context7", console)

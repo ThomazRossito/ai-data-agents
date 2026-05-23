@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from agents.mlflow_wrapper import ClaudeDataAgent
+from data_agents.agents.mlflow_wrapper import ClaudeDataAgent
 
 
 class TestClaudeDataAgent:
@@ -96,7 +96,7 @@ class TestClaudeDataAgent:
         """Verifica que exceção no asyncio.run é capturada e retornada como erro."""
         self.agent._ready = True
         self.agent._init_error = None
-        with patch("agents.mlflow_wrapper.asyncio.run", side_effect=RuntimeError("async fail")):
+        with patch("data_agents.agents.mlflow_wrapper.asyncio.run", side_effect=RuntimeError("async fail")):
             response = self.agent.predict(None, {"messages": [{"role": "user", "content": "test"}]})
         assert "error" in response
         assert "RuntimeError" in response["choices"][0]["message"]["content"]
@@ -148,7 +148,7 @@ class TestClaudeDataAgent:
             num_turns = 3
             duration_ms = 1500
 
-        with patch("agents.mlflow_wrapper.mlflow.active_run", return_value=None):
+        with patch("data_agents.agents.mlflow_wrapper.mlflow.active_run", return_value=None):
             # Não deve levantar exceção
             self.agent._log_result_metrics(FakeResult())
 
@@ -161,8 +161,8 @@ class TestClaudeDataAgent:
             duration_ms = 2000
 
         mock_run = MagicMock()
-        with patch("agents.mlflow_wrapper.mlflow.active_run", return_value=mock_run):
-            with patch("agents.mlflow_wrapper.mlflow.log_metrics") as mock_log:
+        with patch("data_agents.agents.mlflow_wrapper.mlflow.active_run", return_value=mock_run):
+            with patch("data_agents.agents.mlflow_wrapper.mlflow.log_metrics") as mock_log:
                 self.agent._log_result_metrics(FakeResult())
                 mock_log.assert_called_once()
                 logged = mock_log.call_args[0][0]
@@ -179,8 +179,8 @@ class TestClaudeDataAgent:
             duration_ms = None
 
         mock_run = MagicMock()
-        with patch("agents.mlflow_wrapper.mlflow.active_run", return_value=mock_run):
-            with patch("agents.mlflow_wrapper.mlflow.log_metrics") as mock_log:
+        with patch("data_agents.agents.mlflow_wrapper.mlflow.active_run", return_value=mock_run):
+            with patch("data_agents.agents.mlflow_wrapper.mlflow.log_metrics") as mock_log:
                 self.agent._log_result_metrics(FakeResult())
                 mock_log.assert_not_called()
 
@@ -193,8 +193,8 @@ class TestClaudeDataAgent:
             duration_ms = 500
 
         mock_run = MagicMock()
-        with patch("agents.mlflow_wrapper.mlflow.active_run", return_value=mock_run):
-            with patch("agents.mlflow_wrapper.mlflow.log_metrics") as mock_log:
+        with patch("data_agents.agents.mlflow_wrapper.mlflow.active_run", return_value=mock_run):
+            with patch("data_agents.agents.mlflow_wrapper.mlflow.log_metrics") as mock_log:
                 self.agent._log_result_metrics(FakeResult())
                 logged = mock_log.call_args[0][0]
                 assert "agent.cost_usd" in logged
@@ -209,6 +209,6 @@ class TestClaudeDataAgent:
             num_turns = 3
             duration_ms = 1500
 
-        with patch("agents.mlflow_wrapper.mlflow.active_run", side_effect=Exception("mlflow down")):
+        with patch("data_agents.agents.mlflow_wrapper.mlflow.active_run", side_effect=Exception("mlflow down")):
             # Deve ser silenciado — não lança exceção
             self.agent._log_result_metrics(FakeResult())

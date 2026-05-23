@@ -14,11 +14,11 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_servers.migration_source.server_config import (
+from data_agents.mcp_servers.migration_source.server_config import (
     MIGRATION_SOURCE_MCP_TOOLS,
     get_migration_source_mcp_config,
 )
-from mcp_servers.migration_source.server import _get_registry, _resolve_source_config
+from data_agents.mcp_servers.migration_source.server import _get_registry, _resolve_source_config
 
 
 # ─── Fixtures ────────────────────────────────────────────────────────────────
@@ -140,14 +140,14 @@ class TestMigrationSourceMcpConfig:
     """Testes para get_migration_source_mcp_config() e lista de tools."""
 
     def test_config_returns_migration_source_key(self):
-        from config.settings import Settings
+        from data_agents.config.settings import Settings
 
         s = Settings(
             migration_sources='{"TEST": {"type": "sqlserver", "host": "x", "port": 1433, "database": "db", "user": "u", "password": "p"}}',
             migration_default_source="TEST",
             migration_source_command="migration-source-mcp",
         )
-        with patch("config.settings.settings", s):
+        with patch("data_agents.config.settings.settings", s):
             config = get_migration_source_mcp_config()
         assert "migration_source" in config
         assert config["migration_source"]["type"] == "stdio"
@@ -191,7 +191,7 @@ class TestMigrationSourceSettings:
     """Testes para validação de migration_source no settings."""
 
     def test_migration_source_not_ready_without_sources(self):
-        from config.settings import Settings
+        from data_agents.config.settings import Settings
 
         s = Settings(migration_sources="{}", migration_default_source="")
         status = s.validate_platform_credentials()
@@ -200,7 +200,7 @@ class TestMigrationSourceSettings:
         assert "MIGRATION_SOURCES" in status["migration_source"]["missing"]
 
     def test_migration_source_ready_with_sources(self):
-        from config.settings import Settings
+        from data_agents.config.settings import Settings
 
         raw = json.dumps(SAMPLE_REGISTRY)
         s = Settings(migration_sources=raw, migration_default_source="ERP_PROD")
@@ -210,7 +210,7 @@ class TestMigrationSourceSettings:
 
     def test_migration_source_not_in_credential_free_mcps(self):
         """migration_source requer credenciais — não deve ser tratado como free MCP."""
-        from config.settings import Settings
+        from data_agents.config.settings import Settings
 
         s = Settings(migration_sources="{}")
         status = s.validate_platform_credentials()

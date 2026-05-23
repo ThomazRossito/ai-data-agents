@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from memory.ledger import Ledger
+from data_agents.memory.ledger import Ledger
 
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────

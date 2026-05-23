@@ -21,20 +21,20 @@ import pytest
 
 class TestShouldSummarize:
     def test_below_threshold(self):
-        from utils.summarizer import should_summarize
+        from data_agents.utils.summarizer import should_summarize
 
         assert should_summarize(0.5) is False
         assert should_summarize(0.79) is False
 
     def test_at_or_above_threshold(self):
-        from utils.summarizer import should_summarize
+        from data_agents.utils.summarizer import should_summarize
 
         assert should_summarize(0.80) is True
         assert should_summarize(0.90) is True
         assert should_summarize(1.0) is True
 
     def test_custom_threshold(self):
-        from utils.summarizer import should_summarize
+        from data_agents.utils.summarizer import should_summarize
 
         assert should_summarize(0.50, threshold=0.50) is True
         assert should_summarize(0.49, threshold=0.50) is False
@@ -47,12 +47,12 @@ class TestShouldSummarize:
 
 class TestFormatTranscript:
     def test_empty_returns_empty_string(self):
-        from utils.summarizer import _format_transcript
+        from data_agents.utils.summarizer import _format_transcript
 
         assert _format_transcript([], 10, 100) == ""
 
     def test_labels_user_and_assistant(self):
-        from utils.summarizer import _format_transcript
+        from data_agents.utils.summarizer import _format_transcript
 
         entries = [
             {"role": "user", "content": "pergunta"},
@@ -65,7 +65,7 @@ class TestFormatTranscript:
         assert "resposta" in out
 
     def test_truncates_per_turn(self):
-        from utils.summarizer import _format_transcript
+        from data_agents.utils.summarizer import _format_transcript
 
         entries = [{"role": "user", "content": "X" * 5000}]
         out = _format_transcript(entries, 10, 100)
@@ -73,7 +73,7 @@ class TestFormatTranscript:
         assert "X" * 200 not in out
 
     def test_keeps_only_tail(self):
-        from utils.summarizer import _format_transcript
+        from data_agents.utils.summarizer import _format_transcript
 
         entries = []
         for i in range(20):
@@ -93,13 +93,13 @@ class TestFormatTranscript:
 
 class TestEstimateCost:
     def test_zero_tokens(self):
-        from utils.summarizer import _estimate_cost_usd
+        from data_agents.utils.summarizer import _estimate_cost_usd
 
         assert _estimate_cost_usd(0, 0) == 0.0
 
     def test_kimi_k2_6_pricing(self):
         """Kimi K2.6 (Moonshot): $0.55/Mtok input + $2.65/Mtok output."""
-        from utils.summarizer import _estimate_cost_usd
+        from data_agents.utils.summarizer import _estimate_cost_usd
 
         # 1M input + 0 output = $0.55
         assert _estimate_cost_usd(1_000_000, 0) == 0.55
@@ -107,7 +107,7 @@ class TestEstimateCost:
         assert _estimate_cost_usd(0, 1_000_000) == 2.65
 
     def test_rounded_to_six_decimals(self):
-        from utils.summarizer import _estimate_cost_usd
+        from data_agents.utils.summarizer import _estimate_cost_usd
 
         result = _estimate_cost_usd(1234, 567)
         # Check it's a finite float rounded at 6 decimal places
@@ -133,24 +133,24 @@ def _make_fake_response(text: str, in_tok: int = 500, out_tok: int = 200):
 class TestSummarizeSession:
     @pytest.mark.asyncio
     async def test_empty_transcript_raises(self):
-        from utils.summarizer import summarize_session
+        from data_agents.utils.summarizer import summarize_session
 
         with pytest.raises(ValueError, match="Transcript vazio"):
             await summarize_session([])
 
     @pytest.mark.asyncio
     async def test_missing_api_key_raises(self):
-        from utils.summarizer import summarize_session
+        from data_agents.utils.summarizer import summarize_session
 
         mock_settings = MagicMock()
         mock_settings.anthropic_api_key = ""
-        with patch("config.settings.settings", mock_settings):
+        with patch("data_agents.config.settings.settings", mock_settings):
             with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
                 await summarize_session([{"role": "user", "content": "oi"}], api_key=None)
 
     @pytest.mark.asyncio
     async def test_happy_path_returns_summary_and_cost(self):
-        from utils.summarizer import summarize_session
+        from data_agents.utils.summarizer import summarize_session
 
         fake_client = MagicMock()
         fake_client.messages.create = AsyncMock(
@@ -175,7 +175,7 @@ class TestSummarizeSession:
 
     @pytest.mark.asyncio
     async def test_api_error_raises_runtime_error(self):
-        from utils.summarizer import summarize_session
+        from data_agents.utils.summarizer import summarize_session
 
         fake_client = MagicMock()
         fake_client.messages.create = AsyncMock(side_effect=Exception("rate limited"))
@@ -186,7 +186,7 @@ class TestSummarizeSession:
     @pytest.mark.asyncio
     async def test_system_prompt_contains_seven_fields(self):
         """Verifica que o prompt declara os 7 campos GAPS G3."""
-        from utils.summarizer import _SYSTEM_PROMPT
+        from data_agents.utils.summarizer import _SYSTEM_PROMPT
 
         for field in [
             "Objetivo",
@@ -201,7 +201,7 @@ class TestSummarizeSession:
 
     @pytest.mark.asyncio
     async def test_system_prompt_forbids_hallucination(self):
-        from utils.summarizer import _SYSTEM_PROMPT
+        from data_agents.utils.summarizer import _SYSTEM_PROMPT
 
         # Deve instruir explicitamente a não inventar
         assert "Nunca invente" in _SYSTEM_PROMPT or "nunca invente" in _SYSTEM_PROMPT

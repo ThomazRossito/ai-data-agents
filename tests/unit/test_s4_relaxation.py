@@ -19,21 +19,21 @@ from pathlib import Path
 
 
 def test_s4_autonomous_mode_default_off() -> None:
-    from config.settings import Settings
+    from data_agents.config.settings import Settings
 
     s = Settings(_env_file=None)  # type: ignore[call-arg]
     assert s.s4_autonomous_mode is False
 
 
 def test_s4_min_clarity_score_default() -> None:
-    from config.settings import Settings
+    from data_agents.config.settings import Settings
 
     s = Settings(_env_file=None)  # type: ignore[call-arg]
     assert s.s4_auto_approval_min_clarity_score == 4
 
 
 def test_s4_max_cost_default() -> None:
-    from config.settings import Settings
+    from data_agents.config.settings import Settings
 
     s = Settings(_env_file=None)  # type: ignore[call-arg]
     assert s.s4_auto_approval_max_cost_usd == 0.10
@@ -43,7 +43,7 @@ def test_s4_max_cost_default() -> None:
 
 
 def test_log_s4_decision_writes_event(tmp_path: Path, monkeypatch) -> None:
-    from workflow import tracker
+    from data_agents.workflow import tracker
 
     log_file = tmp_path / "workflows.jsonl"
     monkeypatch.setattr(tracker, "WORKFLOWS_LOG_PATH", log_file)
@@ -69,7 +69,7 @@ def test_log_s4_decision_writes_event(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_log_s4_decision_blocked_scenario(tmp_path: Path, monkeypatch) -> None:
-    from workflow import tracker
+    from data_agents.workflow import tracker
 
     log_file = tmp_path / "workflows.jsonl"
     monkeypatch.setattr(tracker, "WORKFLOWS_LOG_PATH", log_file)
@@ -102,7 +102,7 @@ def test_constitution_has_s4_auto_clause() -> None:
 
 
 def test_supervisor_prompt_has_s4_auto() -> None:
-    from agents.prompts.supervisor_prompt import SUPERVISOR_SYSTEM_PROMPT
+    from data_agents.agents.prompts.supervisor_prompt import SUPERVISOR_SYSTEM_PROMPT
 
     assert "S4-AUTO" in SUPERVISOR_SYSTEM_PROMPT
     assert "s4_decision" in SUPERVISOR_SYSTEM_PROMPT
@@ -112,7 +112,7 @@ def test_supervisor_prompt_has_s4_auto() -> None:
 
 
 def test_tracker_exports_log_s4_decision() -> None:
-    from workflow import tracker
+    from data_agents.workflow import tracker
 
     assert hasattr(tracker, "log_s4_decision")
     assert callable(tracker.log_s4_decision)

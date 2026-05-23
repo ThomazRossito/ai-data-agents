@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from commands.eval import get_eval_summary, load_evals, save_eval
+from data_agents.commands.eval import get_eval_summary, load_evals, save_eval
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -18,7 +18,7 @@ from commands.eval import get_eval_summary, load_evals, save_eval
 def evals_path(tmp_path: Path):
     """Substitui _EVALS_PATH por um arquivo temporário durante o teste."""
     p = tmp_path / "evals.jsonl"
-    with patch("commands.eval._EVALS_PATH", p):
+    with patch("data_agents.commands.eval._EVALS_PATH", p):
         yield p
 
 
@@ -110,7 +110,7 @@ class TestGetEvalSummary:
 
 class TestHandleEvalCommand:
     def test_no_records_prints_message(self, evals_path: Path):
-        from commands.eval import handle_eval_command
+        from data_agents.commands.eval import handle_eval_command
 
         console = MagicMock()
         handle_eval_command("/eval", console)
@@ -118,7 +118,7 @@ class TestHandleEvalCommand:
         assert "Nenhuma" in printed
 
     def test_with_records_prints_table(self, evals_path: Path):
-        from commands.eval import handle_eval_command
+        from data_agents.commands.eval import handle_eval_command
 
         save_eval("s1", rating=4, session_type="/spark")
         console = MagicMock()

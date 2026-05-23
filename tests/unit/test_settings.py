@@ -1,7 +1,7 @@
 """Testes de validação do config/settings.py."""
 
 import pytest
-from config.settings import Settings
+from data_agents.config.settings import Settings
 
 
 class TestSettingsValidation:
@@ -180,7 +180,7 @@ class TestMcpRegistryCompleteness:
 
     def test_all_mcp_configs_contains_expected_servers(self):
         """ALL_MCP_CONFIGS deve conter todos os MCP servers esperados."""
-        from config.mcp_servers import ALL_MCP_CONFIGS
+        from data_agents.config.mcp_servers import ALL_MCP_CONFIGS
 
         expected = {
             "databricks",
@@ -203,7 +203,7 @@ class TestMcpRegistryCompleteness:
 
     def test_fabric_official_config_has_correct_shape(self):
         """fabric_official deve usar npx com o pacote oficial Microsoft."""
-        from mcp_servers.fabric.server_config import get_fabric_official_mcp_config
+        from data_agents.mcp_servers.fabric.server_config import get_fabric_official_mcp_config
 
         config = get_fabric_official_mcp_config()
         assert "fabric_official" in config
@@ -217,7 +217,7 @@ class TestMcpRegistryCompleteness:
 
     def test_fabric_official_readonly_excludes_destructive_tools(self):
         """Readonly alias deve excluir upload/delete/create_directory em OneLake."""
-        from mcp_servers.fabric.server_config import FABRIC_OFFICIAL_MCP_READONLY_TOOLS
+        from data_agents.mcp_servers.fabric.server_config import FABRIC_OFFICIAL_MCP_READONLY_TOOLS
 
         destructive = [
             "mcp__fabric_official__onelake_upload_file",
@@ -233,7 +233,7 @@ class TestMcpRegistryCompleteness:
 
     def test_fabric_official_aliases_registered_in_loader(self):
         """agents/loader.py deve expor os aliases fabric_official_all/readonly."""
-        from agents.loader import MCP_TOOL_SETS
+        from data_agents.agents.loader import MCP_TOOL_SETS
 
         assert "fabric_official_all" in MCP_TOOL_SETS
         assert "fabric_official_readonly" in MCP_TOOL_SETS
@@ -320,8 +320,8 @@ class TestProjectIdIsolation:
 
     def test_memory_store_uses_settings_memory_data_dir(self, tmp_path, monkeypatch):
         """MemoryStore() sem args deve usar settings.memory_data_dir."""
-        from config.settings import settings
-        from memory.store import MemoryStore
+        from data_agents.config.settings import settings
+        from data_agents.memory.store import MemoryStore
 
         custom_dir = tmp_path / "custom_memory"
         monkeypatch.setattr(settings, "memory_data_dir", str(custom_dir))

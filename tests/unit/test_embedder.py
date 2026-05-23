@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from memory.embedder import (
+from data_agents.memory.embedder import (
     serialize_embedding,
     deserialize_embedding,
     cosine_similarity,
@@ -101,7 +101,7 @@ fastembed = pytest.importorskip("fastembed", reason="fastembed not installed —
 class TestLocalEmbedder:
     @pytest.fixture
     def embedder(self, tmp_path: Path):
-        from memory.embedder import LocalEmbedder
+        from data_agents.memory.embedder import LocalEmbedder
 
         return LocalEmbedder(
             cache_db_path=tmp_path / "embed_cache.db",

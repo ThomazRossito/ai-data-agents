@@ -1,7 +1,7 @@
 """Testes da hierarquia de exceções customizadas."""
 
 import pytest
-from config.exceptions import (
+from data_agents.config.exceptions import (
     DataAgentsError,
     MCPConnectionError,
     MCPToolExecutionError,

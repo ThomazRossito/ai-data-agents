@@ -14,26 +14,26 @@ import pytest
 class TestGeralModel:
     def test_default_is_kimi_k2_6(self):
         """Sem tier_model_map, retorna kimi-k2.6 (modelo padrão da família K2.6)."""
-        from commands.geral import _geral_model
+        from data_agents.commands.geral import _geral_model
 
-        with patch("commands.geral.settings") as mock_settings:
+        with patch("data_agents.commands.geral.settings") as mock_settings:
             mock_settings.tier_model_map = {}
             assert _geral_model() == "kimi-k2.6"
 
     def test_t0_override_respected(self):
         """Se T0 estiver no tier_map (raro, mas possível), usa o valor configurado."""
-        from commands.geral import _geral_model
+        from data_agents.commands.geral import _geral_model
 
-        with patch("commands.geral.settings") as mock_settings:
+        with patch("data_agents.commands.geral.settings") as mock_settings:
             # Usa kimi-k2.5 como placeholder distinto pra verificar que o override funciona.
             mock_settings.tier_model_map = {"T0": "kimi-k2.5"}
             assert _geral_model() == "kimi-k2.5"
 
     def test_t1_t2_t3_in_tier_map_does_not_affect_geral(self):
         """T1/T2/T3 no tier_map não afetam /geral — T0 não está no mapa por padrão."""
-        from commands.geral import _geral_model
+        from data_agents.commands.geral import _geral_model
 
-        with patch("commands.geral.settings") as mock_settings:
+        with patch("data_agents.commands.geral.settings") as mock_settings:
             # Configura T1/T2/T3 com placeholders distintos pra garantir que NENHUM deles
             # vaza para o /geral (que é T0). T0 ausente → fallback para kimi-k2.6.
             mock_settings.tier_model_map = {
@@ -45,9 +45,9 @@ class TestGeralModel:
 
     def test_none_tier_map_uses_kimi_k2_6(self):
         """tier_model_map None é tratado como {}."""
-        from commands.geral import _geral_model
+        from data_agents.commands.geral import _geral_model
 
-        with patch("commands.geral.settings") as mock_settings:
+        with patch("data_agents.commands.geral.settings") as mock_settings:
             mock_settings.tier_model_map = None
             assert _geral_model() == "kimi-k2.6"
 
@@ -57,13 +57,13 @@ class TestGeralModel:
 
 class TestBuildPromptWithHistory:
     def test_no_history_returns_message_as_is(self):
-        from commands.geral import build_prompt_with_history
+        from data_agents.commands.geral import build_prompt_with_history
 
         result = build_prompt_with_history("Olá", [{"role": "user", "content": "Olá"}])
         assert result == "Olá"
 
     def test_single_prior_turn_prefixed(self):
-        from commands.geral import build_prompt_with_history
+        from data_agents.commands.geral import build_prompt_with_history
 
         history = [
             {"role": "user", "content": "O que é Delta Lake?"},
@@ -77,7 +77,7 @@ class TestBuildPromptWithHistory:
         assert result.endswith("E Iceberg?")
 
     def test_roles_labeled_correctly(self):
-        from commands.geral import build_prompt_with_history
+        from data_agents.commands.geral import build_prompt_with_history
 
         history = [
             {"role": "user", "content": "pergunta"},
@@ -89,7 +89,7 @@ class TestBuildPromptWithHistory:
         assert "Assistente: resposta" in result
 
     def test_limits_to_20_prior_messages(self):
-        from commands.geral import build_prompt_with_history
+        from data_agents.commands.geral import build_prompt_with_history
 
         # 25 mensagens anteriores + 1 atual = 26 mensagens no history
         # history[-21:-1] pega os 20 anteriores à mensagem atual
@@ -109,7 +109,7 @@ class TestBuildPromptWithHistory:
         assert "msg-24" in result
 
     def test_current_message_always_at_end(self):
-        from commands.geral import build_prompt_with_history
+        from data_agents.commands.geral import build_prompt_with_history
 
         history = [
             {"role": "user", "content": "anterior"},
@@ -133,7 +133,7 @@ def _make_usage(input_tokens: int = 100, output_tokens: int = 50) -> MagicMock:
 class TestRunGeralQuery:
     @pytest.mark.asyncio
     async def test_non_streaming_returns_text_and_metrics(self):
-        from commands.geral import run_geral_query
+        from data_agents.commands.geral import run_geral_query
 
         fake_block = MagicMock()
         fake_block.text = "Delta Lake is a storage layer."
@@ -142,8 +142,8 @@ class TestRunGeralQuery:
         fake_message.usage = _make_usage(input_tokens=80, output_tokens=30)
 
         with (
-            patch("commands.geral.settings") as mock_settings,
-            patch("commands.geral.anthropic.AsyncAnthropic") as mock_client_cls,
+            patch("data_agents.commands.geral.settings") as mock_settings,
+            patch("data_agents.commands.geral.anthropic.AsyncAnthropic") as mock_client_cls,
         ):
             mock_settings.anthropic_api_key = "test-key"
             mock_settings.tier_model_map = {}
@@ -161,7 +161,7 @@ class TestRunGeralQuery:
 
     @pytest.mark.asyncio
     async def test_streaming_calls_token_callback(self):
-        from commands.geral import run_geral_query
+        from data_agents.commands.geral import run_geral_query
 
         chunks_received: list[str] = []
 
@@ -185,8 +185,8 @@ class TestRunGeralQuery:
             yield mock_stream
 
         with (
-            patch("commands.geral.settings") as mock_settings,
-            patch("commands.geral.anthropic.AsyncAnthropic") as mock_client_cls,
+            patch("data_agents.commands.geral.settings") as mock_settings,
+            patch("data_agents.commands.geral.anthropic.AsyncAnthropic") as mock_client_cls,
         ):
             mock_settings.anthropic_api_key = "test-key"
             mock_settings.tier_model_map = {}
@@ -204,7 +204,7 @@ class TestRunGeralQuery:
 
     @pytest.mark.asyncio
     async def test_streaming_full_text_accumulated(self):
-        from commands.geral import run_geral_query
+        from data_agents.commands.geral import run_geral_query
 
         received: list[str] = []
 
@@ -227,8 +227,8 @@ class TestRunGeralQuery:
             yield mock_stream
 
         with (
-            patch("commands.geral.settings") as mock_settings,
-            patch("commands.geral.anthropic.AsyncAnthropic") as mock_client_cls,
+            patch("data_agents.commands.geral.settings") as mock_settings,
+            patch("data_agents.commands.geral.anthropic.AsyncAnthropic") as mock_client_cls,
         ):
             mock_settings.anthropic_api_key = "test-key"
             mock_settings.tier_model_map = {}
@@ -244,7 +244,7 @@ class TestRunGeralQuery:
 
     @pytest.mark.asyncio
     async def test_non_streaming_used_when_no_callback(self):
-        from commands.geral import run_geral_query
+        from data_agents.commands.geral import run_geral_query
 
         fake_block = MagicMock()
         fake_block.text = "response"
@@ -253,8 +253,8 @@ class TestRunGeralQuery:
         fake_message.usage = _make_usage()
 
         with (
-            patch("commands.geral.settings") as mock_settings,
-            patch("commands.geral.anthropic.AsyncAnthropic") as mock_client_cls,
+            patch("data_agents.commands.geral.settings") as mock_settings,
+            patch("data_agents.commands.geral.anthropic.AsyncAnthropic") as mock_client_cls,
         ):
             mock_settings.anthropic_api_key = "test-key"
             mock_settings.tier_model_map = {}

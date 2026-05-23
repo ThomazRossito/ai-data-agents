@@ -22,8 +22,8 @@ class TestBuildSupervisorOptions:
     def test_build_returns_agent_options(self):
         """Verifica que build_supervisor_options retorna um objeto (ClaudeAgentOptions)."""
         mock_class, mock_instance = self._make_mock_options_class()
-        with patch("agents.supervisor.ClaudeAgentOptions", mock_class):
-            from agents.supervisor import build_supervisor_options
+        with patch("data_agents.agents.supervisor.ClaudeAgentOptions", mock_class):
+            from data_agents.agents.supervisor import build_supervisor_options
 
             result = build_supervisor_options()
             assert result is mock_instance
@@ -32,10 +32,10 @@ class TestBuildSupervisorOptions:
     def test_build_calls_load_all_agents(self):
         """Verifica que os agentes do registry são carregados."""
         mock_class, _ = self._make_mock_options_class()
-        with patch("agents.supervisor.ClaudeAgentOptions", mock_class):
-            with patch("agents.supervisor.load_all_agents") as mock_load:
+        with patch("data_agents.agents.supervisor.ClaudeAgentOptions", mock_class):
+            with patch("data_agents.agents.supervisor.load_all_agents") as mock_load:
                 mock_load.return_value = {"databricks-engineer": MagicMock()}
-                from agents.supervisor import build_supervisor_options
+                from data_agents.agents.supervisor import build_supervisor_options
 
                 build_supervisor_options()
                 mock_load.assert_called_once()
@@ -43,10 +43,10 @@ class TestBuildSupervisorOptions:
     def test_build_calls_build_mcp_registry_with_platforms(self):
         """Verifica que build_mcp_registry recebe as plataformas corretas."""
         mock_class, _ = self._make_mock_options_class()
-        with patch("agents.supervisor.ClaudeAgentOptions", mock_class):
-            with patch("agents.supervisor.build_mcp_registry") as mock_mcp:
+        with patch("data_agents.agents.supervisor.ClaudeAgentOptions", mock_class):
+            with patch("data_agents.agents.supervisor.build_mcp_registry") as mock_mcp:
                 mock_mcp.return_value = {}
-                from agents.supervisor import build_supervisor_options
+                from data_agents.agents.supervisor import build_supervisor_options
 
                 build_supervisor_options(platforms=["databricks"])
                 mock_mcp.assert_called_once_with(["databricks"])
@@ -54,10 +54,10 @@ class TestBuildSupervisorOptions:
     def test_build_with_no_platforms_passes_none(self):
         """Verifica que None é passado para build_mcp_registry quando platforms=None."""
         mock_class, _ = self._make_mock_options_class()
-        with patch("agents.supervisor.ClaudeAgentOptions", mock_class):
-            with patch("agents.supervisor.build_mcp_registry") as mock_mcp:
+        with patch("data_agents.agents.supervisor.ClaudeAgentOptions", mock_class):
+            with patch("data_agents.agents.supervisor.build_mcp_registry") as mock_mcp:
                 mock_mcp.return_value = {}
-                from agents.supervisor import build_supervisor_options
+                from data_agents.agents.supervisor import build_supervisor_options
 
                 build_supervisor_options()
                 mock_mcp.assert_called_once_with(None)
@@ -72,9 +72,9 @@ class TestBuildSupervisorOptions:
             return MagicMock()
 
         mock_class.side_effect = capture
-        with patch("agents.supervisor.ClaudeAgentOptions", mock_class):
-            with patch("agents.supervisor.build_mcp_registry", return_value={}):
-                from agents.supervisor import build_supervisor_options
+        with patch("data_agents.agents.supervisor.ClaudeAgentOptions", mock_class):
+            with patch("data_agents.agents.supervisor.build_mcp_registry", return_value={}):
+                from data_agents.agents.supervisor import build_supervisor_options
 
                 build_supervisor_options(enable_thinking=False)
                 assert captured_kwargs.get("thinking") == {"type": "disabled"}
@@ -86,7 +86,7 @@ class TestBuildSupervisorOptions:
         nesse caso (testado em test_build_thinking_disabled_on_moonshot).
         Aqui validamos o caminho Anthropic original com adaptive/high.
         """
-        from config.settings import settings
+        from data_agents.config.settings import settings
 
         monkeypatch.setattr(settings, "anthropic_base_url", "")  # força Anthropic, não Moonshot
         mock_class, _ = self._make_mock_options_class()
@@ -97,9 +97,9 @@ class TestBuildSupervisorOptions:
             return MagicMock()
 
         mock_class.side_effect = capture
-        with patch("agents.supervisor.ClaudeAgentOptions", mock_class):
-            with patch("agents.supervisor.build_mcp_registry", return_value={}):
-                from agents.supervisor import build_supervisor_options
+        with patch("data_agents.agents.supervisor.ClaudeAgentOptions", mock_class):
+            with patch("data_agents.agents.supervisor.build_mcp_registry", return_value={}):
+                from data_agents.agents.supervisor import build_supervisor_options
 
                 build_supervisor_options(enable_thinking=True)
                 thinking = captured_kwargs.get("thinking")
@@ -115,7 +115,7 @@ class TestBuildSupervisorOptions:
         de thinking. O supervisor detecta via anthropic_base_url e desabilita
         explicitamente para evitar trava no endpoint.
         """
-        from config.settings import settings
+        from data_agents.config.settings import settings
 
         monkeypatch.setattr(settings, "anthropic_base_url", "https://api.moonshot.ai/anthropic")
         mock_class, _ = self._make_mock_options_class()
@@ -126,9 +126,9 @@ class TestBuildSupervisorOptions:
             return MagicMock()
 
         mock_class.side_effect = capture
-        with patch("agents.supervisor.ClaudeAgentOptions", mock_class):
-            with patch("agents.supervisor.build_mcp_registry", return_value={}):
-                from agents.supervisor import build_supervisor_options
+        with patch("data_agents.agents.supervisor.ClaudeAgentOptions", mock_class):
+            with patch("data_agents.agents.supervisor.build_mcp_registry", return_value={}):
+                from data_agents.agents.supervisor import build_supervisor_options
 
                 build_supervisor_options(enable_thinking=True)
                 # Moonshot override vence o enable_thinking=True
@@ -144,9 +144,9 @@ class TestBuildSupervisorOptions:
             return MagicMock()
 
         mock_class.side_effect = capture
-        with patch("agents.supervisor.ClaudeAgentOptions", mock_class):
-            with patch("agents.supervisor.build_mcp_registry", return_value={}):
-                from agents.supervisor import build_supervisor_options
+        with patch("data_agents.agents.supervisor.ClaudeAgentOptions", mock_class):
+            with patch("data_agents.agents.supervisor.build_mcp_registry", return_value={}):
+                from data_agents.agents.supervisor import build_supervisor_options
 
                 build_supervisor_options()
                 assert captured_kwargs.get("permission_mode") == "bypassPermissions"
@@ -161,9 +161,9 @@ class TestBuildSupervisorOptions:
             return MagicMock()
 
         mock_class.side_effect = capture
-        with patch("agents.supervisor.ClaudeAgentOptions", mock_class):
-            with patch("agents.supervisor.build_mcp_registry", return_value={}):
-                from agents.supervisor import build_supervisor_options
+        with patch("data_agents.agents.supervisor.ClaudeAgentOptions", mock_class):
+            with patch("data_agents.agents.supervisor.build_mcp_registry", return_value={}):
+                from data_agents.agents.supervisor import build_supervisor_options
 
                 build_supervisor_options()
                 hooks = captured_kwargs.get("hooks", {})
@@ -186,9 +186,9 @@ class TestBuildSupervisorOptions:
             return MagicMock()
 
         mock_class.side_effect = capture
-        with patch("agents.supervisor.ClaudeAgentOptions", mock_class):
-            with patch("agents.supervisor.build_mcp_registry", return_value={}):
-                from agents.supervisor import build_supervisor_options
+        with patch("data_agents.agents.supervisor.ClaudeAgentOptions", mock_class):
+            with patch("data_agents.agents.supervisor.build_mcp_registry", return_value={}):
+                from data_agents.agents.supervisor import build_supervisor_options
 
                 build_supervisor_options()
                 assert captured_kwargs.get("include_partial_messages") is True
@@ -206,15 +206,15 @@ class TestModelRoutingIntegration:
     def test_build_passes_tier_model_map_to_loader(self):
         """Verifica que tier_model_map do settings é passado para load_all_agents."""
         mock_class, _ = self._make_mock_options_class()
-        with patch("agents.supervisor.ClaudeAgentOptions", mock_class):
-            with patch("agents.supervisor.load_all_agents") as mock_load:
+        with patch("data_agents.agents.supervisor.ClaudeAgentOptions", mock_class):
+            with patch("data_agents.agents.supervisor.load_all_agents") as mock_load:
                 mock_load.return_value = {}
-                with patch("agents.supervisor.settings") as mock_settings:
+                with patch("data_agents.agents.supervisor.settings") as mock_settings:
                     mock_settings.default_model = "kimi-k2.6"
                     mock_settings.max_turns = 50
                     mock_settings.max_budget_usd = 5.0
                     mock_settings.tier_model_map = {"T1": "kimi-k2.6"}
-                    from agents.supervisor import build_supervisor_options
+                    from data_agents.agents.supervisor import build_supervisor_options
 
                     build_supervisor_options()
                     call_kwargs = mock_load.call_args
@@ -224,15 +224,15 @@ class TestModelRoutingIntegration:
     def test_build_passes_none_when_tier_map_empty(self):
         """Verifica que None é passado quando tier_model_map está vazio."""
         mock_class, _ = self._make_mock_options_class()
-        with patch("agents.supervisor.ClaudeAgentOptions", mock_class):
-            with patch("agents.supervisor.load_all_agents") as mock_load:
+        with patch("data_agents.agents.supervisor.ClaudeAgentOptions", mock_class):
+            with patch("data_agents.agents.supervisor.load_all_agents") as mock_load:
                 mock_load.return_value = {}
-                with patch("agents.supervisor.settings") as mock_settings:
+                with patch("data_agents.agents.supervisor.settings") as mock_settings:
                     mock_settings.default_model = "kimi-k2.6"
                     mock_settings.max_turns = 50
                     mock_settings.max_budget_usd = 5.0
                     mock_settings.tier_model_map = {}
-                    from agents.supervisor import build_supervisor_options
+                    from data_agents.agents.supervisor import build_supervisor_options
 
                     build_supervisor_options()
                     call_kwargs = mock_load.call_args

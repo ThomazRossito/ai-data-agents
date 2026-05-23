@@ -11,9 +11,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import hooks.context_budget_hook as budget_module
-from hooks.context_budget_hook import reset_context_budget
-from hooks.session_lifecycle import on_session_start, on_session_end
+import data_agents.hooks.context_budget_hook as budget_module
+from data_agents.hooks.context_budget_hook import reset_context_budget
+from data_agents.hooks.session_lifecycle import on_session_start, on_session_end
 
 
 @pytest.fixture(autouse=True)
@@ -35,7 +35,7 @@ class TestOnSessionStart:
 
         on_session_start("test-session-001")
 
-        from hooks.context_budget_hook import get_context_usage
+        from data_agents.hooks.context_budget_hook import get_context_usage
 
         usage = get_context_usage()
         assert usage["input_tokens"] == 0
@@ -60,7 +60,7 @@ class TestOnSessionStart:
         budget_module._session_input_tokens = 80_000
         on_session_start("sess-2")
 
-        from hooks.context_budget_hook import get_context_usage
+        from data_agents.hooks.context_budget_hook import get_context_usage
 
         assert get_context_usage()["input_tokens"] == 0
 
@@ -71,19 +71,19 @@ class TestOnSessionStart:
 class TestOnSessionEnd:
     def test_returns_none(self):
         """on_session_end não retorna valor."""
-        with patch("hooks.session_lifecycle.flush_session_memories", MagicMock()):
+        with patch("data_agents.hooks.session_lifecycle.flush_session_memories", MagicMock()):
             result = on_session_end("sid-xyz")
         assert result is None
 
     def test_calls_flush_when_enabled(self):
         """Com flush_memory=True (default), deve chamar flush_session_memories."""
-        with patch("hooks.session_lifecycle.flush_session_memories") as mock_flush:
+        with patch("data_agents.hooks.session_lifecycle.flush_session_memories") as mock_flush:
             on_session_end("session-abc", flush_memory=True)
             mock_flush.assert_called_once()
 
     def test_no_flush_when_disabled(self):
         """Com flush_memory=False, não deve chamar flush_session_memories."""
-        with patch("hooks.session_lifecycle.flush_session_memories") as mock_flush:
+        with patch("data_agents.hooks.session_lifecycle.flush_session_memories") as mock_flush:
             on_session_end("session-abc", flush_memory=False)
             mock_flush.assert_not_called()
 
@@ -92,7 +92,7 @@ class TestOnSessionEnd:
         budget_module._session_input_tokens = 10_000
 
         with caplog.at_level(logging.INFO, logger="data_agents.hooks.session_lifecycle"):
-            with patch("hooks.session_lifecycle.flush_session_memories", MagicMock()):
+            with patch("data_agents.hooks.session_lifecycle.flush_session_memories", MagicMock()):
                 on_session_end("log-test-session")
 
         assert any("session_end" in r.message for r in caplog.records)
@@ -100,7 +100,7 @@ class TestOnSessionEnd:
     def test_flush_error_does_not_raise(self):
         """Erro no flush não deve propagar — apenas logar warning."""
         with patch(
-            "hooks.session_lifecycle.flush_session_memories",
+            "data_agents.hooks.session_lifecycle.flush_session_memories",
             side_effect=RuntimeError("flush falhou"),
         ):
             # Não deve levantar exceção
@@ -109,7 +109,7 @@ class TestOnSessionEnd:
     def test_logs_session_end(self, caplog):
         """on_session_end deve logar o encerramento da sessão."""
         with caplog.at_level(logging.INFO, logger="data_agents.hooks.session_lifecycle"):
-            with patch("hooks.session_lifecycle.flush_session_memories", MagicMock()):
+            with patch("data_agents.hooks.session_lifecycle.flush_session_memories", MagicMock()):
                 on_session_end("end-session-999")
         assert any("end-session-999" in r.message for r in caplog.records)
 
@@ -119,7 +119,7 @@ class TestOnSessionEnd:
             "hooks.session_lifecycle.get_context_usage",
             side_effect=Exception("contexto indisponível"),
         ):
-            with patch("hooks.session_lifecycle.flush_session_memories", MagicMock()):
+            with patch("data_agents.hooks.session_lifecycle.flush_session_memories", MagicMock()):
                 # Não deve levantar exceção
                 on_session_end("ctx-err-session", flush_memory=True)
 

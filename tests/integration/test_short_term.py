@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from memory.short_term import ShortTermMemory, ShortTermEntry
+from data_agents.memory.short_term import ShortTermMemory, ShortTermEntry
 
 
 @pytest.fixture

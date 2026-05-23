@@ -142,8 +142,8 @@ class LintReport:
 
 
 def _list_mcp_dirs() -> list[Path]:
-    """Returns subdirectories of mcp_servers/ that should be treated as MCPs."""
-    root = PROJECT_ROOT / "mcp_servers"
+    """Returns subdirectories of data_agents/mcp_servers/ that should be treated as MCPs."""
+    root = PROJECT_ROOT / "data_agents" / "mcp_servers"
     if not root.is_dir():
         return []
     return sorted(
@@ -233,8 +233,8 @@ def check_mcp_dir(mcp_dir: Path) -> list[Issue]:
         )
         return issues
 
-    # Import the module
-    module_path = f"mcp_servers.{dir_name}.server_config"
+    # Import the module — Phase 7 namespace
+    module_path = f"data_agents.mcp_servers.{dir_name}.server_config"
     try:
         module = _import_module(module_path)
     except Exception as exc:  # noqa: BLE001
@@ -433,8 +433,8 @@ def check_global_aliases() -> list[Issue]:
     """Cross-checks ALL_MCP_CONFIGS keys against MCP_TOOL_SETS aliases."""
     issues: list[Issue] = []
     try:
-        from config.mcp_servers import ALL_MCP_CONFIGS
-        from agents.loader import MCP_TOOL_SETS
+        from data_agents.config.mcp_servers import ALL_MCP_CONFIGS
+        from data_agents.agents.loader import MCP_TOOL_SETS
     except Exception as exc:  # noqa: BLE001
         issues.append(
             Issue(
@@ -593,7 +593,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Count registered servers (for the header summary)
     try:
-        from config.mcp_servers import ALL_MCP_CONFIGS
+        from data_agents.config.mcp_servers import ALL_MCP_CONFIGS
         report.servers_registered = len(ALL_MCP_CONFIGS)
     except Exception:  # noqa: BLE001
         report.servers_registered = 0

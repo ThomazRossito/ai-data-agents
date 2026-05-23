@@ -1,6 +1,6 @@
 """Testes do comando /analyze-project."""
 
-from commands.analyze import (
+from data_agents.commands.analyze import (
     ANALYZE_GROUPS,
     ANALYZE_PROMPTS,
     _DEFAULT_ANALYZE_PROMPT,

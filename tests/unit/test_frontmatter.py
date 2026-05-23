@@ -17,7 +17,7 @@ Testes principais:
 
 import pytest
 
-from utils.frontmatter import parse_yaml_frontmatter
+from data_agents.utils.frontmatter import parse_yaml_frontmatter
 
 
 # ─── Boolean alias trap (YAML 1.1 vs 1.2) ────────────────────────────────────

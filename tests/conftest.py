@@ -21,7 +21,7 @@ def isolate_memory_dbs(tmp_path, monkeypatch):
       - LocalEmbedder não escreve em memory/data/embedder_cache__<project_id>.db
       - MemoryStore() sem args não escreve em memory/data/<project_id>/
     """
-    from config.settings import settings
+    from data_agents.config.settings import settings
 
     monkeypatch.setattr(settings, "memory_data_dir", str(tmp_path / "memory_dir"))
     monkeypatch.setattr(settings, "long_term_db_path", str(tmp_path / "long_term.db"))

@@ -40,9 +40,9 @@ def isolated_sessions(tmp_path):
     sessions_dir.mkdir()
     settings_mock = _mock_settings(tmp_path)
 
-    with patch("hooks.transcript_hook.SESSIONS_DIR", sessions_dir):
-        with patch("hooks.checkpoint.settings", settings_mock):
-            with patch("hooks.checkpoint.SESSIONS_DIR", sessions_dir):
+    with patch("data_agents.hooks.transcript_hook.SESSIONS_DIR", sessions_dir):
+        with patch("data_agents.hooks.checkpoint.settings", settings_mock):
+            with patch("data_agents.hooks.checkpoint.SESSIONS_DIR", sessions_dir):
                 with patch(
                     "hooks.checkpoint.CHECKPOINT_PATH",
                     tmp_path / "logs" / "checkpoint.json",
@@ -57,13 +57,13 @@ def isolated_sessions(tmp_path):
 
 class TestListAllSessions:
     def test_empty_when_no_sessions(self, isolated_sessions):
-        from commands.sessions import list_all_sessions
+        from data_agents.commands.sessions import list_all_sessions
 
         assert list_all_sessions() == []
 
     def test_includes_sessions_with_only_transcript(self, isolated_sessions):
-        from commands.sessions import list_all_sessions
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import list_all_sessions
+        from data_agents.hooks.transcript_hook import append_turn
 
         append_turn("sess-only-tx", "user", "primeiro")
         append_turn("sess-only-tx", "assistant", "resposta", cost_usd=0.01)
@@ -77,7 +77,7 @@ class TestListAllSessions:
 
     def test_includes_sessions_with_only_checkpoint(self, isolated_sessions):
         """Sessão antiga com checkpoint mas sem transcript deve aparecer."""
-        from commands.sessions import list_all_sessions
+        from data_agents.commands.sessions import list_all_sessions
 
         # Escreve checkpoint manualmente
         cp = {
@@ -102,8 +102,8 @@ class TestListAllSessions:
         assert "prompt antigo" in entry["last_user_prompt"]
 
     def test_merges_transcript_and_checkpoint(self, isolated_sessions):
-        from commands.sessions import list_all_sessions
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import list_all_sessions
+        from data_agents.hooks.transcript_hook import append_turn
 
         # Transcript
         append_turn("sess-both", "user", "prompt do transcript")
@@ -128,8 +128,8 @@ class TestListAllSessions:
         assert entry["reason"] == "normal_exit"
 
     def test_sorted_by_last_timestamp_desc(self, isolated_sessions):
-        from commands.sessions import list_all_sessions
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import list_all_sessions
+        from data_agents.hooks.transcript_hook import append_turn
         import time
 
         append_turn("sess-older", "user", "velho")
@@ -148,7 +148,7 @@ class TestListAllSessions:
 
 class TestRenderSessionsTable:
     def test_returns_zero_when_no_sessions(self, isolated_sessions):
-        from commands.sessions import render_sessions_table
+        from data_agents.commands.sessions import render_sessions_table
 
         console = Console(record=True, width=120)
         n = render_sessions_table(console)
@@ -157,8 +157,8 @@ class TestRenderSessionsTable:
         assert "Nenhuma sessão" in output
 
     def test_renders_sessions(self, isolated_sessions):
-        from commands.sessions import render_sessions_table
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import render_sessions_table
+        from data_agents.hooks.transcript_hook import append_turn
 
         append_turn("sess-T1", "user", "consulta sobre vendas")
         append_turn("sess-T1", "assistant", "resposta", cost_usd=0.125)
@@ -172,8 +172,8 @@ class TestRenderSessionsTable:
         assert "$0.1250" in output
 
     def test_respects_limit(self, isolated_sessions):
-        from commands.sessions import render_sessions_table
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import render_sessions_table
+        from data_agents.hooks.transcript_hook import append_turn
         import time
 
         for i in range(5):
@@ -187,8 +187,8 @@ class TestRenderSessionsTable:
         assert "mais 2 sessões" in output
 
     def test_unlimited_when_limit_zero(self, isolated_sessions):
-        from commands.sessions import render_sessions_table
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import render_sessions_table
+        from data_agents.hooks.transcript_hook import append_turn
 
         for i in range(3):
             append_turn(f"s-{i}", "user", f"q-{i}")
@@ -205,7 +205,7 @@ class TestRenderSessionsTable:
 
 class TestRenderSessionDetails:
     def test_returns_false_when_session_missing(self, isolated_sessions):
-        from commands.sessions import render_session_details
+        from data_agents.commands.sessions import render_session_details
 
         console = Console(record=True, width=120)
         ok = render_session_details(console, "ghost")
@@ -213,8 +213,8 @@ class TestRenderSessionDetails:
         assert "não encontrada" in console.export_text()
 
     def test_prints_user_and_assistant_entries(self, isolated_sessions):
-        from commands.sessions import render_session_details
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import render_session_details
+        from data_agents.hooks.transcript_hook import append_turn
 
         append_turn("sess-D1", "user", "prompt A")
         append_turn(
@@ -236,8 +236,8 @@ class TestRenderSessionDetails:
         assert "Read" in output
 
     def test_truncates_very_long_content(self, isolated_sessions):
-        from commands.sessions import render_session_details
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import render_session_details
+        from data_agents.hooks.transcript_hook import append_turn
 
         big = "X" * 5000
         append_turn("sess-D2", "user", big)
@@ -255,8 +255,8 @@ class TestRenderSessionDetails:
 
 class TestHandleSessionsCommand:
     def test_no_arg_renders_table(self, isolated_sessions):
-        from commands.sessions import handle_sessions_command
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import handle_sessions_command
+        from data_agents.hooks.transcript_hook import append_turn
 
         append_turn("sess-H1", "user", "x")
 
@@ -265,8 +265,8 @@ class TestHandleSessionsCommand:
         assert "sess-H1" in console.export_text()
 
     def test_all_renders_all(self, isolated_sessions):
-        from commands.sessions import handle_sessions_command
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import handle_sessions_command
+        from data_agents.hooks.transcript_hook import append_turn
 
         for i in range(30):
             append_turn(f"s-{i:02d}", "user", f"q-{i}")
@@ -278,8 +278,8 @@ class TestHandleSessionsCommand:
         assert "mais" not in output or "mais 0" in output
 
     def test_session_id_renders_details(self, isolated_sessions):
-        from commands.sessions import handle_sessions_command
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import handle_sessions_command
+        from data_agents.hooks.transcript_hook import append_turn
 
         append_turn("sess-DET", "user", "detalhe teste")
 
@@ -296,13 +296,13 @@ class TestHandleSessionsCommand:
 
 class TestFindLastSessionId:
     def test_returns_none_when_no_sessions(self, isolated_sessions):
-        from commands.sessions import find_last_session_id
+        from data_agents.commands.sessions import find_last_session_id
 
         assert find_last_session_id() is None
 
     def test_returns_most_recent_by_last_timestamp(self, isolated_sessions):
-        from commands.sessions import find_last_session_id
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import find_last_session_id
+        from data_agents.hooks.transcript_hook import append_turn
         import time
 
         append_turn("s-older", "user", "velho")
@@ -314,13 +314,13 @@ class TestFindLastSessionId:
 
 class TestBuildResumePromptForSession:
     def test_returns_none_when_session_missing(self, isolated_sessions):
-        from commands.sessions import build_resume_prompt_for_session
+        from data_agents.commands.sessions import build_resume_prompt_for_session
 
         assert build_resume_prompt_for_session("ghost") is None
 
     def test_uses_transcript_when_available(self, isolated_sessions):
-        from commands.sessions import build_resume_prompt_for_session
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import build_resume_prompt_for_session
+        from data_agents.hooks.transcript_hook import append_turn
 
         append_turn("sess-R", "user", "prompt do transcript")
         append_turn("sess-R", "assistant", "resposta do assistente")
@@ -332,7 +332,7 @@ class TestBuildResumePromptForSession:
 
     def test_falls_back_to_checkpoint_when_no_transcript(self, isolated_sessions):
         """Sessão legada com checkpoint mas sem transcript usa build_resume_prompt."""
-        from commands.sessions import build_resume_prompt_for_session
+        from data_agents.commands.sessions import build_resume_prompt_for_session
 
         cp = {
             "timestamp": "2026-04-10T10:00:00+00:00",
@@ -353,8 +353,8 @@ class TestBuildResumePromptForSession:
 
     def test_respects_context_budget_via_truncation(self, isolated_sessions):
         """O prompt não deve explodir com transcripts muito longos."""
-        from commands.sessions import build_resume_prompt_for_session
-        from hooks.transcript_hook import append_turn
+        from data_agents.commands.sessions import build_resume_prompt_for_session
+        from data_agents.hooks.transcript_hook import append_turn
 
         long_content = "Z" * 5000
         for i in range(40):

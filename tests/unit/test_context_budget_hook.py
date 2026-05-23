@@ -13,8 +13,8 @@ import logging
 
 import pytest
 
-import hooks.context_budget_hook as budget_module
-from hooks.context_budget_hook import (
+import data_agents.hooks.context_budget_hook as budget_module
+from data_agents.hooks.context_budget_hook import (
     _extract_token_counts,
     check_and_consume_compaction,
     get_context_usage,
@@ -278,7 +278,7 @@ class TestScheduleCompaction:
     @pytest.mark.asyncio
     async def test_schedule_sets_compaction_pending(self, monkeypatch, tmp_path):
         """_schedule_compaction deve setar _compaction_pending e _compaction_summary."""
-        from utils import summarizer as summarizer_module
+        from data_agents.utils import summarizer as summarizer_module
 
         monkeypatch.setattr(budget_module.settings, "audit_log_path", str(tmp_path / "audit.jsonl"))
 
@@ -298,7 +298,7 @@ class TestScheduleCompaction:
                 "turns_summarized": len(transcript),
             }
 
-        import hooks.transcript_hook as transcript_hook
+        import data_agents.hooks.transcript_hook as transcript_hook
 
         monkeypatch.setattr(transcript_hook, "load_transcript", fake_load)
         monkeypatch.setattr(summarizer_module, "summarize_session", fake_summarize)
@@ -312,7 +312,7 @@ class TestScheduleCompaction:
     @pytest.mark.asyncio
     async def test_schedule_persists_summary_file(self, monkeypatch, tmp_path):
         """_schedule_compaction deve gravar logs/summaries/<sid>.md com o resumo."""
-        from utils import summarizer as summarizer_module
+        from data_agents.utils import summarizer as summarizer_module
 
         monkeypatch.setattr(budget_module.settings, "audit_log_path", str(tmp_path / "audit.jsonl"))
 
@@ -332,7 +332,7 @@ class TestScheduleCompaction:
                 "turns_summarized": len(transcript),
             }
 
-        import hooks.transcript_hook as transcript_hook
+        import data_agents.hooks.transcript_hook as transcript_hook
 
         monkeypatch.setattr(transcript_hook, "load_transcript", fake_load)
         monkeypatch.setattr(summarizer_module, "summarize_session", fake_summarize)
@@ -351,7 +351,7 @@ class TestScheduleCompaction:
     @pytest.mark.asyncio
     async def test_schedule_skipped_without_session_id(self, monkeypatch, caplog):
         """Sem session_id, _schedule_compaction loga INFO e retorna sem chamar o modelo."""
-        from utils import summarizer as summarizer_module
+        from data_agents.utils import summarizer as summarizer_module
 
         async def should_not_be_called(*args, **kwargs):
             raise AssertionError("summarize_session não deveria rodar sem session_id")
@@ -365,11 +365,11 @@ class TestScheduleCompaction:
     @pytest.mark.asyncio
     async def test_schedule_skipped_when_transcript_empty(self, monkeypatch, tmp_path, caplog):
         """Transcript vazio → _schedule_compaction pula sem persistir nem chamar modelo."""
-        from utils import summarizer as summarizer_module
+        from data_agents.utils import summarizer as summarizer_module
 
         monkeypatch.setattr(budget_module.settings, "audit_log_path", str(tmp_path / "audit.jsonl"))
 
-        import hooks.transcript_hook as transcript_hook
+        import data_agents.hooks.transcript_hook as transcript_hook
 
         monkeypatch.setattr(transcript_hook, "load_transcript", lambda _sid: [])
 
@@ -386,11 +386,11 @@ class TestScheduleCompaction:
     @pytest.mark.asyncio
     async def test_schedule_graceful_on_summarize_error(self, monkeypatch, tmp_path, caplog):
         """Se summarize_session levantar, o hook loga WARNING e não propaga."""
-        from utils import summarizer as summarizer_module
+        from data_agents.utils import summarizer as summarizer_module
 
         monkeypatch.setattr(budget_module.settings, "audit_log_path", str(tmp_path / "audit.jsonl"))
 
-        import hooks.transcript_hook as transcript_hook
+        import data_agents.hooks.transcript_hook as transcript_hook
 
         monkeypatch.setattr(
             transcript_hook,

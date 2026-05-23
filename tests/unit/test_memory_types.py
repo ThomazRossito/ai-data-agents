@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from memory.types import Memory, MemoryType, DECAY_CONFIG
+from data_agents.memory.types import Memory, MemoryType, DECAY_CONFIG
 
 
 # ─── MemoryType ──────────────────────────────────────────────────────

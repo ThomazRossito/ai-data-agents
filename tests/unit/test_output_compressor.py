@@ -16,7 +16,7 @@ import json
 
 import pytest
 
-from hooks.output_compressor_hook import (
+from data_agents.hooks.output_compressor_hook import (
     MAX_BASH_LINES,
     MAX_FILE_LINES,
     MAX_LIST_ITEMS,
@@ -446,7 +446,7 @@ class TestCompressToolOutputEdgeCases:
         def raise_error(output, tool_name):
             raise RuntimeError("erro simulado na compressão")
 
-        monkeypatch.setattr("compression.hook._compress_sql_result", raise_error)
+        monkeypatch.setattr("data_agents.compression.hook._compress_sql_result", raise_error)
         output = _make_sql_rows(MAX_SQL_ROWS + 10)
         input_data = _make_hook_input("mcp__databricks__execute_sql", output)
         result = await compress_tool_output(input_data, tool_use_id="err-1", context=None)

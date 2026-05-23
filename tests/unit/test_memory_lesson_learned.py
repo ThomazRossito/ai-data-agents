@@ -23,21 +23,21 @@ from pathlib import Path
 
 
 def test_lesson_learned_in_memory_type_enum() -> None:
-    from memory.types import MemoryType
+    from data_agents.memory.types import MemoryType
 
     assert hasattr(MemoryType, "LESSON_LEARNED")
     assert MemoryType.LESSON_LEARNED.value == "lesson_learned"
 
 
 def test_lesson_learned_in_decay_config() -> None:
-    from memory.types import DECAY_CONFIG, MemoryType
+    from data_agents.memory.types import DECAY_CONFIG, MemoryType
 
     assert MemoryType.LESSON_LEARNED in DECAY_CONFIG
     assert DECAY_CONFIG[MemoryType.LESSON_LEARNED] == 30.0
 
 
 def test_settings_has_lesson_learned_fields() -> None:
-    from config.settings import Settings
+    from data_agents.config.settings import Settings
 
     s = Settings(_env_file=None)  # type: ignore[call-arg]
     assert hasattr(s, "memory_decay_lesson_learned_days")
@@ -47,7 +47,7 @@ def test_settings_has_lesson_learned_fields() -> None:
 
 
 def test_settings_has_s4_fields() -> None:
-    from config.settings import Settings
+    from data_agents.config.settings import Settings
 
     s = Settings(_env_file=None)  # type: ignore[call-arg]
     assert hasattr(s, "s4_autonomous_mode")
@@ -59,8 +59,8 @@ def test_settings_has_s4_fields() -> None:
 
 
 def test_decay_get_decay_days_lesson_learned() -> None:
-    from memory.decay import _get_decay_days
-    from memory.types import MemoryType
+    from data_agents.memory.decay import _get_decay_days
+    from data_agents.memory.types import MemoryType
 
     days = _get_decay_days(MemoryType.LESSON_LEARNED)
     assert days == 30.0
@@ -68,7 +68,7 @@ def test_decay_get_decay_days_lesson_learned() -> None:
 
 def test_error_trigger_matches_combined_text() -> None:
     """tool_error sem keyword + tool_output com 'exception' deve disparar o trigger."""
-    from hooks.memory_hook import _detect_lesson_triggers, reset_lesson_state
+    from data_agents.hooks.memory_hook import _detect_lesson_triggers, reset_lesson_state
 
     reset_lesson_state()
     triggers = _detect_lesson_triggers(
@@ -82,7 +82,7 @@ def test_error_trigger_matches_combined_text() -> None:
 
 def test_error_trigger_fires_on_tool_error_keyword() -> None:
     """tool_error com 'failed' deve disparar o trigger mesmo sem tool_output."""
-    from hooks.memory_hook import _detect_lesson_triggers, reset_lesson_state
+    from data_agents.hooks.memory_hook import _detect_lesson_triggers, reset_lesson_state
 
     reset_lesson_state()
     triggers = _detect_lesson_triggers(
@@ -99,13 +99,13 @@ def test_error_trigger_fires_on_tool_error_keyword() -> None:
 
 @pytest.fixture
 def tmp_store(tmp_path: Path):
-    from memory.store import MemoryStore
+    from data_agents.memory.store import MemoryStore
 
     return MemoryStore(data_dir=tmp_path / "memory_data")
 
 
 def _make_lesson(agent: str = "databricks-engineer", trigger: str = "error"):  # type: ignore[return]
-    from memory.types import Memory, MemoryType
+    from data_agents.memory.types import Memory, MemoryType
 
     return Memory(
         type=MemoryType.LESSON_LEARNED,
@@ -118,7 +118,7 @@ def _make_lesson(agent: str = "databricks-engineer", trigger: str = "error"):  #
 
 
 def test_lesson_save_and_load(tmp_store) -> None:
-    from memory.types import MemoryType
+    from data_agents.memory.types import MemoryType
 
     lesson = _make_lesson()
     path = tmp_store.save(lesson)
@@ -133,7 +133,7 @@ def test_lesson_save_and_load(tmp_store) -> None:
 
 
 def test_lesson_list_all_by_type(tmp_store) -> None:
-    from memory.types import MemoryType
+    from data_agents.memory.types import MemoryType
 
     lesson1 = _make_lesson("databricks-engineer", "error")
     lesson2 = _make_lesson("fabric-engineer", "slow_op")
@@ -147,7 +147,7 @@ def test_lesson_list_all_by_type(tmp_store) -> None:
 
 
 def test_lesson_decay_reduces_confidence(tmp_store) -> None:
-    from memory.decay import compute_decayed_confidence
+    from data_agents.memory.decay import compute_decayed_confidence
     from datetime import timedelta
 
     lesson = _make_lesson()
@@ -164,12 +164,12 @@ def test_lesson_decay_reduces_confidence(tmp_store) -> None:
 
 
 def test_prune_lessons_keeps_max_entries(tmp_store) -> None:
-    from memory.types import MemoryType
+    from data_agents.memory.types import MemoryType
 
     agent = "databricks-engineer"
     # Create 55 lessons for the same agent
     for i in range(55):
-        from memory.types import Memory
+        from data_agents.memory.types import Memory
 
         lesson = Memory(
             type=MemoryType.LESSON_LEARNED,
@@ -211,8 +211,8 @@ def test_prune_lessons_under_limit_does_nothing(tmp_store) -> None:
 
 
 def test_deduplicate_lessons_merges_similar(tmp_store) -> None:
-    from memory.compiler import deduplicate_lessons
-    from memory.types import Memory, MemoryType
+    from data_agents.memory.compiler import deduplicate_lessons
+    from data_agents.memory.types import Memory, MemoryType
 
     agent = "databricks-engineer"
     # Two very similar lessons (same agent + task_type, similar summary)
@@ -242,8 +242,8 @@ def test_deduplicate_lessons_merges_similar(tmp_store) -> None:
 
 
 def test_deduplicate_lessons_keeps_different(tmp_store) -> None:
-    from memory.compiler import deduplicate_lessons
-    from memory.types import Memory, MemoryType
+    from data_agents.memory.compiler import deduplicate_lessons
+    from data_agents.memory.types import Memory, MemoryType
 
     lesson1 = Memory(
         type=MemoryType.LESSON_LEARNED,
@@ -273,8 +273,8 @@ def test_deduplicate_lessons_keeps_different(tmp_store) -> None:
 
 
 def test_format_memories_includes_lesson_learned_section(tmp_store) -> None:
-    from memory.retrieval import format_memories_for_injection
-    from memory.types import Memory, MemoryType
+    from data_agents.memory.retrieval import format_memories_for_injection
+    from data_agents.memory.types import Memory, MemoryType
 
     lesson = Memory(
         type=MemoryType.LESSON_LEARNED,
@@ -292,7 +292,7 @@ def test_format_memories_includes_lesson_learned_section(tmp_store) -> None:
 
 
 def test_format_memories_empty_returns_empty() -> None:
-    from memory.retrieval import format_memories_for_injection
+    from data_agents.memory.retrieval import format_memories_for_injection
 
     result = format_memories_for_injection([])
     assert result == ""

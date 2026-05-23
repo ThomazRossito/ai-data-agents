@@ -12,8 +12,8 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock
 
 
-from memory.types import Memory, MemoryType
-from memory.decay import (
+from data_agents.memory.types import Memory, MemoryType
+from data_agents.memory.decay import (
     _compute_decay_rate,
     compute_decayed_confidence,
     apply_decay,

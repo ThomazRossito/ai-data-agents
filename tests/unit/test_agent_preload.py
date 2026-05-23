@@ -14,7 +14,7 @@ Cobre:
 from pathlib import Path
 
 
-from agents.loader import AgentMeta, build_escalation_graph_markdown, preload_registry
+from data_agents.agents.loader import AgentMeta, build_escalation_graph_markdown, preload_registry
 
 
 # ─── Fixture: registry temporário ────────────────────────────────────────────

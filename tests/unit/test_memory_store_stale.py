@@ -10,8 +10,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from memory.store import MemoryStore
-from memory.types import Memory, MemoryType
+from data_agents.memory.store import MemoryStore
+from data_agents.memory.types import Memory, MemoryType
 
 
 @pytest.fixture

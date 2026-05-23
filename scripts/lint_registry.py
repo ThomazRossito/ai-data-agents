@@ -66,7 +66,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # Local imports must come after sys.path manipulation
-from utils.frontmatter import parse_yaml_frontmatter  # noqa: E402
+from data_agents.utils.frontmatter import parse_yaml_frontmatter  # noqa: E402
 
 # ─── Constants — single source of truth for valid values ─────────────────────
 
@@ -157,7 +157,7 @@ def _load_valid_mcps() -> set[str]:
     """Returns the set of MCP server names registered in ALL_MCP_CONFIGS,
     plus the documented 'fabric_community' alias which agents reference
     (config/mcp_servers.py::PLATFORM_TO_SERVER_ALIASES)."""
-    from config.mcp_servers import ALL_MCP_CONFIGS
+    from data_agents.config.mcp_servers import ALL_MCP_CONFIGS
 
     valid = set(ALL_MCP_CONFIGS.keys())
     # Documented alias: 'fabric' platform registers a server named
@@ -169,7 +169,7 @@ def _load_valid_mcps() -> set[str]:
 
 def _load_valid_aliases() -> set[str]:
     """Returns the set of tool aliases registered in MCP_TOOL_SETS."""
-    from agents.loader import MCP_TOOL_SETS
+    from data_agents.agents.loader import MCP_TOOL_SETS
 
     return set(MCP_TOOL_SETS.keys())
 
@@ -752,8 +752,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--registry-dir",
         type=Path,
-        default=PROJECT_ROOT / "agents" / "registry",
-        help="Override the registry directory (default: agents/registry).",
+        default=PROJECT_ROOT / "data_agents" / "agents" / "registry",
+        help="Override the registry directory (default: data_agents/agents/registry).",
     )
     args = parser.parse_args(argv)
 

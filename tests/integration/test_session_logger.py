@@ -66,9 +66,9 @@ class TestLogSessionResult:
     def test_creates_log_file(self, tmp_path):
         mock_settings = _make_mock_settings(tmp_path)
         sessions_path = tmp_path / "logs" / "sessions.jsonl"
-        with patch("hooks.session_logger.settings", mock_settings):
-            with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-                from hooks.session_logger import log_session_result
+        with patch("data_agents.hooks.session_logger.settings", mock_settings):
+            with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+                from data_agents.hooks.session_logger import log_session_result
 
                 log_session_result(_make_result_message())
         assert sessions_path.exists()
@@ -76,9 +76,9 @@ class TestLogSessionResult:
     def test_log_entry_has_expected_fields(self, tmp_path):
         mock_settings = _make_mock_settings(tmp_path)
         sessions_path = tmp_path / "logs" / "sessions.jsonl"
-        with patch("hooks.session_logger.settings", mock_settings):
-            with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-                from hooks.session_logger import log_session_result
+        with patch("data_agents.hooks.session_logger.settings", mock_settings):
+            with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+                from data_agents.hooks.session_logger import log_session_result
 
                 log_session_result(
                     _make_result_message(cost=2.0, turns=4, duration_ms=5000),
@@ -102,9 +102,9 @@ class TestLogSessionResult:
     def test_log_appends_multiple_entries(self, tmp_path):
         mock_settings = _make_mock_settings(tmp_path)
         sessions_path = tmp_path / "logs" / "sessions.jsonl"
-        with patch("hooks.session_logger.settings", mock_settings):
-            with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-                from hooks.session_logger import log_session_result
+        with patch("data_agents.hooks.session_logger.settings", mock_settings):
+            with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+                from data_agents.hooks.session_logger import log_session_result
 
                 log_session_result(_make_result_message(cost=1.0))
                 log_session_result(_make_result_message(cost=2.0))
@@ -115,9 +115,9 @@ class TestLogSessionResult:
     def test_log_truncates_prompt_at_100(self, tmp_path):
         mock_settings = _make_mock_settings(tmp_path)
         sessions_path = tmp_path / "logs" / "sessions.jsonl"
-        with patch("hooks.session_logger.settings", mock_settings):
-            with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-                from hooks.session_logger import log_session_result
+        with patch("data_agents.hooks.session_logger.settings", mock_settings):
+            with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+                from data_agents.hooks.session_logger import log_session_result
 
                 log_session_result(_make_result_message(), prompt_preview="x" * 200)
 
@@ -127,9 +127,9 @@ class TestLogSessionResult:
     def test_log_computes_cost_per_turn(self, tmp_path):
         mock_settings = _make_mock_settings(tmp_path)
         sessions_path = tmp_path / "logs" / "sessions.jsonl"
-        with patch("hooks.session_logger.settings", mock_settings):
-            with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-                from hooks.session_logger import log_session_result
+        with patch("data_agents.hooks.session_logger.settings", mock_settings):
+            with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+                from data_agents.hooks.session_logger import log_session_result
 
                 log_session_result(_make_result_message(cost=2.0, turns=4))
 
@@ -140,9 +140,9 @@ class TestLogSessionResult:
     def test_log_cost_per_turn_none_when_zero_turns(self, tmp_path):
         mock_settings = _make_mock_settings(tmp_path)
         sessions_path = tmp_path / "logs" / "sessions.jsonl"
-        with patch("hooks.session_logger.settings", mock_settings):
-            with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-                from hooks.session_logger import log_session_result
+        with patch("data_agents.hooks.session_logger.settings", mock_settings):
+            with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+                from data_agents.hooks.session_logger import log_session_result
 
                 log_session_result(_make_result_message(turns=0))
 
@@ -152,11 +152,11 @@ class TestLogSessionResult:
     def test_log_handles_oserror_gracefully(self, tmp_path):
         mock_settings = _make_mock_settings(tmp_path)
         sessions_path = tmp_path / "logs" / "sessions.jsonl"
-        with patch("hooks.session_logger.settings", mock_settings):
-            with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+        with patch("data_agents.hooks.session_logger.settings", mock_settings):
+            with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
                 with patch("builtins.open", side_effect=OSError("disk full")):
                     with patch("os.makedirs"):
-                        from hooks.session_logger import log_session_result
+                        from data_agents.hooks.session_logger import log_session_result
 
                         # Não deve lançar exceção
                         log_session_result(_make_result_message())
@@ -175,9 +175,9 @@ class TestLogSessionResult:
         msg.input_tokens = None
         msg.output_tokens = None
         msg.cache_read_input_tokens = None
-        with patch("hooks.session_logger.settings", mock_settings):
-            with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-                from hooks.session_logger import log_session_result
+        with patch("data_agents.hooks.session_logger.settings", mock_settings):
+            with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+                from data_agents.hooks.session_logger import log_session_result
 
                 log_session_result(msg)
 
@@ -188,9 +188,9 @@ class TestLogSessionResult:
     def test_log_computes_duration_seconds(self, tmp_path):
         mock_settings = _make_mock_settings(tmp_path)
         sessions_path = tmp_path / "logs" / "sessions.jsonl"
-        with patch("hooks.session_logger.settings", mock_settings):
-            with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-                from hooks.session_logger import log_session_result
+        with patch("data_agents.hooks.session_logger.settings", mock_settings):
+            with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+                from data_agents.hooks.session_logger import log_session_result
 
                 log_session_result(_make_result_message(duration_ms=3500))
 
@@ -208,8 +208,8 @@ class TestLoadSessionHistory:
 
     def test_returns_empty_when_no_file(self, tmp_path):
         sessions_path = tmp_path / "sessions.jsonl"
-        with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-            from hooks.session_logger import load_session_history
+        with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+            from data_agents.hooks.session_logger import load_session_history
 
             assert load_session_history() == []
 
@@ -221,8 +221,8 @@ class TestLoadSessionHistory:
             + json.dumps({"total_cost_usd": 2.0, "num_turns": 5})
             + "\n"
         )
-        with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-            from hooks.session_logger import load_session_history
+        with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+            from data_agents.hooks.session_logger import load_session_history
 
             result = load_session_history()
         assert len(result) == 2
@@ -238,8 +238,8 @@ class TestLoadSessionHistory:
             + json.dumps({"total_cost_usd": 2.0})
             + "\n"
         )
-        with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-            from hooks.session_logger import load_session_history
+        with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+            from data_agents.hooks.session_logger import load_session_history
 
             result = load_session_history()
         assert len(result) == 2
@@ -247,8 +247,8 @@ class TestLoadSessionHistory:
     def test_skips_blank_lines(self, tmp_path):
         sessions_path = tmp_path / "sessions.jsonl"
         sessions_path.write_text(json.dumps({"total_cost_usd": 1.0}) + "\n\n\n")
-        with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-            from hooks.session_logger import load_session_history
+        with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+            from data_agents.hooks.session_logger import load_session_history
 
             result = load_session_history()
         assert len(result) == 1
@@ -256,9 +256,9 @@ class TestLoadSessionHistory:
     def test_returns_empty_on_oserror(self, tmp_path):
         sessions_path = tmp_path / "sessions.jsonl"
         sessions_path.write_text("{}\n")
-        with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+        with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
             with patch("builtins.open", side_effect=OSError("permission denied")):
-                from hooks.session_logger import load_session_history
+                from data_agents.hooks.session_logger import load_session_history
 
                 result = load_session_history()
         assert result == []
@@ -278,8 +278,8 @@ class TestGetSessionSummary:
 
     def test_empty_summary_when_no_sessions(self, tmp_path):
         sessions_path = tmp_path / "sessions.jsonl"
-        with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-            from hooks.session_logger import get_session_summary
+        with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+            from data_agents.hooks.session_logger import get_session_summary
 
             result = get_session_summary()
         assert result["total_sessions"] == 0
@@ -305,8 +305,8 @@ class TestGetSessionSummary:
                 },
             ],
         )
-        with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-            from hooks.session_logger import get_session_summary
+        with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+            from data_agents.hooks.session_logger import get_session_summary
 
             result = get_session_summary()
         assert result["total_sessions"] == 2
@@ -332,8 +332,8 @@ class TestGetSessionSummary:
                 },
             ],
         )
-        with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-            from hooks.session_logger import get_session_summary
+        with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+            from data_agents.hooks.session_logger import get_session_summary
 
             result = get_session_summary()
         assert result["avg_cost_per_session"] == 3.0
@@ -363,8 +363,8 @@ class TestGetSessionSummary:
                 },
             ],
         )
-        with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-            from hooks.session_logger import get_session_summary
+        with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+            from data_agents.hooks.session_logger import get_session_summary
 
             result = get_session_summary()
         assert result["sessions_by_date"]["2026-04-09"] == 2
@@ -389,8 +389,8 @@ class TestGetSessionSummary:
                 },
             ],
         )
-        with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-            from hooks.session_logger import get_session_summary
+        with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+            from data_agents.hooks.session_logger import get_session_summary
 
             result = get_session_summary()
         assert result["cost_by_date"]["2026-04-09"] == 2.0
@@ -403,8 +403,8 @@ class TestGetSessionSummary:
                 {"total_cost_usd": 1.0, "num_turns": 1, "duration_ms": 0},
             ],
         )
-        with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-            from hooks.session_logger import get_session_summary
+        with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+            from data_agents.hooks.session_logger import get_session_summary
 
             result = get_session_summary()
         assert "unknown" in result["sessions_by_date"]
@@ -428,8 +428,8 @@ class TestGetSessionSummary:
                 },
             ],
         )
-        with patch("hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
-            from hooks.session_logger import get_session_summary
+        with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
+            from data_agents.hooks.session_logger import get_session_summary
 
             result = get_session_summary()
         assert result["total_duration_ms"] == 3000

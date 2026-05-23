@@ -12,8 +12,8 @@ import json
 from unittest.mock import patch, MagicMock
 
 
-from memory.types import MemoryType
-from memory.extractor import extract_memories_from_conversation
+from data_agents.memory.types import MemoryType
+from data_agents.memory.extractor import extract_memories_from_conversation
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────
@@ -230,7 +230,7 @@ class TestLessonLearnedExtraction:
 
     def test_prompt_mentions_lesson_learned_category(self):
         """System prompt do extractor deve documentar a 8ª categoria."""
-        from memory.extractor import _EXTRACTOR_SYSTEM_PROMPT
+        from data_agents.memory.extractor import _EXTRACTOR_SYSTEM_PROMPT
 
         assert "lesson_learned" in _EXTRACTOR_SYSTEM_PROMPT
         assert "8" in _EXTRACTOR_SYSTEM_PROMPT  # menção a "8 tipos"

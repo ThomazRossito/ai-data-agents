@@ -21,8 +21,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from memory.manager import MemoryManager
-from memory.types import Memory, MemoryType
+from data_agents.memory.manager import MemoryManager
+from data_agents.memory.types import Memory, MemoryType
 
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -147,25 +147,25 @@ class TestInjectContext:
 class TestFlushSession:
     def test_returns_count(self, manager):
         manager.start_session("s1")
-        with patch("hooks.memory_hook.flush_session_memories", return_value=7):
+        with patch("data_agents.hooks.memory_hook.flush_session_memories", return_value=7):
             with patch.object(manager, "sync_long_term", return_value=0):
                 assert manager.flush_session() == 7
 
     def test_passes_session_id(self, manager):
         manager.start_session("sess-xyz")
-        with patch("hooks.memory_hook.flush_session_memories", return_value=0) as mock:
+        with patch("data_agents.hooks.memory_hook.flush_session_memories", return_value=0) as mock:
             manager.flush_session()
         mock.assert_called_once_with(session_id="sess-xyz")
 
     def test_returns_zero_when_disabled(self, manager_off):
-        with patch("hooks.memory_hook.flush_session_memories") as mock:
+        with patch("data_agents.hooks.memory_hook.flush_session_memories") as mock:
             count = manager_off.flush_session()
         mock.assert_not_called()
         assert count == 0
 
     def test_returns_zero_on_exception(self, manager):
         manager.start_session("s1")
-        with patch("hooks.memory_hook.flush_session_memories", side_effect=OSError("disk full")):
+        with patch("data_agents.hooks.memory_hook.flush_session_memories", side_effect=OSError("disk full")):
             assert manager.flush_session() == 0
 
 
@@ -216,13 +216,13 @@ class TestApplyDecay:
     def test_delegates_to_decay_module(self, manager):
         mem = _mem()
         mock_store = self._mock_store(manager, [mem])
-        with patch("memory.decay.apply_decay") as mock_decay:
+        with patch("data_agents.memory.decay.apply_decay") as mock_decay:
             manager.apply_decay()
         mock_decay.assert_called_once_with([mem], save_fn=mock_store.save)
 
     def test_noop_on_empty_store(self, manager):
         self._mock_store(manager, [])
-        with patch("memory.decay.apply_decay") as mock_decay:
+        with patch("data_agents.memory.decay.apply_decay") as mock_decay:
             manager.apply_decay()
         mock_decay.assert_not_called()
 
@@ -264,7 +264,7 @@ class TestSessionFlow:
     def test_start_then_flush_then_end_resets_state(self, manager):
         self._setup(manager)
         manager.start_session("flow-02")
-        with patch("hooks.memory_hook.flush_session_memories", return_value=3):
+        with patch("data_agents.hooks.memory_hook.flush_session_memories", return_value=3):
             with patch.object(manager, "sync_long_term", return_value=3):
                 count = manager.flush_session()
         assert count == 3
@@ -298,7 +298,7 @@ class TestSessionFlow:
         manager.start_session("flow-06")
         manager.inject_context("query a", "base")
         manager.inject_context("query a", "base")  # cache hit
-        with patch("hooks.memory_hook.flush_session_memories", return_value=2):
+        with patch("data_agents.hooks.memory_hook.flush_session_memories", return_value=2):
             with patch.object(manager, "sync_long_term", return_value=2):
                 manager.flush_session()
         with patch.object(manager, "flush_session", return_value=0):

@@ -17,8 +17,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from memory.types import Memory, MemoryType
-from memory.store import MemoryStore
+from data_agents.memory.types import Memory, MemoryType
+from data_agents.memory.store import MemoryStore
 
 
 # ─── Fixture ─────────────────────────────────────────────────────────

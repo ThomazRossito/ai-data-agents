@@ -42,8 +42,8 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
-from config.settings import settings  # noqa: E402
-from config.logging_config import setup_logging  # noqa: E402
+from data_agents.config.settings import settings  # noqa: E402
+from data_agents.config.logging_config import setup_logging  # noqa: E402
 
 logger = logging.getLogger("data_agents.refresh_skills")
 

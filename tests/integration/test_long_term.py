@@ -10,8 +10,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from memory.long_term import LongTermMemory
-from memory.types import Memory, MemoryType
+from data_agents.memory.long_term import LongTermMemory
+from data_agents.memory.types import Memory, MemoryType
 
 
 def _make_memory(

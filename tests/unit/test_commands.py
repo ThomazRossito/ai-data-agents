@@ -1,6 +1,6 @@
 """Testes do parser de slash commands."""
 
-from commands.parser import parse_command, get_help_text, COMMAND_REGISTRY
+from data_agents.commands.parser import parse_command, get_help_text, COMMAND_REGISTRY
 
 
 class TestParseCommand:

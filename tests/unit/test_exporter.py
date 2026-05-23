@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 
 
-from ui.exporter import _strip_metrics, export_html, export_markdown
+from data_agents.ui.exporter import _strip_metrics, export_html, export_markdown
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
