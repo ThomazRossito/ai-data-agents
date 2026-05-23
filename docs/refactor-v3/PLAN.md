@@ -371,24 +371,37 @@ Aplicada a heurística "é débito ou foi feito assim de propósito?" — 3 das 
 
 ---
 
-## FASE 11 — Docs Site
+## FASE 11 — Docs Site ✅ CONCLUÍDA
 
 **Objetivo**: documentação navegável, comparável ao docusaurus do ai-dev-kit ou ao docs/ do agentspec.
 
-### Tasks
+### Tasks (versão revisada)
 
-| # | Task | Critério de aceitação |
-|---|---|---|
-| 11.1 | Escolher framework: MkDocs Material (recomendado) | Decisão registrada em ADR-009 |
-| 11.2 | Estrutura inicial: `docs/`, `mkdocs.yml`, deploy via GitHub Pages | `make docs-serve` sobe local |
-| 11.3 | Migrar conteúdo: getting-started, concepts (constitution, memory, hooks), tutorials, reference (API + agents + MCPs) | Site tem 4 seções funcionais |
-| 11.4 | Auto-gerar reference docs de docstrings via mkdocstrings | API reference atualizada com `make docs-build` |
-| 11.5 | Tutorial end-to-end: "Migrar SQL Server para Databricks via /migrate" | Tutorial funciona quando reproduzido |
-| 11.6 | Migration guide: v2.x → v3.0 | Mapeia imports antigos → novos |
-| 11.7 | Deploy automático via GitHub Actions em `gh-pages` branch | Site público funcionando |
+| # | Task | Decisão | Status |
+|---|---|---|---|
+| 11.1 | Escolher framework | **MkDocs Material** — registrado em ADR-010 (não ADR-009 do plano original; ADR-009 já estava ocupado por structural lints). | ✅ |
+| 11.2 | mkdocs.yml + estrutura docs/site/ + Makefile targets (docs-serve, docs-build, docs-deploy) | + extra `[docs]` no pyproject; `.gitignore` permite `docs/site/` mas exclui `/site/` (output) | ✅ |
+| 11.3 | 4 seções core (Getting Started, Concepts, Tutorials, Reference) | 14 páginas no total — getting-started (3) + concepts (5) + tutorials (2) + reference (5) + migration (1) + index. Reaproveitamento máximo (links para ARCHITECTURE.md, ADRs, threat model em vez de duplicar) | ✅ |
+| 11.4 | mkdocstrings (auto-gerar API ref) | **ADIADO** — overhead de manutenção (docstrings viram contrato) prematuro pra v3.0-rc1. Reabrir post-v3.0.0 se houver demanda de usuário. Decisão documentada em ADR-010 | (adiado) |
+| 11.5 | Tutorial e2e `/migrate` SQL Server → Databricks | `tutorials/migrate-sql-server.md` com as 5 fases (ASSESS, ANALYZE, DESIGN, TRANSPILE, RECONCILE) + checklist M1-M10 + links para skill | ✅ |
+| 11.6 | Migration guide v2.x → v3.0 | `migration/v2-to-v3.md` com tabela de imports antigos→novos + script Python idempotente que reescreve os imports do código consumidor | ✅ |
+| 11.7 | Deploy via GitHub Actions em `gh-pages` | `.github/workflows/docs.yml`: build em todo push/PR (mkdocs build --strict), deploy em push para `main`/`refactor/v3.0`. Path filter narrow (não roda quando docs não mudou) | ✅ |
 
-**Estimativa**: 5-7 dias.
-**Risco**: Baixo.
+**Resultado**:
+- ADR-010 documentando a escolha (MkDocs Material vs Docusaurus vs Sphinx)
+- `mkdocs.yml` + 14 páginas em `docs/site/` (~50KB de conteúdo curado)
+- 4 navegação tabs + Migration section
+- Workflow `docs.yml` com job build (strict — falha em link quebrado) + job deploy (só em main/refactor)
+- Target `make docs-serve` (preview local) + `make docs-build` (strict)
+- Tutorial concreto de migração SQL Server → Databricks com escalações Constitution S6
+- Migration guide v2→v3 com sed automático idempotente
+
+**Lições aprendidas**:
+- Reaproveitamento > duplicação. A maioria dos `docs/site/*.md` LINKA para conteúdo já existente em `docs/ARCHITECTURE.md`, `docs/SECURITY_THREAT_MODEL.md`, `docs/adr/`, em vez de duplicar. Mantém o repo Markdown como source of truth navegável (`git log --follow`) e o site MkDocs como navegação layer.
+- mkdocstrings (auto-API) parece tentador mas tem custo escondido: docstrings viram contrato público. Para um projeto majoritariamente declarativo (15 agentes Markdown + 17 MCPs YAML), o valor é baixo. Decisão de adiar registrada no ADR-010.
+- `mkdocs build --strict` no CI captura broken internal links no PR. Adoção desse flag é gratuita e evita "site verde no deploy mas com link quebrado em produção".
+- Path filter narrow no `docs.yml` (`paths: docs/site/**`) reduz runner minutes — não rebuilda quando alguém só toca em `data_agents/`.
+- Plano original tinha `ADR-009` para a decisão MkDocs, mas ADR-009 já existia (structural lints). Numeração de ADR é append-only — usei **ADR-010** sem renumerar, mantendo histórico íntegro.
 
 ---
 

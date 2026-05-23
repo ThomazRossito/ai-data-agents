@@ -7,6 +7,44 @@
 
 ## [Unreleased]
 
+### Added — Phase 11: Documentation site (MkDocs Material)
+
+The project now publishes its docs as a navigable site at
+https://thomazrossito.github.io/ai-data-agents/ — built with MkDocs Material
+(see ADR-010 for the framework choice rationale).
+
+**New files:**
+
+- `mkdocs.yml` — site config with Material theme, light/dark palette,
+  4-tab navigation + Migration tab
+- `docs/site/` — source for the published site (14 pages):
+    - `index.md` — landing + 60-second overview
+    - `getting-started/` — installation, first query, slash commands
+    - `concepts/` — architecture, constitution (S1–S7), memory, hooks, tier system
+    - `tutorials/` — SQL Server → Databricks migration walkthrough, Medallion pipeline
+    - `reference/` — agents (15), MCPs (17), slash commands (39), ADRs (10), security
+    - `migration/v2-to-v3.md` — automated import rewrite for v2 consumers
+- `docs/adr/ADR-010-docs-site-mkdocs-material.md` — framework decision
+- `.github/workflows/docs.yml` — `mkdocs build --strict` on every push/PR;
+  deploy to `gh-pages` only on main/refactor branches. Path filter narrow.
+
+**New Makefile targets:**
+
+- `make docs-serve` — local preview on http://127.0.0.1:8000
+- `make docs-build` — strict static build to `site/`
+- `make docs-deploy` — manual `mkdocs gh-deploy` (CI does this automatically)
+
+**New pyproject extra:**
+
+- `[docs]` — `mkdocs`, `mkdocs-material`, `pymdown-extensions`. Only the
+  maintainer building the site needs it; end users consume the public URL.
+
+**Deferred:**
+
+- `mkdocstrings` (auto-generated API reference) — overhead of treating
+  docstrings as a public contract is premature for v3.0-rc1. Reopen post-3.0.0
+  if users ask. See ADR-010 for rationale.
+
 ### Added — Phase 10: Hardening (partial — pragmatic scope)
 
 After auditing the original Phase 10 plan against the project's real use case

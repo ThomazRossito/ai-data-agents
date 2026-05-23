@@ -1,0 +1,112 @@
+name: Docs — Build + deploy MkDocs site to GitHub Pages
+
+# Phase 11 (ADR-010): docs site built with MkDocs Material, deployed via
+# GitHub Pages on every push to main or refactor/v3.0.
+#
+# Triggers narrowly — only when docs source actually changes, otherwise we
+# skip the build to save runner minutes.
+#
+# Workflow has 2 jobs:
+#   1. build  — mkdocs build --strict (fails on broken internal links)
+#   2. deploy — only on main/refactor branches, pushes site/ to gh-pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main", "refactor/v3.0"]
+    paths:
+      - "docs/site/**"
+      - "docs/ARCHITECTURE.md"
+      - "docs/SECURITY_THREAT_MODEL.md"
+      - "docs/adr/**"
+      - "mkdocs.yml"
+      - "pyproject.toml"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    branches: ["main", "refactor/v3.0"]
+    paths:
+      - "docs/site/**"
+      - "mkdocs.yml"
+      - "pyproject.toml"
+      - ".github/workflows/docs.yml"
+
+# Default to read-only at the workflow level; deploy job opts in to write.
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+  FORCE_COLOR: "1"
+
+concurrency:
+  group: docs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 1: Build site (always, including PRs — catches broken links)
+  # ─────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build site (mkdocs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install docs extra
+        run: pip install -e ".[docs]"
+
+      - name: Build site (strict — fails on broken internal links)
+        run: mkdocs build --strict --clean
+
+      - name: Upload site artifact
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: docs-site
+          path: site/
+          retention-days: 14
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 2: Deploy to gh-pages (only on push to main/refactor — not PR)
+  # ─────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [build]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/refactor/v3.0')
+    permissions:
+      contents: write  # required to push to gh-pages branch
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0  # mkdocs gh-deploy needs full history
+
+      - name: Set up Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install docs extra
+        run: pip install -e ".[docs]"
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy to gh-pages
+        run: mkdocs gh-deploy --force --clean
