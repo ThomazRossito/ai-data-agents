@@ -1,0 +1,146 @@
+name: Plugin — validate marketplace + plugin sync
+
+# Phase 12: validates the Claude Code plugin distribution.
+#
+# Two jobs:
+#   1. validate-manifest  — JSON-validate marketplace.json + plugin.json
+#                            (catches typos/spec violations at PR time)
+#   2. validate-sync      — re-runs scripts/build_plugin.sh and asserts the
+#                            generated plugins/ai-data-agents/ has zero diff
+#                            against what's committed. Drift = fail.
+#
+# Both jobs run with `continue-on-error: false` — if the plugin spec evolves
+# in an incompatible way, this workflow alerts via the PR check; the rest of
+# CI (ci.yml release.yml docs.yml) continues to function independently.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main", "refactor/v3.0"]
+    paths:
+      - ".claude-plugin/**"
+      - "plugins/**"
+      - "data_agents/agents/registry/**"
+      - "skills/**"
+      - "scripts/build_plugin.sh"
+      - ".github/workflows/plugin-validate.yml"
+  pull_request:
+    branches: ["main", "refactor/v3.0"]
+    paths:
+      - ".claude-plugin/**"
+      - "plugins/**"
+      - "data_agents/agents/registry/**"
+      - "skills/**"
+      - "scripts/build_plugin.sh"
+      - ".github/workflows/plugin-validate.yml"
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+  FORCE_COLOR: "1"
+
+concurrency:
+  group: plugin-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 1: JSON-validate marketplace.json + plugin.json
+  # ─────────────────────────────────────────────────────────────────────────
+  validate-manifest:
+    name: Validate manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Validate marketplace.json
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          path = ".claude-plugin/marketplace.json"
+          with open(path) as f:
+              data = json.load(f)
+          # Required top-level fields
+          required = ["name", "owner", "plugins"]
+          missing = [f for f in required if f not in data]
+          if missing:
+              print(f"::error file={path}::missing required fields: {missing}")
+              sys.exit(1)
+          # Owner sub-fields
+          owner = data["owner"]
+          if not isinstance(owner, dict) or "name" not in owner or "email" not in owner:
+              print(f"::error file={path}::owner must be a dict with 'name' and 'email'")
+              sys.exit(1)
+          # Plugins array sanity
+          plugins = data["plugins"]
+          if not isinstance(plugins, list) or len(plugins) == 0:
+              print(f"::error file={path}::plugins must be a non-empty array")
+              sys.exit(1)
+          for i, p in enumerate(plugins):
+              for field in ("name", "source", "description"):
+                  if field not in p:
+                      print(f"::error file={path}::plugins[{i}] missing field '{field}'")
+                      sys.exit(1)
+          print(f"✓ {path}: {len(plugins)} plugin(s) declared")
+          PY
+
+      - name: Validate plugin.json
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          path = "plugins/ai-data-agents/.claude-plugin/plugin.json"
+          with open(path) as f:
+              data = json.load(f)
+          required = ["name", "version", "description"]
+          missing = [f for f in required if f not in data]
+          if missing:
+              print(f"::error file={path}::missing required fields: {missing}")
+              sys.exit(1)
+          # Version must agree with VERSION file (single source of truth, Phase 9)
+          with open("VERSION") as f:
+              version_file = f.read().strip()
+          if data["version"] != version_file:
+              print(f"::error file={path}::version '{data['version']}' doesn't match VERSION file '{version_file}'")
+              print(f"::error::run 'bash scripts/build_plugin.sh' to sync")
+              sys.exit(1)
+          print(f"✓ {path}: version {data['version']} in sync with VERSION")
+          PY
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 2: re-run build_plugin.sh and assert no diff (sync drift detection)
+  # ─────────────────────────────────────────────────────────────────────────
+  validate-sync:
+    name: Validate plugin sync (no drift)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Re-build plugin from canonical sources
+        run: bash scripts/build_plugin.sh
+
+      - name: Assert no diff (plugin must be in sync)
+        run: |
+          if ! git diff --exit-code plugins/ai-data-agents/ .claude-plugin/marketplace.json; then
+            echo ""
+            echo "::error::Plugin is out of sync with canonical sources."
+            echo "::error::Run 'bash scripts/build_plugin.sh' locally, commit the result, and push."
+            exit 1
+          fi
+          echo "✓ Plugin in sync with canonical sources (agents + skills)"

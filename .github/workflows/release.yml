@@ -162,6 +162,17 @@ jobs:
       - name: Build wheel + sdist
         run: python -m build
 
+      # Phase 12: also build the Claude Code plugin tarball.
+      # The plugin lives in plugins/ai-data-agents/ (already committed and in
+      # sync via plugin-validate.yml). Here we just tar.gz it for the release.
+      - name: Build Claude Code plugin tarball
+        run: |
+          mkdir -p dist
+          VERSION="${{ needs.validate.outputs.version }}"
+          tar -czf "dist/ai-data-agents-plugin-${VERSION}.tar.gz" \
+              -C plugins ai-data-agents
+          echo "✓ plugin tarball: dist/ai-data-agents-plugin-${VERSION}.tar.gz"
+
       - name: List artifacts
         run: ls -la dist/
 
@@ -234,6 +245,8 @@ jobs:
           name: v${{ env.VERSION }}
           body_path: /tmp/release-notes.md
           prerelease: ${{ steps.prerelease.outputs.is_prerelease }}
+          # dist/*.tar.gz já cobre tanto o sdist (ai_data_agents-X.tar.gz)
+          # quanto o plugin (ai-data-agents-plugin-X.tar.gz).
           files: |
             dist/*.whl
             dist/*.tar.gz
