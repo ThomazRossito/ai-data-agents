@@ -45,6 +45,9 @@ def _make_result_message(cost=1.5, turns=5, duration_ms=3000, usage=None):
     msg.total_cost_usd = (cost * 5.45) if cost else 0.0  # simula SDK reporting (Anthropic)
     msg.num_turns = turns
     msg.duration_ms = duration_ms
+    # Phase 10: session_id é canônico no log. Sem isso, getattr(mock, 'session_id')
+    # retorna outro MagicMock (truthy) e o json.dumps falha silenciosamente.
+    msg.session_id = "test-session"
     return msg
 
 
@@ -175,6 +178,8 @@ class TestLogSessionResult:
         msg.input_tokens = None
         msg.output_tokens = None
         msg.cache_read_input_tokens = None
+        # session_id None (esperado pelo session_logger: 'or ""')
+        msg.session_id = None
         with patch("data_agents.hooks.session_logger.settings", mock_settings):
             with patch("data_agents.hooks.session_logger.SESSIONS_LOG_PATH", sessions_path):
                 from data_agents.hooks.session_logger import log_session_result

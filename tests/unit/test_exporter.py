@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import os
 
+import pytest
 
-from data_agents.ui.exporter import _strip_metrics, export_html, export_markdown
+# Phase 8: data_agents.ui.exporter depende de markdown2 (extra [ui]).
+# CI Tests roda só com [dev] — sem [ui], o módulo levanta ImportError no
+# topo. Pular toda a suite quando markdown2 não está disponível.
+pytest.importorskip("markdown2")
+
+from data_agents.ui.exporter import _strip_metrics, export_html, export_markdown  # noqa: E402
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────

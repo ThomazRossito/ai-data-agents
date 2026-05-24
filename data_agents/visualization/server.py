@@ -26,14 +26,19 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-# Phase 8: fastapi é dep opcional do extra [viz].
+# Phase 8: fastapi + watchdog são deps opcionais do extra [viz].
+# Nota: chainlit (extra [ui], 2.x+) puxa fastapi como transitiva, então testar
+# fastapi sozinho não detecta a ausência do [viz]. watchdog é exclusivo do [viz]
+# e é o guard correto para garantir que o módulo só rode com o extra completo.
 try:
+    import watchdog  # noqa: F401 — apenas para validar presença do extra [viz]
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect
     from fastapi.responses import FileResponse, JSONResponse
     from fastapi.staticfiles import StaticFiles
 except ImportError as _exc:
     raise ImportError(
-        "fastapi não instalado. Para habilitar o servidor de visualização 3D:\n"
+        "dependências do viz não instaladas (watchdog/fastapi). "
+        "Para habilitar o servidor de visualização 3D:\n"
         '  pip install -e ".[viz]"\n'
         "  ou: pip install 'fastapi>=0.110' 'uvicorn[standard]>=0.27' 'watchdog>=4.0'"
     ) from _exc

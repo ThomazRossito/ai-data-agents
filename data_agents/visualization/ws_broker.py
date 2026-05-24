@@ -22,12 +22,16 @@ import logging
 from collections import deque
 from typing import Any
 
-# Phase 8: fastapi é dep opcional do extra [viz].
+# Phase 8: fastapi + watchdog são deps opcionais do extra [viz].
+# chainlit (extra [ui], 2.x+) puxa fastapi como transitiva — watchdog é o guard
+# exclusivo do [viz] para distinguir os dois ambientes.
 try:
+    import watchdog  # noqa: F401 — valida presença do extra [viz]
     from fastapi import WebSocket
 except ImportError as _exc:
     raise ImportError(
-        'fastapi não instalado. Para habilitar a visualização 3D:\n  pip install -e ".[viz]"'
+        "dependências do viz não instaladas (watchdog/fastapi). "
+        'Para habilitar a visualização 3D:\n  pip install -e ".[viz]"'
     ) from _exc
 
 logger = logging.getLogger("data_agents.visualization.ws_broker")
