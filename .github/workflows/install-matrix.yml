@@ -70,13 +70,32 @@ jobs:
               - data_agents.monitoring.app
               - data_agents.visualization.server
 
+          - label: monitoring
+            extras: "[monitoring]"
+            # streamlit (extra [monitoring]) puxa watchdog como dep transitiva,
+            # mas NÃO puxa fastapi. visualization.server exige fastapi+watchdog
+            # como guard combinado → deve falhar aqui.
+            should_import:
+              - data_agents.agents.loader
+              - data_agents.monitoring.app
+            should_fail:
+              - data_agents.ui.chainlit_app
+              - data_agents.visualization.server
+
           - label: ui-monitoring
             extras: "[ui,monitoring]"
+            # NOTA: chainlit (extra [ui], 2.x+) puxa fastapi transitivamente e
+            # streamlit (extra [monitoring]) puxa watchdog. Juntos, as duas deps
+            # críticas do [viz] estão disponíveis, então data_agents.visualization
+            # .server *consegue* importar sem o extra explícito. Esse é um efeito
+            # colateral inevitável das deps de chainlit/streamlit modernos —
+            # invariante de "isolation" não é forçável aqui sem adicionar dep
+            # cosmética só pro test. Cobertura real fica nos casos 'core',
+            # 'ui' (só fastapi) e 'monitoring' (só watchdog).
             should_import:
               - data_agents.ui.exporter
               - data_agents.monitoring.app
-            should_fail:
-              - data_agents.visualization.server
+            should_fail: []
 
           - label: viz
             extras: "[viz]"
