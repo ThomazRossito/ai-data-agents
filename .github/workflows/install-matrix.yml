@@ -72,15 +72,17 @@ jobs:
 
           - label: monitoring
             extras: "[monitoring]"
-            # streamlit (extra [monitoring]) puxa watchdog como dep transitiva,
-            # mas NÃO puxa fastapi. visualization.server exige fastapi+watchdog
-            # como guard combinado → deve falhar aqui.
+            # mlflow (dep CORE do projeto, pyproject.toml linha 30) puxa fastapi
+            # como dep transitiva via mlflow-skinny → fastapi<1 sempre disponível.
+            # streamlit (extra [monitoring]) puxa watchdog. Com ambos presentes,
+            # data_agents.visualization.server consegue importar mesmo sem [viz]
+            # — não é forçável como invariante de isolation. Cobertura real fica
+            # no caso 'core' (sem streamlit, watchdog ausente, guard funciona).
             should_import:
               - data_agents.agents.loader
               - data_agents.monitoring.app
             should_fail:
               - data_agents.ui.chainlit_app
-              - data_agents.visualization.server
 
           - label: ui-monitoring
             extras: "[ui,monitoring]"

@@ -110,7 +110,7 @@ APP_LOG = ROOT / "logs" / "app.jsonl"
 SESSIONS_LOG = ROOT / "logs" / "sessions.jsonl"
 COMPRESSION_LOG = ROOT / "logs" / "compression.jsonl"
 WORKFLOWS_LOG = ROOT / "logs" / "workflows.jsonl"
-REGISTRY = ROOT / "agents" / "registry"
+REGISTRY = PACKAGE_DIR / "agents" / "registry"
 
 
 def _lessons_dir() -> Path:
