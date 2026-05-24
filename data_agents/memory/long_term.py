@@ -345,7 +345,12 @@ class LongTermMemory:
         memories: list[Memory],
         rows: list[sqlite3.Row],
     ) -> list[Memory]:
-        """Re-rankeia candidatos BM25 por cosine similarity."""
+        """Re-rankeia candidatos BM25 por cosine similarity.
+
+        Pré-condição: caller já validou que self._embedder is not None.
+        """
+        # Caller (linha 337) garante self._embedder is not None — narrow para mypy
+        assert self._embedder is not None
         try:
             from data_agents.memory.embedder import deserialize_embedding, cosine_similarity
 

@@ -1108,7 +1108,10 @@ async def run_interactive() -> None:
 
     # System prompt base — memória e compactação são sempre injetadas SOBRE este,
     # nunca acumuladas no options.system_prompt diretamente.
-    _base_system_prompt: str = options.system_prompt or ""
+    # SDK aceita str | SystemPromptPreset | SystemPromptFile; nesta camada
+    # trabalhamos apenas com str (presets/files são resolvidos antes pelo loader).
+    _sp = options.system_prompt
+    _base_system_prompt: str = _sp if isinstance(_sp, str) else ""
 
     # ── 4. ClaudeSDKClient emite "Using bundled Claude Code CLI..." aqui ─────
     import uuid
@@ -1383,13 +1386,17 @@ async def run_interactive() -> None:
                         else:
                             target_id = arg
 
-                        resume_prompt = build_resume_prompt_for_session(target_id)
-                        if not resume_prompt:
+                        # build_resume_prompt_for_session retorna str | None;
+                        # o resume_prompt anterior (linha ~1286) é str. Usamos
+                        # variável separada para narrowing antes de continuar.
+                        resume_prompt_opt: str | None = build_resume_prompt_for_session(target_id)
+                        if not resume_prompt_opt:
                             console.print(
                                 f"[yellow]Sessão `{target_id}` não encontrada "
                                 f"ou sem dados para retomar.[/yellow]"
                             )
                             continue
+                        resume_prompt = resume_prompt_opt  # narrow → str
 
                         console.print(
                             f"[bold cyan]🔄 Retomando sessão `{target_id}` "

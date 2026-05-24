@@ -194,7 +194,8 @@ def real_cost_from_message(message: Any) -> float:
         # Sem tokens — não podemos recalcular. Devolve o que o SDK disse.
         sdk_cost = _safe_float_attr(message, "total_cost_usd", 0.0)
         logger.debug("recompute_cost: sem tokens disponíveis, usando valor do SDK (%.6f)", sdk_cost)
-        return sdk_cost
+        # default=0.0 garante non-None; narrow para o tipo de retorno (float).
+        return sdk_cost if sdk_cost is not None else 0.0
     return breakdown.total_cost_usd
 
 

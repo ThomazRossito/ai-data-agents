@@ -140,7 +140,9 @@ jobs:
         with:
           severity: warning
           scandir: "."
-          ignore_paths: "node_modules vendor .venv venv build dist"
+          # skills/ e inputs/ são fontes externas (vendoring) — mesmo critério
+          # do ruff em pyproject.toml. plugins/ é view gerada por build_plugin.sh.
+          ignore_paths: "node_modules vendor .venv venv build dist skills inputs plugins"
 
   # ─────────────────────────────────────────────────────────────────────────
   # Job 3: Dependency Audit (pip-audit — vulnerable dependencies)
@@ -169,12 +171,18 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Run pip-audit (fail on HIGH/CRITICAL)
+        # PYSEC-2026-161 (starlette < 1.0.1, Missing Host header validation)
+        # ignorado temporariamente: fix está em starlette 1.0.x, mas fastapi
+        # 0.118 ainda requer starlette<1.0 (peer dep). Bumpar requer fastapi 1.x
+        # quando lançado, ou aceitar breaking. Risk: somente em deploy público —
+        # ai-data-agents roda só em localhost dev. Trackear via dependabot.
         run: |
           pip-audit \
             --strict \
             --vulnerability-service osv \
             --desc on \
-            --format columns
+            --format columns \
+            --ignore-vuln PYSEC-2026-161
 
   # ─────────────────────────────────────────────────────────────────────────
   # Job 4: Bandit (Python security linter)
@@ -200,7 +208,8 @@ jobs:
         run: pip install "bandit[toml]>=1.7"
 
       - name: Run bandit
-        run: bandit -r data_agents/ -ll --skip B101
+        # Configuração lida de pyproject.toml [tool.bandit] (skips=B101,B608)
+        run: bandit -c pyproject.toml -r data_agents/ -ll
 
   # ─────────────────────────────────────────────────────────────────────────
   # Job 5a: Unit tests (Phase 6 — fast feedback, < 2 min)

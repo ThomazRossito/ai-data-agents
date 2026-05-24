@@ -80,7 +80,7 @@ class LocalEmbedder:
         model_name: str = _DEFAULT_MODEL,
     ) -> None:
         try:
-            from fastembed import TextEmbedding  # type: ignore[import]
+            from fastembed import TextEmbedding
         except ImportError as e:
             raise ImportError(
                 "fastembed não instalado. Para habilitar embeddings semânticos:\n"
@@ -115,7 +115,7 @@ class LocalEmbedder:
     def _get_model(self):
         """Inicializa o modelo fastembed na primeira chamada (lazy)."""
         if self._model is None:
-            from fastembed import TextEmbedding  # type: ignore[import]
+            from fastembed import TextEmbedding
 
             logger.info(f"Carregando modelo de embeddings: {self._model_name}")
             self._model = TextEmbedding(model_name=self._model_name)

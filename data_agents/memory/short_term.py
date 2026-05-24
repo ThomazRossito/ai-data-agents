@@ -209,6 +209,9 @@ class ShortTermMemory:
             params.append(session_id)
         params.append(limit * 3)  # busca mais para re-rankear com embeddings
 
+        # session_filter é constante interna ('' ou 'AND e.session_id = ?');
+        # todos os valores reais passam via parâmetro posicional (?) do sqlite3.
+        # Categoria B608 está globalmente skipped via pyproject.toml [tool.bandit].
         sql = f"""
             SELECT e.id, e.session_id, e.content, e.tool_name,
                    e.created_at, e.expires_at, e.promoted, e.embedding,
@@ -254,7 +257,12 @@ class ShortTermMemory:
         query: str,
         candidates: list[ShortTermEntry],
     ) -> list[ShortTermEntry]:
-        """Re-rankeia candidatos BM25 usando cosine similarity."""
+        """Re-rankeia candidatos BM25 usando cosine similarity.
+
+        Pré-condição: caller já validou que self._embedder is not None.
+        """
+        # Caller garante self._embedder is not None — narrow para mypy
+        assert self._embedder is not None
         try:
             from data_agents.memory.embedder import deserialize_embedding, cosine_similarity
 

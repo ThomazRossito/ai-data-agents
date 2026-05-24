@@ -124,7 +124,9 @@ def parse_yaml_frontmatter(content: str) -> tuple[dict[str, Any], str]:
     body = match.group(2).lstrip("\n")
 
     try:
-        parsed = yaml.load(yaml_block, Loader=_SafeLoaderNoBoolAlias)
+        # nosec B506 — _SafeLoaderNoBoolAlias herda de SafeLoader (não instancia
+        # objetos arbitrários); apenas desliga 'yes/no/on/off' como booleanos.
+        parsed = yaml.load(yaml_block, Loader=_SafeLoaderNoBoolAlias)  # nosec B506
     except yaml.YAMLError as exc:
         raise ValueError(f"frontmatter YAML inválido: {exc}") from exc
 

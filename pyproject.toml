@@ -196,9 +196,21 @@ cache_dir = ".cache/mypy"
 strict_optional = true
 warn_unused_ignores = true
 warn_return_any = false
+# Type-checking estrito no core data_agents.* (agents/, config/, memory/, hooks/,
+# commands/, utils/, workflow/, compression/). Excluídos:
+#   - UIs (streamlit/chainlit): typing solto faz parte do mundo deles
+#   - visualization (FastAPI server): mesma categoria de UI/frontend
+#   - mcp_servers (SDK wrappers): tipos vêm de bibliotecas externas sem stubs
+exclude = [
+    "^data_agents/ui/",
+    "^data_agents/monitoring/",
+    "^data_agents/visualization/",
+    "^data_agents/mcp_servers/",
+]
 
 [[tool.mypy.overrides]]
 module = [
+    # SDKs/libs sem stubs públicos
     "mlflow.*",
     "claude_agent_sdk.*",
     "rich.*",
@@ -208,5 +220,29 @@ module = [
     "semantic_link.*",
     "rdflib.*",
     "owlready2.*",
+    "anthropic.*",
+    "prompt_toolkit.*",
+    "requests.*",
+    "pyodbc.*",
+    "psycopg2.*",
+    "fastapi.*",
+    "watchdog.*",
+    "databricks_mcp.*",
+    "fastembed.*",
+    # UI/monitoring (mesmo caso, listados por completude)
+    "streamlit.*",
+    "streamlit_agraph.*",
+    "chainlit.*",
+    "pandas.*",
 ]
 ignore_missing_imports = true
+
+[tool.bandit]
+# Phase 10 / CI hardening:
+# - B101 (assert): pytest usa assert. Tests/ exclusos por path (-r data_agents/).
+# - B608 (hardcoded SQL): MCP servers e memória interna usam f-string para clauses
+#   estruturais (table_name, type IN (?), session_filter). Input vem do
+#   agent layer, não de user web. Todos os VALORES ainda passam por param ? do
+#   sqlite/Spark. Aceitar como ruído inevitável de MCP tooling SQL.
+# Auditorias específicas: rodar bandit local sem skips para revisar.
+skips = ["B101", "B608"]
