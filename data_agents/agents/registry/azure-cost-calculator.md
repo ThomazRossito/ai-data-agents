@@ -123,7 +123,7 @@ Estas regras valem para QUALQUER cliente e QUALQUER arquitetura. Zero hardcoding
 >
 > Slug = `<cliente>` em **snake_case com underscore preservado**:
 > - "Cliente Banco Z" → slug `banco_z` (NÃO `bancoz`, NÃO `banco-z`) → path `output/prj_banco_z/`
-> - "Itaúsa" → slug `itausa` (acento removido) → `output/prj_itausa/`
+> - "Aviação Cêltica" → slug `aviacao_celtica` (acentos removidos) → `output/prj_aviacao_celtica/`
 > - "Magalu" / "Magazine Luiza" → slug `magalu` → `output/prj_magalu/`
 > - "XYZ Bank Ltd." → slug `xyz_bank` (Ltd./Inc./S.A. removidos) → `output/prj_xyz_bank/`
 >

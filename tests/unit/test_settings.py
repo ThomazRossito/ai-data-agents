@@ -247,6 +247,26 @@ class TestMcpRegistryCompleteness:
 class TestProjectIdIsolation:
     """Testes para o isolamento de memória por project_id (Nível 1)."""
 
+    @pytest.fixture(autouse=True)
+    def _isolate_memory_env(self, monkeypatch):
+        """Isola Settings() do ambiente: env vars do processo + .env do disco.
+
+        Sem esse isolamento, os testes ficam dependentes do .env do dev (ex:
+        MEMORY_DATA_DIR apontando pra fora do repo quebra o derive automático).
+        CI passa porque não tem .env; localmente falha. Bloqueia ambas as fontes
+        pra que o derive seja validado isoladamente.
+        """
+        # 1. Env vars do processo
+        for var in (
+            "MEMORY_DATA_DIR",
+            "LONG_TERM_DB_PATH",
+            "SHORT_TERM_DB_PATH",
+            "EMBEDDER_CACHE_DB_PATH",
+        ):
+            monkeypatch.delenv(var, raising=False)
+        # 2. .env do disco — pydantic-settings lê via model_config["env_file"]
+        monkeypatch.setitem(Settings.model_config, "env_file", None)
+
     def test_explicit_project_id_used_literally(self):
         """Valor explícito não-'auto' deve ser usado como ID literal (após normalização)."""
         s = Settings(project_id="meu-projeto-x")

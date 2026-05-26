@@ -1,7 +1,7 @@
 """
 Fabric Notebook MCP — operações determinísticas em notebooks Microsoft Fabric.
 
-Existe pra resolver um anti-pattern observado em produção (POC BTG, 2026-05-13/14):
+Existe pra resolver um anti-pattern observado em produção (POC interno, 2026-05):
 o agente fabric-engineer, ao usar `mcp__fabric_official__core_create-item`, tem
 3 caminhos pra falhar:
 
@@ -207,7 +207,7 @@ def fabric_notebook_create(
     Cria um notebook NOVO com o conteúdo já embarcado. 1 chamada, atômica.
 
     Args:
-        display_name: Nome do notebook (ex: "btg_bronze_to_silver"). Deve ser único
+        display_name: Nome do notebook (ex: "bronze_to_silver_orders"). Deve ser único
                       no workspace — esta tool falha se já existir item com esse nome.
         cells: Lista de dicts no formato [{"source": "...", "cell_type": "code|markdown"}].
                source aceita string ou lista de linhas.

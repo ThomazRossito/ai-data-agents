@@ -47,7 +47,7 @@ em operacoes atomicas reutilizaveis. Cada operacao cuida internamente de:
 
 ## 🛑 REGRA OURO — Se 1ª tentativa criou notebook vazio: PARE
 
-**Anti-pattern observado em produção 2 vezes (POC BTG, 2026-05-13 / 2026-05-14):**
+**Anti-pattern observado em produção 2 vezes (POC interno, 2026-05):**
 
 - Tentativa 1: 6 notebooks vazios criados em 30s (`core_create-item` sem `definition`)
 - Tentativa 2 (17 min depois): 7 notebooks lixo (`test_notebook_content`, `_content2`, ..., `_content5`, `_with_def`, `_api_direct`) — o agente criou um item NOVO a cada falha em vez de corrigir o existente
@@ -62,7 +62,7 @@ em operacoes atomicas reutilizaveis. Cada operacao cuida internamente de:
 
 ## ⚠️ CRITICAL: Notebook Criado SEM Conteúdo
 
-**Anti-pattern observado em produção (POC BTG, 2026-05-13):**
+**Anti-pattern observado em produção (POC interno, 2026-05):**
 
 Agente chamou `mcp__fabric_official__core_create-item` **6 vezes em sequência**, todas SEM
 o parâmetro `definition`. Resultado: 6 notebooks criados no workspace, todos vazios (apenas
@@ -92,7 +92,7 @@ resolvido pelo wrapper do MCP `fabric_official`.
 {
   "workspaceId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
   "body": {
-    "displayName": "btg_open_finance_bronze_to_silver",
+    "displayName": "transactions_bronze_to_silver",
     "type": "Notebook",
     "definition": {
       "format": "ipynb",
@@ -124,7 +124,7 @@ nb = {
     "kernelspec": {"display_name": "Synapse PySpark", "language": "Python", "name": "synapse_pyspark"}
   },
   "cells": [
-    {"cell_type": "markdown", "source": ["# Bronze → Silver · BTG Open Finance"], "metadata": {}},
+    {"cell_type": "markdown", "source": ["# Bronze → Silver · Transactions"], "metadata": {}},
     {"cell_type": "code", "source": [
       "df = spark.read.table(\"bronze.transactions\")\n",
       "df.write.format(\"delta\").mode(\"overwrite\").saveAsTable(\"silver.transactions\")"
