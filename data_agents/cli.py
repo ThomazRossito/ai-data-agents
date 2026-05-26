@@ -296,8 +296,12 @@ async def _stream_response(
     }
 
     def _start_spinner(message: str) -> Live:
-        """Inicia um spinner animado com a mensagem fornecida."""
-        spinner = Spinner("dots", text=Text(message, style="dim"))
+        """Inicia um spinner animado. Mensagem aceita markup Rich ([bold], [yellow], etc)."""
+        try:
+            spinner_text = Text.from_markup(message, style="dim")
+        except Exception:
+            spinner_text = Text(message, style="dim")
+        spinner = Spinner("dots", text=spinner_text)
         live = Live(spinner, console=console, refresh_per_second=4, transient=True)
         live.start()
         # Registra metadata pro ticker
@@ -316,7 +320,13 @@ async def _stream_response(
             _spinner_meta["start_time"] = None
 
     def _refresh_spinner_text() -> None:
-        """Atualiza o spinner com tempo decorrido + tokens raciocinados (se houver)."""
+        """Atualiza o spinner com tempo decorrido + tokens raciocinados (se houver).
+
+        Quando rodando contra Moonshot e a fase de síntese do Supervisor não
+        emite text_delta events (acontece com respostas longas: Moonshot
+        bufera), a UX precisa explicitar que isso é esperado — caso contrário
+        o usuário fica achando que o sistema travou.
+        """
         live = _spinner_meta.get("live")
         start = _spinner_meta.get("start_time")
         if live is None or start is None or not live.is_started:
@@ -324,16 +334,30 @@ async def _stream_response(
         elapsed = int(time.monotonic() - start)
         base = _spinner_meta["base_msg"]
         tokens = _spinner_meta["tokens_streamed"]
+        is_synthesis = "Supervisor sintetizando" in base
         # Suffix com tempo decorrido (e tokens raciocinados se streaming detectado)
         if tokens > 0:
             suffix = f" [⏱ {elapsed}s · {tokens} tokens raciocinados]"
+        elif is_synthesis and is_moonshot and elapsed >= 120:
+            suffix = (
+                f" [⏱ {elapsed}s — Moonshot bufera respostas longas, "
+                f"normal levar 2-3min sem feedback. Ctrl+C cancela]"
+            )
+        elif is_synthesis and is_moonshot and elapsed >= 10:
+            suffix = (
+                f" [⏱ {elapsed}s — sem streaming visível (Moonshot bufera "
+                f"a síntese final; aguarde)]"
+            )
         elif elapsed >= 90:
             suffix = f" [⏱ {elapsed}s — operação demorada, Ctrl+C cancela]"
         elif elapsed >= 5:
             suffix = f" [⏱ {elapsed}s]"
         else:
             suffix = ""
-        new_text = Text(base + suffix, style="dim")
+        try:
+            new_text = Text.from_markup(base + suffix, style="dim")
+        except Exception:
+            new_text = Text(base + suffix, style="dim")
         live.update(Spinner("dots", text=new_text))
 
     async def _spinner_ticker():
@@ -366,7 +390,75 @@ async def _stream_response(
     # Task que atualiza o spinner com [⏱ Xs] enquanto o agente "pensa"
     _ticker_task = asyncio.create_task(_spinner_ticker())
 
-    async for message in client.receive_response():
+    # ── Progress callback: feedback enquanto sub-agente executa tools ─────────
+    # StreamEvents do SDK não propagam tool calls do sub-agente pro stream do
+    # supervisor (por design da Agent SDK). Sem isso, o usuário vê só o "🤖
+    # Delegando para → X..." e fica 10+ segundos sem update até a resposta
+    # final chegar. O workflow_tracker (hook PreToolUse) emite "tool_call"
+    # events síncronos para CADA tool — incluindo MCP calls dentro de sub-
+    # agentes. Subscrevendo aqui, o spinner mostra atividade real do agente.
+    from data_agents.workflow.tracker import (
+        register_progress_callback,
+        unregister_progress_callback,
+    )
+
+    def _on_workflow_progress(event_name: str, data: dict) -> None:
+        """Atualiza o texto do spinner com base em eventos do workflow_tracker."""
+        try:
+            if event_name == "tool_call":
+                tool = data.get("tool", "")
+                args_preview = data.get("args_preview", "")
+                if not tool:
+                    return
+                # Para MCPs, mostra server + tool name limpa
+                if tool.startswith("mcp__"):
+                    parts = tool.split("__", 2)
+                    server = parts[1] if len(parts) >= 2 else "mcp"
+                    tname = parts[2] if len(parts) >= 3 else tool
+                    label = f"🔌 {server} · {tname}"
+                else:
+                    label = _get_tool_label(tool)
+                suffix = f" [dim]({args_preview})[/dim]" if args_preview else ""
+                _spinner_meta["base_msg"] = f"  {label}{suffix}"
+                _spinner_meta["start_time"] = time.monotonic()
+                _spinner_meta["tokens_streamed"] = 0
+                _refresh_spinner_text()
+            elif event_name == "agent_start":
+                agent = data.get("agent", "")
+                if agent:
+                    _tier = _AGENT_TIERS.get(agent, "")
+                    _tier_label = f" (T{_tier[1:]})" if _tier else ""
+                    _spinner_meta["base_msg"] = (
+                        f"🤖 Sub-agente [bold yellow]{agent}[/bold yellow]"
+                        f"[dim]{_tier_label}[/dim] iniciando..."
+                    )
+                    _spinner_meta["start_time"] = time.monotonic()
+                    _refresh_spinner_text()
+            elif event_name == "agent_done":
+                # Sub-agente terminou; supervisor vai sintetizar. Reset timer
+                # pra detectar buffer da síntese (mensagem específica a 10s/120s).
+                agent = data.get("agent", "")
+                _spinner_meta["base_msg"] = (
+                    f"⚙️  Supervisor sintetizando resposta do {agent}..."
+                    if agent
+                    else "⚙️  Supervisor sintetizando resposta..."
+                )
+                _spinner_meta["start_time"] = time.monotonic()
+                _spinner_meta["tokens_streamed"] = 0
+                _refresh_spinner_text()
+        except Exception:
+            # Callback nunca pode quebrar o stream loop
+            pass
+
+    register_progress_callback(_on_workflow_progress)
+
+    try:
+        _stream_iter = client.receive_response()
+    except Exception:
+        unregister_progress_callback(_on_workflow_progress)
+        raise
+
+    async for message in _stream_iter:
         # ── StreamEvent: feedback em tempo real ──────────────────────
         if isinstance(message, StreamEvent):
             event = message.event
@@ -480,8 +572,15 @@ async def _stream_response(
 
         # ── AssistantMessage: resposta final completa ─────────────────
         elif isinstance(message, AssistantMessage):
-            _stop_spinner(live_status)
-            live_status = None
+            # MUDANÇA CRÍTICA: NÃO matar o spinner aqui. Rich Live é seguro
+            # com console.print() — ele clears+rerenders automaticamente.
+            # Antes: _stop_spinner() matava o Live, e como response_started
+            # ficava True após printar text, NADA recriava o spinner. Resultado:
+            # spinner some depois de "Vou delegar..." e nunca volta — usuário
+            # acha que travou durante execução do sub-agente + síntese.
+
+            has_agent_pending = False
+            pending_agent_name: str | None = None
 
             for block in message.content:
                 if isinstance(block, TextBlock) and block.text.strip():
@@ -493,16 +592,41 @@ async def _stream_response(
                     console.print()
 
                 elif isinstance(block, ToolUseBlock):
-                    # Tool use visível na resposta final (ex: AskUserQuestion)
-                    if block.name == "AskUserQuestion":
+                    if block.name == "Agent":
+                        has_agent_pending = True
+                        if block.input:
+                            pending_agent_name = (
+                                block.input.get("subagent_type")
+                                or block.input.get("agent_name")
+                                or block.input.get("name")
+                            )
+                    elif block.name == "AskUserQuestion":
+                        # Tool use visível na resposta final
                         question = block.input.get("question", "") if block.input else ""
                         if question:
                             console.print(
                                 f"\n[bold yellow]❓ Agente pergunta:[/bold yellow] {question}\n"
                             )
 
-            # Reinicia spinner para próximo turn se não for a mensagem final
-            if not response_started:
+            # Atualiza o base_msg do spinner existente — não destrói o Live,
+            # só muda o texto. Se spinner morreu (improvável), recria.
+            if has_agent_pending:
+                agent_label = pending_agent_name or "sub-agente"
+                _tier = _AGENT_TIERS.get(agent_label, "") if pending_agent_name else ""
+                _tier_label = f" (T{_tier[1:]})" if _tier else ""
+                new_msg = (
+                    f"🤖 Sub-agente [bold yellow]{agent_label}[/bold yellow]"
+                    f"[dim]{_tier_label}[/dim] executando..."
+                )
+                if _spinner_meta.get("live") is not None:
+                    _spinner_meta["base_msg"] = new_msg
+                    _spinner_meta["start_time"] = time.monotonic()
+                    _spinner_meta["tokens_streamed"] = 0
+                    _refresh_spinner_text()
+                else:
+                    live_status = _start_spinner(new_msg)
+            elif not response_started and _spinner_meta.get("live") is None:
+                # Edge case: stream emitiu AssistantMessage vazia antes de texto
                 live_status = _start_spinner("📝 Agente formulando resposta...")
 
         # ── ResultMessage: métricas finais ────────────────────────────
@@ -534,6 +658,11 @@ async def _stream_response(
 
     # Garante que o spinner seja parado em qualquer caso
     _stop_spinner(live_status)
+    # Defensive: se há outro Live em meta (criado via callback ou recovery),
+    # também para — evita spinner órfão.
+    leftover_live = _spinner_meta.get("live")
+    if leftover_live is not None and leftover_live is not live_status:
+        _stop_spinner(leftover_live)
 
     # Cancela o ticker do spinner dinâmico (se ainda rodando)
     if not _ticker_task.done():
@@ -542,6 +671,9 @@ async def _stream_response(
             await _ticker_task
         except (asyncio.CancelledError, Exception):
             pass
+
+    # Desregistra o progress callback do workflow_tracker
+    unregister_progress_callback(_on_workflow_progress)
 
     # Consolida texto + tools para o transcript
     assistant_text = "\n\n".join(p for p in _assistant_text_parts if p.strip())
