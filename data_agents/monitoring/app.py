@@ -2296,10 +2296,21 @@ elif page == "🔭 Observabilidade":
 # ── LIÇÕES APRENDIDAS ────────────────────────────────────────────────────────
 elif page == "🧠 Lições Aprendidas":
     st.title("🧠 Lições Aprendidas")
+    # Path display defensivo — LESSONS_DIR pode estar FORA do ROOT do repo
+    # quando MEMORY_DATA_DIR aponta pra diretório externo (ex: ~/.ai-data-agents/...
+    # pra isolamento de memórias do versionamento). Path.relative_to() crasha
+    # com ValueError se não estiver no subpath; fallback pra ~/ ou abs.
+    try:
+        _lessons_display = str(LESSONS_DIR.relative_to(ROOT))
+    except ValueError:
+        try:
+            _lessons_display = f"~/{LESSONS_DIR.relative_to(Path.home())}"
+        except ValueError:
+            _lessons_display = str(LESSONS_DIR)
     st.caption(
         "Lições capturadas automaticamente pelo loop de aprendizado autônomo (v2.1.0). "
         "Triggers: `error` · `high_cost` · `retries` · `slow_op`. "
-        f"Decay: 30 dias. Dados lidos de `{LESSONS_DIR.relative_to(ROOT)}/`."
+        f"Decay: 30 dias. Dados lidos de `{_lessons_display}/`."
     )
     st.divider()
 
