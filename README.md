@@ -100,7 +100,7 @@ make demo
 ./start.sh             # http://localhost:8513 (Chat) + http://localhost:8511 (Monitoring)
 
 # 6b. Terminal
-python main.py         # ou: make run
+python -m data_agents.cli   # ou: make run
 ```
 
 > **Primeira vez?** `make bootstrap && make demo` valida seu setup em <5 minutos, sem precisar configurar Databricks ou Fabric.
@@ -150,6 +150,7 @@ python main.py         # ou: make run
 | **Data Mesh Architect** | `/mesh` | Data Mesh: domínios de negócio, Data Products, governança federada, avaliação de maturidade |
 | **Fabric RTI** | — | Fabric Real-Time Intelligence: Eventhouse, KQL, Eventstream, Activator — delegado pelo Fabric Engineer ou Supervisor |
 | **Fabric Ontology** | `/ontology` | OWL 2, RDF, SPARQL, Fabric IQ Ontology — design, validação, import/export OneLake, triples → Delta |
+| **Azure Cost Calculator** | `/cost-azure` | Cotação conversacional de qualquer arquitetura Azure: Retail API oficial, Pay-as-you-go vs Reserved vs Savings Plans, USD↔BRL, TCO 12/24/36 meses, breakdown auditável |
 
 ### Tier 3 / T0 — Conversational
 
@@ -214,6 +215,7 @@ O comando `/party` convoca múltiplos agentes simultaneamente para a mesma pergu
 | `/contract <tarefa>` | data-contracts-engineer | Data Contracts ODCS, SLA, schema governance, breaking changes |
 | `/mesh <tarefa>` | data-mesh-architect | Data Mesh: domínios, Data Products, governança federada |
 | `/ontology <tarefa>` | fabric-ontology | OWL 2, import/export OneLake, triples → Delta, Fabric IQ Ontology |
+| `/cost-azure <descrição>` | azure-cost-calculator | Custo Azure conversacional: Retail API, Reserved/Savings Plans, USD↔BRL, TCO |
 | `/geral <pergunta>` | geral | Resposta direta sem Supervisor — mais rápido e barato |
 
 ---
@@ -557,12 +559,6 @@ make health-fabric
 | `CONSOLE_LOG_LEVEL` | WARNING | Nível de log no terminal (WARNING oculta logs operacionais) |
 | `SKILL_REFRESH_INTERVAL_DAYS` | 3 | Intervalo de refresh das Skills |
 | `AGENT_PERMISSION_MODE` | `bypassPermissions` | `acceptEdits` para pedir confirmação antes de writes |
-
----
-
-## Manual Técnico Completo
-
-[Manual_Relatorio_Tecnico_Projeto_Data_Agents.md](Manual_Relatorio_Tecnico_Projeto_Data_Agents.md)
 
 ---
 
