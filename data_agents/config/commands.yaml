@@ -60,7 +60,7 @@ commands:
       \ schemas. Se indisponível, use mcp__fabric_community__list_tables().\n\n⚠️ PARA CRIAR/EDITAR NOTEBOOKS: USE PRIMEIRO\
       \ o MCP customizado fabric_notebook — mcp__fabric_notebook__fabric_notebook_create(display_name, cells) faz tudo numa\
       \ chamada atômica (montagem do .ipynb + base64 + LRO polling internamente). NÃO use mcp__fabric_official__core_create-item\
-      \ pra Notebook — esse caminho ficou marcado como anti-pattern depois de criar 13 notebooks lixo na POC BTG. As outras\
+      \ pra Notebook — esse caminho ficou marcado como anti-pattern depois de criar 13 notebooks lixo num POC anterior. As outras\
       \ tools do fabric_notebook (list/get_cells/replace/add_cell/update_cell/delete_cell/delete/cleanup_test_items/run) cobrem\
       \ o ciclo de vida completo, incluindo execução on-demand de notebook e pipeline via REST. Formato esperado de cells:\
       \ lista de objetos contendo as chaves `source` (código fonte como string) e `cell_type` (valor `code` ou `markdown`).\

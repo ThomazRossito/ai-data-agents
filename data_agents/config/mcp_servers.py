@@ -79,7 +79,7 @@ ALL_MCP_CONFIGS: dict = {
     "fabric_semantic": get_fabric_semantic_mcp_config,
     # fabric_notebook: MCP customizado pra operações determinísticas em Notebooks.
     # Encapsula montagem do .ipynb + base64 + LRO polling em 1 chamada atômica.
-    # Resolve o anti-pattern de retries gerando notebooks vazios (POC BTG 2026-05-13/14).
+    # Resolve o anti-pattern de retries gerando notebooks vazios (observado em POC 2026-05).
     # Reutiliza mesmas credenciais Azure (Service Principal via .env).
     "fabric_notebook": get_fabric_notebook_mcp_config,
     # fabric_onelake: MCP customizado pra upload/download/list de arquivos no OneLake.

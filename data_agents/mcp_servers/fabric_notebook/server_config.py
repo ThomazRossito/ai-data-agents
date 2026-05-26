@@ -5,7 +5,7 @@ Encapsula operações deterministas de notebook no Microsoft Fabric — montagem
 .ipynb, codificação base64, LRO polling do updateDefinition, retry com backoff —
 tudo no servidor, fora do raciocínio do LLM.
 
-Motivação: anti-pattern observado em produção (POC BTG, 2026-05-13/14) onde o
+Motivação: anti-pattern observado em produção (POC interno, 2026-05) onde o
 agente fabric-engineer, ao tentar criar notebooks via `mcp__fabric_official__core_create-item`,
 entrou em loop iterativo de Bash+base64, criou 13 notebooks lixo no workspace
 e levou 17 minutos pra completar uma tarefa de ~5 segundos.

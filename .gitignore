@@ -53,8 +53,6 @@ logs/
 output/
 !output/workflow-context/
 !output/workflow-context/.gitkeep
-!output/btg-open-finance-bundle/
-!output/btg-open-finance-bundle/**
 memory/*
 !memory/*.py
 # Phase 7: memory data moved to data_agents/memory/data/ (settings.derive_memory_db_paths)
@@ -62,9 +60,10 @@ memory/*
 data_agents/memory/data/
 reports/
 
-# Bundle do BTG OpenFinance — exceção para o DAB CLI sincronizar
-!output/BTG/
-!output/BTG/**
+# Para bundles que precisam ser commitados (DAB CLI sync), adicione exceptions
+# explícitas aqui com nome do projeto. Exemplo:
+#   !output/meu-bundle/
+#   !output/meu-bundle/**
 
 # =============================================================================
 # INPUTS (documentos externos — não versionar)
