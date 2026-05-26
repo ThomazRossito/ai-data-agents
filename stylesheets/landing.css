@@ -6,8 +6,12 @@
  */
 
 /* ── Hero ──────────────────────────────────────────────────────────────── */
+/* Background: --md-default-fg-color--lightest é alfa-baseado, funciona em
+ * light (cinza sobre branco) E dark (cinza claro sobre fundo escuro).
+ * Fix anterior usava --md-default-bg-color--lightest que NÃO existe no
+ * Material 9.x — em dark mode ficava totalmente transparente. */
 .ada-hero {
-  background: var(--md-default-bg-color--lightest, #f5f5fa);
+  background: var(--md-default-fg-color--lightest);
   border-radius: 12px;
   padding: 2rem 1.75rem;
   margin: 1rem 0 2rem;
@@ -56,7 +60,7 @@
   margin: 0 0 2rem;
 }
 .ada-stats__card {
-  background: var(--md-default-bg-color--lightest, #f5f5fa);
+  background: var(--md-default-fg-color--lightest);
   border-radius: 8px;
   padding: 1rem;
   text-align: left;
@@ -131,7 +135,7 @@
 
 /* ── Org chart ─────────────────────────────────────────────────────────── */
 .ada-orgchart {
-  background: var(--md-default-bg-color--lightest, #f5f5fa);
+  background: var(--md-default-fg-color--lightest);
   border-radius: 12px;
   padding: 1.25rem;
   margin: 0 0 2rem;
@@ -313,7 +317,7 @@
   margin: 0; padding: 0; list-style: none;
 }
 .ada-modal__list li {
-  background: var(--md-default-bg-color--lightest, #f5f5fa);
+  background: var(--md-default-fg-color--lightest);
   font-size: 0.8rem;
   padding: 0.2rem 0.55rem;
   border-radius: 4px;
