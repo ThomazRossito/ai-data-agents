@@ -83,6 +83,14 @@ plugins:
   - search
   # mkdocstrings is deferred per ADR-010 — reopen post-v3.0.0 if user demand.
 
+# Custom CSS + JS para a landing executiva (docs/site/index.md).
+# Hero, persona tabs, org chart dos 15 agentes e modal de detalhes.
+extra_css:
+  - stylesheets/landing.css
+
+extra_javascript:
+  - javascripts/landing.js
+
 extra:
   social:
     - icon: fontawesome/brands/github
