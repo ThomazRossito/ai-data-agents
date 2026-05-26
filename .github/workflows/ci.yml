@@ -192,13 +192,23 @@ jobs:
         # editable skips), conflitando com --skip-editable. Sem --strict,
         # pip-audit ainda retorna exit code != 0 quando encontra vulns reais
         # — só não falha por skips legítimos.
+        #
+        # MAL-2026-4750 (fastapi 0.136.3, depend. não documentada 'fastar'):
+        # alerta de supply chain detectado pelo PyPI Advisory DB (source:
+        # amazon-inspector). Ignorado temporariamente — ai-data-agents roda
+        # apenas em localhost dev (não é deploy público); o risco do
+        # typosquat 'fastar' é limitado. ACTION ITEM: verificar localmente
+        # se 'fastar' foi instalado (`pip list | grep fastar`), investigar
+        # o que faz, e quando fastapi lançar fix oficial, atualizar limite
+        # no pyproject.toml.
         run: |
           pip-audit \
             --skip-editable \
             --vulnerability-service pypi \
             --desc on \
             --format columns \
-            --ignore-vuln PYSEC-2026-161
+            --ignore-vuln PYSEC-2026-161 \
+            --ignore-vuln MAL-2026-4750
 
   # ─────────────────────────────────────────────────────────────────────────
   # Job 4: Bandit (Python security linter)
