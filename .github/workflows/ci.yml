@@ -187,9 +187,13 @@ jobs:
         # -e .` (editable) e não está publicado no PyPI. O OSV antes silenciava
         # pacotes desconhecidos; o PyPI service erra. Pular editable installs
         # é o correto — auditamos DEPENDÊNCIAS, não nosso próprio código.
+        #
+        # --strict removido: --strict faz qualquer skip virar falha (incl.
+        # editable skips), conflitando com --skip-editable. Sem --strict,
+        # pip-audit ainda retorna exit code != 0 quando encontra vulns reais
+        # — só não falha por skips legítimos.
         run: |
           pip-audit \
-            --strict \
             --skip-editable \
             --vulnerability-service pypi \
             --desc on \
