@@ -170,12 +170,28 @@ jobs:
       - name: Resolve dependencies
         run: pip install -e ".[dev]"
 
+      - name: Guard contra fastapi[standard] (MAL-2026-4750)
+        # Defesa em profundidade: o --ignore-vuln MAL-2026-4750 abaixo só é
+        # válido enquanto o projeto NÃO usar fastapi[standard]. Esse step
+        # falha o CI se alguém adicionar [standard] em qualquer arquivo
+        # versionado — forçando re-avaliação da decisão de ignorar a vuln.
+        run: |
+          if grep -rn "fastapi\[standard\]" pyproject.toml .github/ Makefile scripts/ docs/ 2>/dev/null; then
+            echo "::error::Encontrado 'fastapi[standard]' no projeto."
+            echo "::error::MAL-2026-4750 (fastar typosquat) é ignorado no pip-audit baseado"
+            echo "::error::na premissa de que [standard] NÃO é usado. Re-avalie a decisão"
+            echo "::error::antes de prosseguir. Veja comentário em .github/workflows/ci.yml."
+            exit 1
+          fi
+          echo "✓ Nenhum uso de fastapi[standard] detectado — premissa de MAL-2026-4750 mantida"
+
       - name: Run pip-audit (fail on HIGH/CRITICAL)
-        # PYSEC-2026-161 (starlette < 1.0.1, Missing Host header validation)
-        # ignorado temporariamente: fix está em starlette 1.0.x, mas fastapi
-        # 0.118 ainda requer starlette<1.0 (peer dep). Bumpar requer fastapi 1.x
-        # quando lançado, ou aceitar breaking. Risk: somente em deploy público —
-        # ai-data-agents roda só em localhost dev. Trackear via dependabot.
+        # PYSEC-2026-161 (starlette < 1.0.1, Missing Host header → bypass auth):
+        # CORRIGIDO em 2026-05-26 via pin defensivo `starlette>=1.0.1` em
+        # pyproject.toml. Verificação: pip install --dry-run starlette>=1.0.1
+        # resolveu pra starlette-1.1.0 sem conflito (chainlit, mcp, sse-starlette
+        # aceitam starlette 1.x — sem upper bound em nenhum consumer).
+        # Removido o --ignore-vuln PYSEC-2026-161 porque a vuln deixou de aparecer.
         #
         # Vulnerability service: pypi (PyPA Advisory Database) em vez de osv.
         # Trocamos após pip-audit crashar com KeyError: 'ranges' processando
@@ -193,21 +209,27 @@ jobs:
         # pip-audit ainda retorna exit code != 0 quando encontra vulns reais
         # — só não falha por skips legítimos.
         #
-        # MAL-2026-4750 (fastapi 0.136.3, depend. não documentada 'fastar'):
-        # alerta de supply chain detectado pelo PyPI Advisory DB (source:
-        # amazon-inspector). Ignorado temporariamente — ai-data-agents roda
-        # apenas em localhost dev (não é deploy público); o risco do
-        # typosquat 'fastar' é limitado. ACTION ITEM: verificar localmente
-        # se 'fastar' foi instalado (`pip list | grep fastar`), investigar
-        # o que faz, e quando fastapi lançar fix oficial, atualizar limite
-        # no pyproject.toml.
+        # MAL-2026-4750 (fastapi 0.136.3, dep 'fastar' no extras [standard]):
+        # Ignorado com base em evidência empírica, NÃO em conveniência:
+        #   1. `pip show fastar` no ambiente do projeto: package não instalado
+        #   2. `pip show fastapi | grep Requires`: deps core são apenas
+        #      annotated-doc, pydantic, starlette, typing-extensions.
+        #      'fastar' não está na árvore de deps reais.
+        #   3. `grep -rn "fastapi\[standard\]" .` em pyproject.toml, .github/,
+        #      Makefile, scripts/, docs/: ZERO ocorrências. O projeto não
+        #      instala fastapi[standard] em lugar nenhum.
+        #   4. O 'fastar' só é puxado quando alguém roda `pip install
+        #      fastapi[standard]` — sem esse comando, o vector de ataque
+        #      (code execution at install time) não se materializa.
+        # CONDIÇÃO DE INVALIDAÇÃO: se alguém adicionar fastapi[standard] em
+        # pyproject.toml ou em qualquer pip install futuro, RE-AVALIAR. Linter
+        # de proteção pode ser adicionado (grep -r fastapi\[standard\] na CI).
         run: |
           pip-audit \
             --skip-editable \
             --vulnerability-service pypi \
             --desc on \
             --format columns \
-            --ignore-vuln PYSEC-2026-161 \
             --ignore-vuln MAL-2026-4750
 
   # ─────────────────────────────────────────────────────────────────────────

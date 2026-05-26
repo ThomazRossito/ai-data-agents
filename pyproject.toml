@@ -34,7 +34,7 @@ dependencies = [
     "semantic-link>=0.1.0",
 
     # Azure OpenAI — usado pra gerar embeddings na Fase B (RAG/Vector Store)
-    # da PoC Itaúsa via text-embedding-3-large. Compatível com SDK openai 1.x+.
+    # de PoC interno via text-embedding-3-large. Compatível com SDK openai 1.x+.
     # Configuração via .env: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY,
     # AZURE_OPENAI_EMBEDDING_DEPLOYMENT, AZURE_OPENAI_API_VERSION.
     "openai>=1.30.0",
@@ -68,6 +68,12 @@ dependencies = [
     # API pública sem auth; sem dependência de credenciais.
     "requests>=2.31",
 
+    # Starlette — pin defensivo pra mitigar PYSEC-2026-161 (GHSA-86qp-5c8j-p5mr,
+    # CVSS pendente, "Missing Host header validation" → bypass de path-based auth).
+    # Vuln afeta TODA versão starlette < 1.0.1. fastapi/chainlit/mcp/sse-starlette
+    # já aceitam starlette 1.x (verificado via pip install --dry-run em 2026-05-26).
+    # Sem esse pin, pip resolveria pra versões transitivas antigas (ex: 0.50.0).
+    "starlette>=1.0.1",
 ]
 
 [project.optional-dependencies]
