@@ -176,10 +176,22 @@ jobs:
         # 0.118 ainda requer starlette<1.0 (peer dep). Bumpar requer fastapi 1.x
         # quando lançado, ou aceitar breaking. Risk: somente em deploy público —
         # ai-data-agents roda só em localhost dev. Trackear via dependabot.
+        #
+        # Vulnerability service: pypi (PyPA Advisory Database) em vez de osv.
+        # Trocamos após pip-audit crashar com KeyError: 'ranges' processando
+        # resposta malformada do OSV API pra fastapi 0.136.3 — bug no parser
+        # pypa/pip-audit:_service/osv.py:135 (não trata `affected` sem chave
+        # `ranges`). PyPI service cobre PYSEC IDs sem depender do OSV API.
+        #
+        # --skip-editable: o próprio ai-data-agents é instalado via `pip install
+        # -e .` (editable) e não está publicado no PyPI. O OSV antes silenciava
+        # pacotes desconhecidos; o PyPI service erra. Pular editable installs
+        # é o correto — auditamos DEPENDÊNCIAS, não nosso próprio código.
         run: |
           pip-audit \
             --strict \
-            --vulnerability-service osv \
+            --skip-editable \
+            --vulnerability-service pypi \
             --desc on \
             --format columns \
             --ignore-vuln PYSEC-2026-161
