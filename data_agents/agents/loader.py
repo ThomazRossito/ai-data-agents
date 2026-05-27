@@ -44,6 +44,10 @@ from data_agents.mcp_servers.databricks_genie.server_config import (
     DATABRICKS_GENIE_MCP_TOOLS,
     DATABRICKS_GENIE_MCP_READONLY_TOOLS,
 )
+from data_agents.mcp_servers.databricks_pricing.server_config import (
+    DATABRICKS_PRICING_MCP_READONLY_TOOLS,
+    DATABRICKS_PRICING_MCP_TOOLS,
+)
 from data_agents.mcp_servers.fabric.server_config import (
     FABRIC_MCP_TOOLS,
     FABRIC_OFFICIAL_MCP_TOOLS,
@@ -168,6 +172,10 @@ MCP_TOOL_SETS: dict[str, list[str]] = {
     # Usado pelo agent azure-cost-calculator (slash /cost-azure).
     "azure_pricing_all": AZURE_PRICING_MCP_TOOLS,
     "azure_pricing_readonly": AZURE_PRICING_MCP_READONLY_TOOLS,
+    # Databricks Pricing — MCP customizado (wrappa cost_engine + catalogs YAML).
+    # Usado pelo agent databricks-cost-calculator (slash /cost-databricks).
+    "databricks_pricing_all": DATABRICKS_PRICING_MCP_TOOLS,
+    "databricks_pricing_readonly": DATABRICKS_PRICING_MCP_READONLY_TOOLS,
 }
 
 

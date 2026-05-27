@@ -22,6 +22,9 @@ from data_agents.mcp_servers.azure_pricing.server_config import get_azure_pricin
 from data_agents.mcp_servers.context7.server_config import get_context7_mcp_config
 from data_agents.mcp_servers.databricks.server_config import get_databricks_mcp_config
 from data_agents.mcp_servers.databricks_genie.server_config import get_databricks_genie_mcp_config
+from data_agents.mcp_servers.databricks_pricing.server_config import (
+    get_databricks_pricing_mcp_config,
+)
 from data_agents.mcp_servers.fabric.server_config import (
     get_fabric_mcp_config,
     get_fabric_official_mcp_config,
@@ -46,11 +49,13 @@ logger = logging.getLogger("data_agents.mcp")
 # possam importar sem duplicar a lista.
 # fabric_ontology: auth via Azure CLI (az login), sem env vars extras.
 # azure_pricing: Retail Prices API é pública, sem auth.
+# databricks_pricing: catalog YAML estático local, sem auth.
 ALWAYS_ACTIVE_MCPS: list[str] = [
     "context7",
     "memory_mcp",
     "fabric_ontology",
     "azure_pricing",
+    "databricks_pricing",
 ]
 
 # Registry completo de plataformas disponíveis
@@ -115,6 +120,11 @@ ALL_MCP_CONFIGS: dict = {
     # Sem credenciais (auth pública); defaults (region, currency) via .env opcional.
     # Usado pelo agent azure-cost-calculator (slash /cost-azure).
     "azure_pricing": get_azure_pricing_mcp_config,
+    # databricks_pricing: MCP customizado wrappando data_agents.cost_engine.databricks
+    # (catalog YAML local + engine determinístico). Mesmos números que o Streamlit
+    # App em data_agents/cost_app/databricks/app.py (porta 8514).
+    # Usado pelo agent databricks-cost-calculator (slash /cost-databricks).
+    "databricks_pricing": get_databricks_pricing_mcp_config,
     # Adicione novas plataformas aqui:
     # "snowflake": get_snowflake_mcp_config,
     # "bigquery":  get_bigquery_mcp_config,
