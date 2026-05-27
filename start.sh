@@ -34,6 +34,7 @@ RESET="\033[0m"
 CHAINLIT_PORT="${CHAINLIT_PORT:-8513}"
 MONITOR_PORT="${MONITOR_PORT:-8511}"
 VISUALIZATION_PORT="${VISUALIZATION_PORT:-8512}"
+DATABRICKS_COST_PORT="${DATABRICKS_COST_PORT:-8514}"
 
 # ── Raiz do projeto (diretório deste script) ──────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,11 +44,15 @@ cd "$SCRIPT_DIR"
 CHAT_ONLY=false
 MONITOR_ONLY=false
 WITH_VIZ=false
+WITH_COST=false
+COST_ONLY=false
 for arg in "$@"; do
   case "$arg" in
     --chat-only)    CHAT_ONLY=true ;;
     --monitor-only) MONITOR_ONLY=true ;;
     --with-viz)     WITH_VIZ=true ;;
+    --with-cost)    WITH_COST=true ;;
+    --cost-only)    COST_ONLY=true ;;
     --help|-h)
       echo ""
       echo "  ${BOLD}./start.sh${RESET} [opções]"
@@ -56,11 +61,15 @@ for arg in "$@"; do
       echo "    ${CYAN}--chat-only${RESET}     Inicia somente a UI de Chat Chainlit      (porta $CHAINLIT_PORT)"
       echo "    ${CYAN}--monitor-only${RESET}  Inicia somente o Monitoramento            (porta $MONITOR_PORT)"
       echo "    ${CYAN}--with-viz${RESET}      Adiciona Visualization 3D dos agentes     (porta $VISUALIZATION_PORT)"
+      echo "    ${CYAN}--with-cost${RESET}     Adiciona Databricks Cost Calculator       (porta $DATABRICKS_COST_PORT)"
+      echo "    ${CYAN}--cost-only${RESET}     Inicia somente o Databricks Cost          (porta $DATABRICKS_COST_PORT)"
       echo "    ${CYAN}--help${RESET}          Exibe esta ajuda"
       echo ""
       echo "  Exemplos:"
       echo "    ./start.sh                    # Chainlit Chat + Monitoring"
       echo "    ./start.sh --with-viz         # Chat + Monitoring + Visualization 3D"
+      echo "    ./start.sh --with-cost        # Chat + Monitoring + Databricks Cost"
+      echo "    ./start.sh --cost-only        # Somente Databricks Cost Calculator"
       echo "    ./start.sh --monitor-only     # Somente Monitoring"
       echo ""
       exit 0
@@ -162,6 +171,7 @@ rotate_log "$SCRIPT_DIR/logs/monitor.log"
 CHAT_PID=""
 MONITOR_PID=""
 VIZ_PID=""
+COST_PID=""
 
 # ── Função de shutdown ────────────────────────────────────────────────────────
 cleanup() {
@@ -179,13 +189,17 @@ cleanup() {
     kill "$VIZ_PID" 2>/dev/null
     echo -e "  ${GREEN}✔${RESET}  Visualization encerrada (PID $VIZ_PID)"
   fi
+  if [[ -n "$COST_PID" ]] && kill -0 "$COST_PID" 2>/dev/null; then
+    kill "$COST_PID" 2>/dev/null
+    echo -e "  ${GREEN}✔${RESET}  Cost App encerrado (PID $COST_PID)"
+  fi
   echo ""
   exit 0
 }
 trap cleanup SIGINT SIGTERM
 
 # ── Inicia Monitoramento ──────────────────────────────────────────────────────
-if [[ "$CHAT_ONLY" == false ]]; then
+if [[ "$CHAT_ONLY" == false ]] && [[ "$COST_ONLY" == false ]]; then
   echo -e "  ${GREEN}▶${RESET}  Monitoramento  →  ${BOLD}http://localhost:$MONITOR_PORT${RESET}"
   $STREAMLIT_CMD run data_agents/monitoring/app.py \
     --server.port "$MONITOR_PORT" \
@@ -197,7 +211,7 @@ if [[ "$CHAT_ONLY" == false ]]; then
 fi
 
 # ── Inicia Visualization 3D (opcional, --with-viz) ───────────────────────────
-if [[ "$WITH_VIZ" == true ]] && [[ "$CHAT_ONLY" == false ]] && [[ "$MONITOR_ONLY" == false ]]; then
+if [[ "$WITH_VIZ" == true ]] && [[ "$CHAT_ONLY" == false ]] && [[ "$MONITOR_ONLY" == false ]] && [[ "$COST_ONLY" == false ]]; then
   if "$PYTHON_CMD" -c "import fastapi, uvicorn, watchdog" &>/dev/null; then
     rotate_log "$SCRIPT_DIR/logs/visualization.log"
     echo -e "  ${GREEN}▶${RESET}  Visualization  →  ${BOLD}http://localhost:$VISUALIZATION_PORT${RESET}"
@@ -209,8 +223,24 @@ if [[ "$WITH_VIZ" == true ]] && [[ "$CHAT_ONLY" == false ]] && [[ "$MONITOR_ONLY
   fi
 fi
 
+# ── Inicia Databricks Cost Calculator (opcional, --with-cost / --cost-only) ──
+if [[ "$WITH_COST" == true ]] || [[ "$COST_ONLY" == true ]]; then
+  if "$PYTHON_CMD" -c "import streamlit, plotly, openpyxl" &>/dev/null; then
+    rotate_log "$SCRIPT_DIR/logs/cost_databricks.log"
+    echo -e "  ${GREEN}▶${RESET}  Cost (Databricks)  →  ${BOLD}http://localhost:$DATABRICKS_COST_PORT${RESET}"
+    "$STREAMLIT_CMD" run data_agents/cost_app/databricks/app.py \
+      --server.port "$DATABRICKS_COST_PORT" \
+      --server.address 0.0.0.0 \
+      --server.headless true \
+      > logs/cost_databricks.log 2>&1 &
+    COST_PID=$!
+  else
+    echo -e "  ${YELLOW}⚠${RESET}   Dependências cost ausentes. Instale com: pip install -e '.[ui]'"
+  fi
+fi
+
 # ── Inicia UI de Chat (Chainlit) ──────────────────────────────────────────────
-if [[ "$MONITOR_ONLY" == false ]]; then
+if [[ "$MONITOR_ONLY" == false ]] && [[ "$COST_ONLY" == false ]]; then
   CHAINLIT_CMD=""
   if command -v chainlit &>/dev/null; then
     CHAINLIT_CMD="chainlit"
@@ -234,7 +264,9 @@ echo ""
 
 # ── Abre o browser (melhor esforço) ──────────────────────────────────────────
 sleep 2
-if [[ "$MONITOR_ONLY" == true ]]; then
+if [[ "$COST_ONLY" == true ]]; then
+  MAIN_URL="http://localhost:$DATABRICKS_COST_PORT"
+elif [[ "$MONITOR_ONLY" == true ]]; then
   MAIN_URL="http://localhost:$MONITOR_PORT"
 else
   MAIN_URL="http://localhost:$CHAINLIT_PORT"
@@ -261,8 +293,12 @@ while true; do
     echo -e "  ${RED}✘${RESET}  Visualization encerrou inesperadamente. Verifique logs/visualization.log"
     VIZ_PID=""
   fi
+  if [[ -n "$COST_PID" ]] && ! kill -0 "$COST_PID" 2>/dev/null; then
+    echo -e "  ${RED}✘${RESET}  Cost App encerrou inesperadamente. Verifique logs/cost_databricks.log"
+    COST_PID=""
+  fi
   # Se todos morreram, sai
-  if [[ -z "$CHAT_PID" ]] && [[ -z "$MONITOR_PID" ]] && [[ -z "$VIZ_PID" ]]; then
+  if [[ -z "$CHAT_PID" ]] && [[ -z "$MONITOR_PID" ]] && [[ -z "$VIZ_PID" ]] && [[ -z "$COST_PID" ]]; then
     echo -e "  ${RED}✘${RESET}  Todos os processos encerraram. Saindo."
     exit 1
   fi

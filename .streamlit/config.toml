@@ -1,0 +1,23 @@
+# Streamlit theme global pro projeto ai-data-agents
+# Aplica em qualquer app Streamlit que rode da raiz do projeto.
+
+[theme]
+base = "dark"
+primaryColor = "#FF6B6B"          # vermelho coral (highlight botões/sliders)
+backgroundColor = "#0E1117"        # fundo escuro profundo
+secondaryBackgroundColor = "#1A1F2C"  # cards/sidebar — levemente mais claro
+textColor = "#E8E8E8"              # texto principal — branco off
+font = "sans serif"
+
+[server]
+headless = true
+runOnSave = false                  # devs habilitam manualmente
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+
+[client]
+showErrorDetails = true            # útil em dev — desabilitar em prod
+toolbarMode = "minimal"

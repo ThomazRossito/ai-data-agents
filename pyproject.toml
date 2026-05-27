@@ -86,6 +86,10 @@ dev = [
     "mypy>=1.10",
     "bandit>=1.7",
     "types-PyYAML>=6.0",
+    # openpyxl é usado em tests/unit/test_cost_app_*.py — testam exporters
+    # XLSX do cost_app/databricks. Duplicado em [ui] pra app standalone funcionar
+    # sem [dev]. Pin sincronizado.
+    "openpyxl>=3.1",
 ]
 memory = [
     # Embeddings semânticos locais (ONNX runtime, sem PyTorch, sem API externa).
@@ -116,6 +120,12 @@ ui = [
     # HTML do UI (ui/exporter.py). Movido para cá; sem [ui] o exporter
     # levanta ImportError com mensagem clara.
     "markdown2>=2.4",
+    # Cost App: charts (Plotly) — usado em data_agents/cost_app/databricks/app.py
+    # pra renderizar donut breakdown DBU vs Instance cost.
+    "plotly>=5.20",
+    # Cost App: XLSX export — usado em data_agents/cost_app/databricks/exporters.py
+    # pra gerar planilhas formatadas (Tab Export).
+    "openpyxl>=3.1",
 ]
 viz = [
     # Visualização 3D do escritório dos agentes em tempo real.
@@ -212,6 +222,9 @@ exclude = [
     "^data_agents/monitoring/",
     "^data_agents/visualization/",
     "^data_agents/mcp_servers/",
+    # cost_app/databricks/app.py é Streamlit (UI) e exporters/comparisons/workloads
+    # usam openpyxl/plotly sem stubs públicos. Mesma política dos outros frontends.
+    "^data_agents/cost_app/",
 ]
 
 [[tool.mypy.overrides]]
