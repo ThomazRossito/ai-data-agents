@@ -23,6 +23,15 @@ from __future__ import annotations
 import plotly.graph_objects as go
 import streamlit as st
 
+from data_agents.cost_app.databricks.comparisons import (
+    compute_comparison,
+    get_summary_table as get_comparison_table,
+)
+from data_agents.cost_app.databricks.exporters import (
+    build_xlsx_multi_scenarios,
+    build_xlsx_single_scenario,
+    suggest_filename,
+)
 from data_agents.cost_app.databricks.instance_prices import (
     get_instance_price_usd_per_hour,
     get_mock_metadata,
@@ -33,6 +42,10 @@ from data_agents.cost_app.databricks.scenarios import (
     list_saved_scenarios,
     load_scenario,
     save_scenario,
+)
+from data_agents.cost_app.databricks.workloads import (
+    aggregate_workloads,
+    get_summary_table as get_workloads_table,
 )
 from data_agents.cost_engine.databricks import (
     DatabricksScenario,
@@ -613,26 +626,456 @@ def render_tab_cenario_cluster() -> None:
 
 
 def render_tab_compare_payg_dbcu() -> None:
-    st.header("⚖️ Compare PAYG vs DBCU")
-    st.info(
-        "🚧 **Em construção (Chunk 1.3)** — comparação detalhada entre Pay-as-you-go "
-        "e DBCU commit (1y, 3y) com gráfico de breakeven e ROI."
+    """Tab 2: PAYG vs DBCU 1y vs 3y com gráfico breakeven 36m."""
+    st.markdown("#### ⚖️ Compare PAYG vs DBCU Commit")
+    st.caption(
+        "Selecione um cenário salvo (ou volte na Tab 1 pra criar). "
+        "Comparação mostra cumulative cost 36 meses com breakeven destacado."
     )
+
+    saved = list_saved_scenarios()
+    if not saved:
+        st.info(
+            "💡 Nenhum cenário salvo ainda. Vá pra **Tab 1: Cenário Cluster**, "
+            "configure um cluster e clique em **Salvar Cenário**."
+        )
+        return
+
+    # Selector
+    options = [f"{e['name']} · {e['cloud']} · {e['compute_type']}" for e in saved]
+    uuids = [e["uuid"] for e in saved]
+    selected_idx = st.selectbox(
+        "Cenário pra comparar",
+        options=range(len(options)),
+        format_func=lambda i: options[i],
+    )
+
+    try:
+        scenario = load_scenario(uuids[selected_idx])
+    except FileNotFoundError:
+        st.error(f"Cenário {uuids[selected_idx]} não encontrado.")
+        return
+
+    comparison = compute_comparison(scenario)
+    currency = comparison.currency
+
+    # ─── Metrics row ────────────────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown("##### 💵 Custos Mensais")
+        col_payg, col_1y, col_3y = st.columns(3)
+        with col_payg:
+            st.metric(
+                "Pay-as-you-go",
+                _format_money_plain(comparison.monthly_payg, currency),
+            )
+        with col_1y:
+            delta_1y = comparison.monthly_payg - comparison.monthly_dbcu_1y
+            st.metric(
+                f"DBCU 1y · {comparison.savings_1y_pct}% off",
+                _format_money_plain(comparison.monthly_dbcu_1y, currency),
+                delta=f"-{_format_money_plain(delta_1y, currency)}/mês",
+                delta_color="inverse",
+            )
+        with col_3y:
+            delta_3y = comparison.monthly_payg - comparison.monthly_dbcu_3y
+            st.metric(
+                f"DBCU 3y · {comparison.savings_3y_pct}% off",
+                _format_money_plain(comparison.monthly_dbcu_3y, currency),
+                delta=f"-{_format_money_plain(delta_3y, currency)}/mês",
+                delta_color="inverse",
+            )
+
+    # ─── Recomendação ───────────────────────────────────────────────────────
+    if "DBCU" in comparison.recommendation:
+        st.success(comparison.recommendation)
+    elif "Permaneça" in comparison.recommendation:
+        st.info(comparison.recommendation)
+    else:
+        st.warning(comparison.recommendation)
+
+    # ─── Gráfico cumulative 36m ─────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown("##### 📈 Custo Cumulativo · 36 meses")
+
+        months = [d["month"] for d in comparison.cumulative_36m]
+        payg_cum = [d["payg"] for d in comparison.cumulative_36m]
+        cum_1y = [d["dbcu_1y"] for d in comparison.cumulative_36m]
+        cum_3y = [d["dbcu_3y"] for d in comparison.cumulative_36m]
+
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=months,
+                y=payg_cum,
+                mode="lines+markers",
+                name="Pay-as-you-go",
+                line=dict(color="#FF6B6B", width=3),
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=months,
+                y=cum_1y,
+                mode="lines+markers",
+                name="DBCU 1y",
+                line=dict(color="#FFD93D", width=2, dash="dash"),
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=months,
+                y=cum_3y,
+                mode="lines+markers",
+                name="DBCU 3y",
+                line=dict(color="#4ECDC4", width=2, dash="dot"),
+            )
+        )
+
+        # Breakeven annotations
+        annotations = []
+        if comparison.breakeven_month_1y:
+            annotations.append(
+                dict(
+                    x=comparison.breakeven_month_1y,
+                    y=payg_cum[comparison.breakeven_month_1y - 1],
+                    text=f"Breakeven 1y: mês {comparison.breakeven_month_1y}",
+                    showarrow=True,
+                    arrowhead=2,
+                    ax=20,
+                    ay=-30,
+                    font=dict(color="#FFD93D"),
+                )
+            )
+        if comparison.breakeven_month_3y:
+            annotations.append(
+                dict(
+                    x=comparison.breakeven_month_3y,
+                    y=payg_cum[comparison.breakeven_month_3y - 1],
+                    text=f"Breakeven 3y: mês {comparison.breakeven_month_3y}",
+                    showarrow=True,
+                    arrowhead=2,
+                    ax=20,
+                    ay=30,
+                    font=dict(color="#4ECDC4"),
+                )
+            )
+
+        fig.update_layout(
+            xaxis_title="Mês",
+            yaxis_title=f"Custo cumulativo ({currency})",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white"),
+            legend=dict(orientation="h", y=-0.2),
+            height=400,
+            margin=dict(t=20, b=20, l=0, r=0),
+            annotations=annotations,
+        )
+        fig.update_xaxes(gridcolor="#2A2F3C")
+        fig.update_yaxes(gridcolor="#2A2F3C", tickformat=",.0f")
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    # ─── Tabela summary ─────────────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown("##### 📋 Comparação Detalhada")
+        table = get_comparison_table(comparison)
+        # Formata moedas pra display
+        for row in table:
+            for col in ("Mensal", "Anual", "TCO 36m", "Savings vs PAYG"):
+                row[col] = _format_money_plain(row[col], currency)
+            row["Savings %"] = f"{row['Savings %']:.1f}%"
+        st.dataframe(table, use_container_width=True, hide_index=True)
 
 
 def render_tab_workloads_multiplos() -> None:
-    st.header("🔗 Workloads Múltiplos")
-    st.info(
-        "🚧 **Em construção (Chunk 1.3)** — combine N cenários e veja o "
-        "total mensal agregado (ex: 3 jobs + 1 cluster all-purpose + 2 SQL warehouses)."
+    """Tab 3: combina N cenários salvos e calcula total + breakdowns."""
+    st.markdown("#### 🔗 Workloads Múltiplos")
+    st.caption(
+        "Selecione N cenários salvos e veja o total agregado. "
+        "Útil pra estimar projetos inteiros (ex: 3 jobs + 1 cluster + 2 SQL warehouses)."
     )
+
+    saved = list_saved_scenarios()
+    if len(saved) < 2:
+        st.info(
+            f"💡 Pra usar Workloads Múltiplos você precisa de pelo menos 2 cenários "
+            f"salvos. Você tem **{len(saved)}** salvo(s) — crie mais na Tab 1."
+        )
+        return
+
+    # Multi-select
+    options = [f"{e['name']} · {e['cloud']} · {e['compute_type']}" for e in saved]
+    uuids = [e["uuid"] for e in saved]
+    selected_indices = st.multiselect(
+        "Cenários pra agregar (selecione 2+)",
+        options=range(len(options)),
+        format_func=lambda i: options[i],
+        default=list(range(min(len(options), 3))),  # default: 3 primeiros
+    )
+
+    if len(selected_indices) < 2:
+        st.warning("Selecione pelo menos 2 cenários.")
+        return
+
+    # Carrega scenarios
+    workload_tuples = []
+    for idx in selected_indices:
+        try:
+            scenario = load_scenario(uuids[idx])
+            workload_tuples.append((saved[idx]["name"], saved[idx]["description"], scenario))
+        except FileNotFoundError:
+            continue
+
+    if not workload_tuples:
+        st.error("Nenhum cenário carregou com sucesso.")
+        return
+
+    # Aggregate
+    try:
+        agg = aggregate_workloads(workload_tuples)
+    except ValueError as exc:
+        st.error(f"Erro na agregação: {exc}")
+        return
+
+    # Warnings
+    if agg.warnings:
+        for w in agg.warnings:
+            st.warning(w)
+
+    currency = agg.currency
+
+    # ─── Metrics top ────────────────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown("##### 💵 Total Agregado")
+        col_m, col_a, col_t = st.columns(3)
+        with col_m:
+            st.metric(
+                "Mensal Total",
+                _format_money_plain(agg.total_monthly, currency),
+                help=f"Soma de {len(agg.workloads)} workloads",
+            )
+        with col_a:
+            st.metric("Anual Total", _format_money_plain(agg.total_annual, currency))
+        with col_t:
+            st.metric("TCO 36m", _format_money_plain(agg.total_tco_36m, currency))
+
+    # ─── Tabela com contribuição ────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown("##### 📋 Workloads Selecionados")
+        table = get_workloads_table(agg)
+        # Formata moedas
+        for row in table:
+            for col in ("Mensal", "Anual"):
+                if isinstance(row[col], (int, float)):
+                    row[col] = _format_money_plain(row[col], currency)
+            row["% do Total"] = f"{row['% do Total']:.1f}%"
+        st.dataframe(table, use_container_width=True, hide_index=True)
+
+    # ─── Breakdowns visuais ─────────────────────────────────────────────────
+    col_ct, col_cl = st.columns(2)
+    with col_ct:
+        with st.container(border=True):
+            st.markdown("##### 🧩 Por Compute Type")
+            if agg.by_compute_type:
+                fig_ct = go.Figure(
+                    data=[
+                        go.Pie(
+                            labels=list(agg.by_compute_type.keys()),
+                            values=list(agg.by_compute_type.values()),
+                            hole=0.45,
+                            marker=dict(
+                                colors=[
+                                    "#FF6B6B",
+                                    "#4ECDC4",
+                                    "#FFD93D",
+                                    "#95E1D3",
+                                    "#A8DADC",
+                                ]
+                            ),
+                            textinfo="label+percent",
+                        )
+                    ]
+                )
+                fig_ct.update_layout(
+                    showlegend=False,
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="white"),
+                    height=300,
+                    margin=dict(t=10, b=10, l=0, r=0),
+                )
+                st.plotly_chart(fig_ct, use_container_width=True)
+
+    with col_cl:
+        with st.container(border=True):
+            st.markdown("##### ☁️ Por Cloud")
+            if agg.by_cloud:
+                fig_cl = go.Figure(
+                    data=[
+                        go.Pie(
+                            labels=[c.upper() for c in agg.by_cloud.keys()],
+                            values=list(agg.by_cloud.values()),
+                            hole=0.45,
+                            marker=dict(colors=["#0078D4", "#FF9900"]),
+                            textinfo="label+percent",
+                        )
+                    ]
+                )
+                fig_cl.update_layout(
+                    showlegend=False,
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="white"),
+                    height=300,
+                    margin=dict(t=10, b=10, l=0, r=0),
+                )
+                st.plotly_chart(fig_cl, use_container_width=True)
+
+    # ─── DBU vs Instance global ─────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown("##### 🔴 DBU vs 🟢 Instance Cost (mensal agregado)")
+        col_dbu, col_inst, col_pct = st.columns(3)
+        with col_dbu:
+            st.metric(
+                "DBU Cost Total",
+                _format_money_plain(agg.dbu_total_monthly, currency),
+            )
+        with col_inst:
+            st.metric(
+                "Instance Cost Total",
+                _format_money_plain(agg.instance_total_monthly, currency),
+            )
+        with col_pct:
+            total_cost = agg.dbu_total_monthly + agg.instance_total_monthly
+            dbu_pct = (
+                (agg.dbu_total_monthly / total_cost * 100) if total_cost > 0 else 0
+            )
+            st.metric("% DBU", f"{dbu_pct:.1f}%")
+
+    # Guarda agg pra Tab 4 (Export) consumir
+    st.session_state["last_aggregate"] = agg
+    st.session_state["last_aggregate_scenarios"] = [
+        (name, scen) for name, _, scen in workload_tuples
+    ]
 
 
 def render_tab_export() -> None:
-    st.header("📤 Export XLSX")
-    st.info(
-        "🚧 **Em construção (Chunk 1.3)** — exporta cenários e cotações pra XLSX "
-        "formatado com fórmulas (openpyxl)."
+    """Tab 4: Export XLSX (single scenario ou multi com aggregate)."""
+    st.markdown("#### 📤 Export XLSX")
+    st.caption(
+        "Gera planilha Excel formatada com Resumo Executivo, Detalhes de cada "
+        "cenário, comparação DBCU e breakdown hourly. Pronta pra mandar pro cliente."
+    )
+
+    saved = list_saved_scenarios()
+    if not saved:
+        st.info(
+            "💡 Nenhum cenário salvo ainda. Crie cenários na **Tab 1** primeiro."
+        )
+        return
+
+    # Modo: single vs multi
+    mode = st.radio(
+        "Modo de export",
+        options=["Cenário único", "Múltiplos cenários (com agregação)"],
+        horizontal=True,
+    )
+
+    options = [f"{e['name']} · {e['cloud']}" for e in saved]
+    uuids = [e["uuid"] for e in saved]
+
+    scenarios_to_export: list[tuple[str, DatabricksScenario]] = []
+    include_aggregate = None
+
+    if mode == "Cenário único":
+        selected_idx = st.selectbox(
+            "Cenário",
+            options=range(len(options)),
+            format_func=lambda i: options[i],
+        )
+        try:
+            scenario = load_scenario(uuids[selected_idx])
+            scenarios_to_export = [(saved[selected_idx]["name"], scenario)]
+        except FileNotFoundError:
+            st.error(f"Cenário {uuids[selected_idx]} não encontrado.")
+            return
+    else:
+        # Multi
+        selected_indices = st.multiselect(
+            "Cenários (selecione 2+)",
+            options=range(len(options)),
+            format_func=lambda i: options[i],
+            default=list(range(min(len(options), 3))),
+        )
+        if len(selected_indices) < 2:
+            st.warning("Selecione pelo menos 2 cenários.")
+            return
+
+        loaded_tuples = []
+        loaded_named = []
+        for idx in selected_indices:
+            try:
+                s = load_scenario(uuids[idx])
+                loaded_named.append((saved[idx]["name"], s))
+                loaded_tuples.append((saved[idx]["name"], saved[idx]["description"], s))
+            except FileNotFoundError:
+                continue
+
+        scenarios_to_export = loaded_named
+        try:
+            include_aggregate = aggregate_workloads(loaded_tuples)
+        except ValueError as exc:
+            st.error(f"Erro na agregação: {exc}")
+            return
+
+    if not scenarios_to_export:
+        return
+
+    # Filename
+    filename = st.text_input(
+        "Nome do arquivo",
+        value=suggest_filename(),
+        help="Default tem timestamp UTC. Edite se preferir nome customizado.",
+    )
+
+    # Build XLSX
+    try:
+        xlsx_bytes = build_xlsx_multi_scenarios(
+            scenarios_to_export, aggregate=include_aggregate
+        )
+    except ValueError as exc:
+        st.error(f"Erro ao gerar XLSX: {exc}")
+        return
+
+    # Preview info
+    with st.container(border=True):
+        st.markdown("##### 📊 Conteúdo do XLSX")
+        sheets_desc = [
+            "**Resumo Executivo** — 1-pager pra cliente com totals",
+            "**Cenários Detalhados** — 1 row por cenário com 20 colunas",
+            "**DBCU Comparison** — PAYG vs 1y vs 3y por cenário com savings/breakeven",
+            "**Breakdown Hourly** — DBU vs Instance hourly por cenário",
+        ]
+        if include_aggregate:
+            sheets_desc.append(
+                "**Workload Aggregate** — breakdown por compute_type + cloud (agregado)"
+            )
+        for desc in sheets_desc:
+            st.markdown(f"- {desc}")
+
+        st.caption(
+            f"Total: {len(scenarios_to_export)} cenário(s), "
+            f"~{xlsx_bytes.getbuffer().nbytes // 1024} KB"
+        )
+
+    # Download button
+    st.download_button(
+        label="⬇️ Download XLSX",
+        data=xlsx_bytes,
+        file_name=filename if filename.endswith(".xlsx") else f"{filename}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
     )
 
 
