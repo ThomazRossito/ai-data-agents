@@ -86,6 +86,10 @@ dev = [
     "mypy>=1.10",
     "bandit>=1.7",
     "types-PyYAML>=6.0",
+    # openpyxl é usado em tests/unit/test_cost_app_*.py — testam exporters
+    # XLSX do cost_app/databricks. Duplicado em [ui] pra app standalone funcionar
+    # sem [dev]. Pin sincronizado.
+    "openpyxl>=3.1",
 ]
 memory = [
     # Embeddings semânticos locais (ONNX runtime, sem PyTorch, sem API externa).
