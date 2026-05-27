@@ -198,9 +198,7 @@ def get_summary_table(comparison: ComparisonResult) -> list[dict[str, Any]]:
             "Savings vs PAYG": comparison.savings_1y_annual,
             "Savings %": comparison.savings_1y_pct,
             "Breakeven": (
-                f"mês {comparison.breakeven_month_1y}"
-                if comparison.breakeven_month_1y
-                else "—"
+                f"mês {comparison.breakeven_month_1y}" if comparison.breakeven_month_1y else "—"
             ),
         },
         {
@@ -211,9 +209,7 @@ def get_summary_table(comparison: ComparisonResult) -> list[dict[str, Any]]:
             "Savings vs PAYG": comparison.savings_3y_annual,
             "Savings %": comparison.savings_3y_pct,
             "Breakeven": (
-                f"mês {comparison.breakeven_month_3y}"
-                if comparison.breakeven_month_3y
-                else "—"
+                f"mês {comparison.breakeven_month_3y}" if comparison.breakeven_month_3y else "—"
             ),
         },
     ]

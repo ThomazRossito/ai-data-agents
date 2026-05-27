@@ -212,15 +212,9 @@ def _write_sheet_cenarios_detalhados(
         ws.cell(
             row=idx, column=17, value=round(breakdown["cluster_total"], 4)
         ).number_format = _CURRENCY_FORMAT
-        ws.cell(row=idx, column=18, value=result["totals"]["monthly"]).number_format = (
-            money_fmt
-        )
-        ws.cell(row=idx, column=19, value=result["totals"]["annual"]).number_format = (
-            money_fmt
-        )
-        ws.cell(row=idx, column=20, value=result["totals"]["tco_36m"]).number_format = (
-            money_fmt
-        )
+        ws.cell(row=idx, column=18, value=result["totals"]["monthly"]).number_format = money_fmt
+        ws.cell(row=idx, column=19, value=result["totals"]["annual"]).number_format = money_fmt
+        ws.cell(row=idx, column=20, value=result["totals"]["tco_36m"]).number_format = money_fmt
 
     _auto_width(ws, max_width=22)
 
@@ -256,30 +250,18 @@ def _write_sheet_dbcu_comparison(
 
         ws.cell(row=idx, column=1, value=name)
         ws.cell(row=idx, column=2, value=comparison.monthly_payg).number_format = money_fmt
-        ws.cell(row=idx, column=3, value=comparison.monthly_dbcu_1y).number_format = (
-            money_fmt
-        )
-        ws.cell(row=idx, column=4, value=comparison.monthly_dbcu_3y).number_format = (
-            money_fmt
-        )
-        ws.cell(row=idx, column=5, value=comparison.savings_1y_annual).number_format = (
-            money_fmt
-        )
-        ws.cell(row=idx, column=6, value=comparison.savings_3y_annual).number_format = (
-            money_fmt
-        )
-        ws.cell(row=idx, column=7, value=comparison.savings_1y_pct / 100).number_format = (
-            _PCT_FORMAT
-        )
-        ws.cell(row=idx, column=8, value=comparison.savings_3y_pct / 100).number_format = (
-            _PCT_FORMAT
-        )
+        ws.cell(row=idx, column=3, value=comparison.monthly_dbcu_1y).number_format = money_fmt
+        ws.cell(row=idx, column=4, value=comparison.monthly_dbcu_3y).number_format = money_fmt
+        ws.cell(row=idx, column=5, value=comparison.savings_1y_annual).number_format = money_fmt
+        ws.cell(row=idx, column=6, value=comparison.savings_3y_annual).number_format = money_fmt
         ws.cell(
-            row=idx, column=9, value=comparison.breakeven_month_1y or "nunca"
-        )
+            row=idx, column=7, value=comparison.savings_1y_pct / 100
+        ).number_format = _PCT_FORMAT
         ws.cell(
-            row=idx, column=10, value=comparison.breakeven_month_3y or "nunca"
-        )
+            row=idx, column=8, value=comparison.savings_3y_pct / 100
+        ).number_format = _PCT_FORMAT
+        ws.cell(row=idx, column=9, value=comparison.breakeven_month_1y or "nunca")
+        ws.cell(row=idx, column=10, value=comparison.breakeven_month_3y or "nunca")
         ws.cell(row=idx, column=11, value=comparison.recommendation)
 
     _auto_width(ws, max_width=50)
@@ -327,9 +309,7 @@ def _write_sheet_breakdown(
             (8, b["instance_total"]),
             (9, b["cluster_total"]),
         ]:
-            ws.cell(row=idx, column=col, value=round(val, 4)).number_format = (
-                _CURRENCY_FORMAT
-            )
+            ws.cell(row=idx, column=col, value=round(val, 4)).number_format = _CURRENCY_FORMAT
         ws.cell(row=idx, column=10, value=dbu_pct).number_format = _PCT_FORMAT
         ws.cell(row=idx, column=11, value=inst_pct).number_format = _PCT_FORMAT
 
@@ -353,9 +333,7 @@ def _write_sheet_aggregate(wb: Workbook, aggregate: WorkloadAggregate) -> None:
 
     row = 4
     total = aggregate.total_monthly
-    for ct, value in sorted(
-        aggregate.by_compute_type.items(), key=lambda x: -x[1]
-    ):
+    for ct, value in sorted(aggregate.by_compute_type.items(), key=lambda x: -x[1]):
         ws.cell(row=row, column=1, value=ct)
         ws.cell(row=row, column=2, value=value).number_format = money_fmt
         pct = value / total if total > 0 else 0.0
@@ -395,9 +373,7 @@ def _write_sheet_aggregate(wb: Workbook, aggregate: WorkloadAggregate) -> None:
     ws.cell(row=row, column=2, value=aggregate.dbu_total_monthly).number_format = money_fmt
     row += 1
     ws.cell(row=row, column=1, value="Instance Cost")
-    ws.cell(
-        row=row, column=2, value=aggregate.instance_total_monthly
-    ).number_format = money_fmt
+    ws.cell(row=row, column=2, value=aggregate.instance_total_monthly).number_format = money_fmt
 
     _auto_width(ws)
 
@@ -436,8 +412,7 @@ def build_xlsx_multi_scenarios(
     currencies = {s.currency_label for _, s in scenarios}
     if len(currencies) > 1:
         raise ValueError(
-            f"Scenarios usam currencies diferentes ({currencies}). "
-            "Use a mesma currency."
+            f"Scenarios usam currencies diferentes ({currencies}). Use a mesma currency."
         )
     currency = scenarios[0][1].currency_label
 

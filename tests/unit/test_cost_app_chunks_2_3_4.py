@@ -254,9 +254,7 @@ class TestExportersXLSX:
         assert "Breakdown Hourly" in sheet_names
 
     def test_xlsx_resumo_has_total_row(self, small_scenario, large_scenario):
-        output = build_xlsx_multi_scenarios(
-            [("A", small_scenario), ("B", large_scenario)]
-        )
+        output = build_xlsx_multi_scenarios([("A", small_scenario), ("B", large_scenario)])
         wb = load_workbook(output)
         ws = wb["Resumo Executivo"]
         # Procura linha com "TOTAL" na coluna B

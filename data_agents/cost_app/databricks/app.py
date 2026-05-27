@@ -187,9 +187,7 @@ def render_sidebar() -> None:
         st.markdown("### 📂 Cenários")
         saved = list_saved_scenarios()
         if saved:
-            options = ["(novo)"] + [
-                f"{e['name'][:25]} · {e['cloud']}" for e in saved
-            ]
+            options = ["(novo)"] + [f"{e['name'][:25]} · {e['cloud']}" for e in saved]
             uuids = [None] + [e["uuid"] for e in saved]
             selected_idx = st.selectbox(
                 "Carregar",
@@ -220,9 +218,7 @@ def render_sidebar() -> None:
                     f"{meta['total_skus_aws']} SKUs"
                 )
 
-        st.caption(
-            "🔗 [GitHub](https://github.com/ThomazRossito/ai-data-agents) · v1.2"
-        )
+        st.caption("🔗 [GitHub](https://github.com/ThomazRossito/ai-data-agents) · v1.2")
 
 
 # ─── Tab 1: Cenário Cluster ─────────────────────────────────────────────────
@@ -313,9 +309,7 @@ def render_tab_cenario_cluster() -> None:
             valid_skus = [sku for sku in all_skus if sku in catalog_skus]
 
             if not valid_skus:
-                st.error(
-                    f"Nenhuma instance em {cloud}/{region} tem DBU mapping no catalog."
-                )
+                st.error(f"Nenhuma instance em {cloud}/{region} tem DBU mapping no catalog.")
                 return
 
             default_driver = (
@@ -381,9 +375,7 @@ def render_tab_cenario_cluster() -> None:
             pricing_model = st.selectbox(
                 "Instance Pricing",
                 options=pricing_options,
-                index=pricing_options.index(loaded.instance_pricing_model)
-                if loaded
-                else 0,
+                index=pricing_options.index(loaded.instance_pricing_model) if loaded else 0,
                 format_func=lambda p: {
                     "on_demand": "On-Demand",
                     "spot": "Spot/Low-Priority (~60-80% off)",
@@ -505,18 +497,18 @@ def render_tab_cenario_cluster() -> None:
                 st.markdown(
                     f"""
                     **🔴 DBU Cost**
-                    Driver: `${breakdown['dbu_driver']:.4f}/h`
-                    Workers: `${breakdown['dbu_workers']:.4f}/h`
-                    **Total: `${breakdown['dbu_total']:.4f}/h`**
+                    Driver: `${breakdown["dbu_driver"]:.4f}/h`
+                    Workers: `${breakdown["dbu_workers"]:.4f}/h`
+                    **Total: `${breakdown["dbu_total"]:.4f}/h`**
                     """
                 )
             with col_inst:
                 st.markdown(
                     f"""
                     **🟢 Instance Cost**
-                    Driver: `${breakdown['instance_driver']:.4f}/h`
-                    Workers: `${breakdown['instance_workers']:.4f}/h`
-                    **Total: `${breakdown['instance_total']:.4f}/h`**
+                    Driver: `${breakdown["instance_driver"]:.4f}/h`
+                    Workers: `${breakdown["instance_workers"]:.4f}/h`
+                    **Total: `${breakdown["instance_total"]:.4f}/h`**
                     """
                 )
 
@@ -553,9 +545,7 @@ def render_tab_cenario_cluster() -> None:
                         delta_color="inverse",
                     )
             else:
-                annual_dbu_brl = (
-                    commit["annual_dbu_usd"] * st.session_state.currency_rate
-                )
+                annual_dbu_brl = commit["annual_dbu_usd"] * st.session_state.currency_rate
                 st.info(
                     f"💡 Gasto anual DBU estimado: "
                     f"**{_format_money_plain(annual_dbu_brl, currency)}**. "
@@ -576,15 +566,11 @@ def render_tab_cenario_cluster() -> None:
                         "Worker DBU/h": inputs["worker_dbu_per_hour"],
                         "Effective workers": inputs["effective_workers"],
                         "Hours per month": inputs["hours_per_month"],
-                        "Instance discount (%)": inputs[
-                            "instance_discount_pct_applied"
-                        ],
+                        "Instance discount (%)": inputs["instance_discount_pct_applied"],
                         "Driver price (USD/h)": driver_price,
                         "Worker price (USD/h)": worker_price,
                         "Catalog version": result["source"]["catalog_version"],
-                        "Catalog last updated": result["source"][
-                            "catalog_last_updated"
-                        ],
+                        "Catalog last updated": result["source"]["catalog_last_updated"],
                     },
                     expanded=False,
                 )
@@ -947,9 +933,7 @@ def render_tab_workloads_multiplos() -> None:
             )
         with col_pct:
             total_cost = agg.dbu_total_monthly + agg.instance_total_monthly
-            dbu_pct = (
-                (agg.dbu_total_monthly / total_cost * 100) if total_cost > 0 else 0
-            )
+            dbu_pct = (agg.dbu_total_monthly / total_cost * 100) if total_cost > 0 else 0
             st.metric("% DBU", f"{dbu_pct:.1f}%")
 
     # Guarda agg pra Tab 4 (Export) consumir
@@ -969,9 +953,7 @@ def render_tab_export() -> None:
 
     saved = list_saved_scenarios()
     if not saved:
-        st.info(
-            "💡 Nenhum cenário salvo ainda. Crie cenários na **Tab 1** primeiro."
-        )
+        st.info("💡 Nenhum cenário salvo ainda. Crie cenários na **Tab 1** primeiro.")
         return
 
     # Modo: single vs multi
@@ -1040,9 +1022,7 @@ def render_tab_export() -> None:
 
     # Build XLSX
     try:
-        xlsx_bytes = build_xlsx_multi_scenarios(
-            scenarios_to_export, aggregate=include_aggregate
-        )
+        xlsx_bytes = build_xlsx_multi_scenarios(scenarios_to_export, aggregate=include_aggregate)
     except ValueError as exc:
         st.error(f"Erro ao gerar XLSX: {exc}")
         return

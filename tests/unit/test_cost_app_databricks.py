@@ -193,10 +193,6 @@ class TestScenarioPersistence:
 
     def test_save_with_source_agent(self, tmp_scenarios_dir, example_scenario):
         """Cenário marcado como vindo do agent (preparação Fase 2)."""
-        scenario_uuid = save_scenario(
-            example_scenario, name="From Agent", source="agent"
-        )
-        loaded_entry = next(
-            e for e in list_saved_scenarios() if e["uuid"] == scenario_uuid
-        )
+        scenario_uuid = save_scenario(example_scenario, name="From Agent", source="agent")
+        loaded_entry = next(e for e in list_saved_scenarios() if e["uuid"] == scenario_uuid)
         assert loaded_entry["source"] == "agent"

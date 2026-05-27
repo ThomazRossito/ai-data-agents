@@ -303,8 +303,7 @@ def get_instance_price_usd_per_hour(
     region_prices = prices.get(region)
     if region_prices is None:
         raise KeyError(
-            f"Region {region!r} não está no mock de {cloud!r}. "
-            f"Disponíveis: {sorted(prices.keys())}"
+            f"Region {region!r} não está no mock de {cloud!r}. Disponíveis: {sorted(prices.keys())}"
         )
 
     price = region_prices.get(instance_sku)

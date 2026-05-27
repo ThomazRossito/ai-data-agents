@@ -90,8 +90,7 @@ def aggregate_workloads(
     currencies = {s.currency_label for _, _, s in workloads}
     if len(currencies) > 1:
         raise ValueError(
-            f"Workloads usam currencies diferentes ({currencies}). "
-            "Use a mesma currency em todos."
+            f"Workloads usam currencies diferentes ({currencies}). Use a mesma currency em todos."
         )
 
     currency = workloads[0][2].currency_label
@@ -175,9 +174,7 @@ def get_summary_table(aggregate: WorkloadAggregate) -> list[dict[str, Any]]:
                 "Workers": entry.scenario.num_workers,
                 "Mensal": entry.monthly_cost,
                 "Anual": entry.annual_cost,
-                "% do Total": round(
-                    entry.monthly_cost / aggregate.total_monthly * 100, 1
-                )
+                "% do Total": round(entry.monthly_cost / aggregate.total_monthly * 100, 1)
                 if aggregate.total_monthly > 0
                 else 0.0,
             }
