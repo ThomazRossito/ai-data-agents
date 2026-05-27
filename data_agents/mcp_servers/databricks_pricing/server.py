@@ -633,6 +633,174 @@ def databricks_pricing_save_scenario(
         return _error(f"save_scenario failed: {exc}")
 
 
+# ─── Bridge App → Agent (Chunk 2.3) ─────────────────────────────────────────
+
+
+@mcp.tool()
+def databricks_pricing_list_scenarios(
+    filter_source: str | None = None,
+    filter_cloud: str | None = None,
+) -> str:
+    """
+    Lista cenários salvos em outputs/cost-scenarios/ com metadata.
+
+    Bridge App → Agent: o agent pode dizer "você tem 5 cenários salvos: ..."
+    e o usuário escolhe um para carregar/refinar.
+
+    Args:
+        filter_source: filtra por origem. Valores: "manual", "agent",
+            "app-edited", "import". None = todos.
+        filter_cloud: filtra por cloud. Valores: "azure", "aws". None = todos.
+
+    Returns:
+        JSON com count + list[dict] (uuid, name, source, parent_uuid,
+        created_at, cloud, compute_type) ordenado por created_at DESC.
+    """
+    try:
+        from data_agents.cost_app.databricks.scenarios import list_saved_scenarios
+
+        entries = list_saved_scenarios(
+            filter_source=filter_source,
+            filter_cloud=filter_cloud,
+        )
+
+        # Remove filepath (interno) e retorna só campos públicos
+        public_entries = [
+            {
+                "uuid": e["uuid"],
+                "name": e["name"],
+                "description": e["description"],
+                "source": e["source"],
+                "parent_uuid": e["parent_uuid"],
+                "created_at": e["created_at"],
+                "cloud": e["cloud"],
+                "compute_type": e["compute_type"],
+            }
+            for e in entries
+        ]
+
+        return _envelope(
+            {
+                "count": len(public_entries),
+                "filter_source": filter_source,
+                "filter_cloud": filter_cloud,
+                "scenarios": public_entries,
+            }
+        )
+    except Exception as exc:
+        logger.exception("list_scenarios falhou")
+        return _error(f"list_scenarios failed: {exc}")
+
+
+@mcp.tool()
+def databricks_pricing_load_scenario(scenario_uuid: str) -> str:
+    """
+    Carrega um cenário salvo por UUID e devolve envelope completo.
+
+    Use quando o usuário disse "carrega o cenário XYZ que salvei ontem" —
+    o agent pode então recalcular variantes ("e se eu trocar pra 8 workers?")
+    sem o usuário re-descrever tudo.
+
+    Args:
+        scenario_uuid: UUID v4 (36 chars) obtido via list_scenarios ou
+            save_scenario.
+
+    Returns:
+        JSON com envelope completo: uuid, name, description, source,
+        parent_uuid, created_at, scenario (todos os campos do DatabricksScenario).
+    """
+    try:
+        from data_agents.cost_app.databricks.scenarios import load_envelope
+
+        envelope = load_envelope(scenario_uuid)
+        return _envelope(envelope)
+    except FileNotFoundError as exc:
+        return _error(f"Scenario not found: {exc}")
+    except Exception as exc:
+        logger.exception("load_scenario falhou")
+        return _error(f"load_scenario failed: {exc}")
+
+
+@mcp.tool()
+def databricks_pricing_delete_scenario(scenario_uuid: str) -> str:
+    """
+    Remove um cenário salvo por UUID.
+
+    ⚠️ DESTRUCTIVE — Só execute com pedido EXPLÍCITO do usuário
+    ("limpa o cenário X", "deleta os testes antigos"). Nunca pelo próprio
+    bom-senso. O agent é responsável por confirmar antes de chamar.
+
+    Args:
+        scenario_uuid: UUID v4 (36 chars) do cenário a deletar.
+
+    Returns:
+        JSON com deleted: bool. False se o UUID não existia (idempotente).
+    """
+    try:
+        from data_agents.cost_app.databricks.scenarios import delete_scenario
+
+        deleted = delete_scenario(scenario_uuid)
+        return _envelope(
+            {
+                "uuid": scenario_uuid,
+                "deleted": deleted,
+                "message": (
+                    f"Scenario {scenario_uuid[:8]} removido."
+                    if deleted
+                    else f"Scenario {scenario_uuid[:8]} não encontrado (já removido?)."
+                ),
+            }
+        )
+    except Exception as exc:
+        logger.exception("delete_scenario falhou")
+        return _error(f"delete_scenario failed: {exc}")
+
+
+@mcp.tool()
+def databricks_pricing_search_scenarios(query: str, limit: int = 10) -> str:
+    """
+    Busca fuzzy por cenários salvos (match case-insensitive em name + description).
+
+    Útil pro agent encontrar cenários sem decorar UUIDs:
+    "carrega o cenário do ETL Bronze" → search → top 3 candidatos → pergunta qual.
+
+    Args:
+        query: termo de busca. Vazio retorna [].
+        limit: máximo de resultados (default 10).
+
+    Returns:
+        JSON com count + list[dict] ordenado por relevância (matches em name
+        contam 2× matches em description). Tie-break: created_at DESC.
+    """
+    try:
+        from data_agents.cost_app.databricks.scenarios import search_scenarios
+
+        matches = search_scenarios(query, limit=limit)
+        public_matches = [
+            {
+                "uuid": m["uuid"],
+                "name": m["name"],
+                "description": m["description"],
+                "source": m["source"],
+                "created_at": m["created_at"],
+                "cloud": m["cloud"],
+                "compute_type": m["compute_type"],
+            }
+            for m in matches
+        ]
+        return _envelope(
+            {
+                "query": query,
+                "count": len(public_matches),
+                "limit": limit,
+                "scenarios": public_matches,
+            }
+        )
+    except Exception as exc:
+        logger.exception("search_scenarios falhou")
+        return _error(f"search_scenarios failed: {exc}")
+
+
 # ─── Entry point ─────────────────────────────────────────────────────────────
 
 

@@ -241,6 +241,48 @@ databricks_pricing_save_scenario(
 10. Apresentar UUID + app_url + next_step ao usuário
 ```
 
+### Padrão 6: Editar cenário existente (Chunk 2.3 — bridge App → Agent)
+
+Trigger keywords: "carrega o cenário XYZ", "abre o que salvei", "recalcula meu ETL Bronze com 8 workers", "compara o cenário X com Y mas com Photon".
+
+```
+1. Diagnostics (se 1ª pergunta da sessão)
+2. Resolução do UUID:
+   - Se user falou UUID direto → vai pro Passo 3
+   - Se user falou nome ("ETL Bronze") → search_scenarios("ETL Bronze")
+     - 0 matches → reportar, pedir clarificação
+     - 1 match → confirmar com user e prosseguir
+     - 2+ matches → listar os top 3 e perguntar qual
+3. load_scenario(uuid) → envelope completo (uuid, name, source, parent_uuid, scenario)
+4. Apresentar premissas do cenário carregado + diff pedido:
+   "Carreguei 'ETL Bronze' (4 workers, 8h/dia, brazilsouth, Premium sem Photon = $726.88/mês).
+    Vou recalcular com num_workers=8 mantendo o resto."
+5. calc_cluster_cost(...) com os campos do envelope + a alteração
+6. Apresentar novo custo + delta vs original
+7. (CONDICIONAL R5) Se user pediu salvar a variante:
+   save_scenario(
+     scenario_modificado,
+     name="ETL Bronze — 8 workers",   # nome descritivo da variante
+     description=f"Variant de {original_uuid[:8]} com num_workers=8",
+     # NÃO passe source aqui — o agent sempre grava como "agent"
+   )
+8. Salvar arquivos (cost_report.md + scenario_used.json)
+```
+
+### Padrão 7: Listar/Limpar cenários (housekeeping)
+
+Trigger keywords: "quais cenários eu tenho salvos?", "limpa os cenários de teste".
+
+```
+1. list_scenarios(filter_source="agent")  # ou filter_cloud, ou ambos
+2. Apresentar tabela com uuid[:8], name, source, created_at, cloud
+3. (DELETE — destrutivo, só com pedido explícito):
+   - Confirmar com user: "Vou deletar uuid=X (name='Y'). Confirma?"
+   - delete_scenario(uuid)
+   - Confirmar retorno deleted=true
+4. NUNCA deletar sem pedido + confirmação explícita
+```
+
 ## Anti-patterns
 
 ❌ **Não rode `save_scenario` sem pedido explícito.** A bridge `outputs/cost-scenarios/` existe pra uso humano deliberado. Lixo aí polui o Tab Histórico do App.

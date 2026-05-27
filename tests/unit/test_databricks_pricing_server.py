@@ -332,3 +332,129 @@ class TestEnvelopeFormat:
             # Não deve crashar no parse
             data = json.loads(result)
             assert "timestamp" in data
+
+
+# ─── Bridge App → Agent (Chunk 2.3) ──────────────────────────────────────────
+
+
+class TestBridgeListLoadDeleteSearch:
+    """Testes das 4 novas tools MCP do Chunk 2.3 (list/load/delete/search)."""
+
+    @pytest.fixture
+    def tmp_scenarios_env(self, tmp_path, monkeypatch):
+        """Isola outputs/cost-scenarios em tmp_path."""
+        scenarios_dir = tmp_path / "cost-scenarios"
+        monkeypatch.setenv("COST_SCENARIOS_DIR", str(scenarios_dir))
+        return scenarios_dir
+
+    def _save_canonical(self, name: str = "Canonical") -> str:
+        """Helper: salva via tool save_scenario (source=agent)."""
+        result = server.databricks_pricing_save_scenario(
+            cloud="azure",
+            compute_type="jobs_compute",
+            tier="premium",
+            photon=False,
+            driver_instance="Standard_DS4_v2",
+            worker_instance="Standard_DS4_v2",
+            num_workers=4,
+            hours_per_day=8.0,
+            days_per_month=22,
+            region="brazilsouth",
+            name=name,
+        )
+        return _parse(result)["data"]["uuid"]
+
+    def test_list_scenarios_empty_returns_zero(self, tmp_scenarios_env):
+        result = server.databricks_pricing_list_scenarios()
+        data = _parse(result)
+        assert data["data"]["count"] == 0
+        assert data["data"]["scenarios"] == []
+
+    def test_list_scenarios_returns_metadata(self, tmp_scenarios_env):
+        self._save_canonical("ETL-1")
+        self._save_canonical("ETL-2")
+        result = server.databricks_pricing_list_scenarios()
+        data = _parse(result)
+        assert data["data"]["count"] == 2
+        names = {s["name"] for s in data["data"]["scenarios"]}
+        assert names == {"ETL-1", "ETL-2"}
+        # Não vaza filepath (campo interno)
+        assert all("filepath" not in s for s in data["data"]["scenarios"])
+
+    def test_list_scenarios_filter_source(self, tmp_scenarios_env):
+        self._save_canonical("FromAgent")
+        # Salva um manual direto via API pra simular
+        from data_agents.cost_app.databricks.scenarios import save_scenario
+        from data_agents.cost_engine.databricks import DatabricksScenario
+
+        manual_scenario = DatabricksScenario(
+            cloud="azure",
+            compute_type="jobs_compute",
+            tier="premium",
+            photon=False,
+            driver_instance="Standard_DS4_v2",
+            worker_instance="Standard_DS4_v2",
+            num_workers=4,
+            hours_per_day=8,
+            days_per_month=22,
+            region="brazilsouth",
+            instance_pricing_model="on_demand",
+            driver_instance_cost_per_hour_usd=0.526,
+            worker_instance_cost_per_hour_usd=0.526,
+        )
+        save_scenario(manual_scenario, name="FromManual", source="manual")
+
+        result = server.databricks_pricing_list_scenarios(filter_source="agent")
+        data = _parse(result)
+        assert data["data"]["count"] == 1
+        assert data["data"]["scenarios"][0]["name"] == "FromAgent"
+
+    def test_load_scenario_returns_full_envelope(self, tmp_scenarios_env):
+        scenario_uuid = self._save_canonical("ToLoad")
+        result = server.databricks_pricing_load_scenario(scenario_uuid)
+        data = _parse(result)
+        assert data["data"]["uuid"] == scenario_uuid
+        assert data["data"]["name"] == "ToLoad"
+        assert data["data"]["source"] == "agent"
+        assert data["data"]["parent_uuid"] is None
+        assert "scenario" in data["data"]
+        assert data["data"]["scenario"]["cloud"] == "azure"
+        assert data["data"]["scenario"]["num_workers"] == 4
+
+    def test_load_scenario_unknown_uuid_returns_error(self, tmp_scenarios_env):
+        result = server.databricks_pricing_load_scenario("nonexistent-uuid-1234")
+        data = _parse(result)
+        assert data.get("error") is True
+
+    def test_delete_scenario_removes_file(self, tmp_scenarios_env):
+        scenario_uuid = self._save_canonical("ToDelete")
+        result = server.databricks_pricing_delete_scenario(scenario_uuid)
+        data = _parse(result)
+        assert data["data"]["deleted"] is True
+        # Lista subsequente confirma remoção
+        list_result = _parse(server.databricks_pricing_list_scenarios())
+        assert list_result["data"]["count"] == 0
+
+    def test_delete_unknown_uuid_is_idempotent(self, tmp_scenarios_env):
+        result = server.databricks_pricing_delete_scenario("nonexistent-uuid")
+        data = _parse(result)
+        assert data["data"]["deleted"] is False  # idempotente
+
+    def test_search_finds_by_name_substring(self, tmp_scenarios_env):
+        self._save_canonical("ETL Bronze produção")
+        self._save_canonical("ETL Silver staging")
+        self._save_canonical("Pipeline alfa")
+
+        result = server.databricks_pricing_search_scenarios("ETL")
+        data = _parse(result)
+        assert data["data"]["count"] == 2
+        names = {s["name"] for s in data["data"]["scenarios"]}
+        assert names == {"ETL Bronze produção", "ETL Silver staging"}
+
+    def test_search_respects_limit(self, tmp_scenarios_env):
+        for i in range(5):
+            self._save_canonical(f"ETL-{i}")
+        result = server.databricks_pricing_search_scenarios("ETL", limit=2)
+        data = _parse(result)
+        assert data["data"]["count"] == 2
+        assert data["data"]["limit"] == 2

@@ -58,9 +58,16 @@ DATABRICKS_PRICING_MCP_TOOLS = [
     # Utilidades
     "mcp__databricks_pricing__databricks_pricing_currency_convert",
     "mcp__databricks_pricing__databricks_pricing_save_scenario",
+    # Bridge App → Agent (Chunk 2.3): ler scenarios salvos no App
+    "mcp__databricks_pricing__databricks_pricing_list_scenarios",
+    "mcp__databricks_pricing__databricks_pricing_load_scenario",
+    "mcp__databricks_pricing__databricks_pricing_delete_scenario",
+    "mcp__databricks_pricing__databricks_pricing_search_scenarios",
 ]
 
-# Subset readonly (lookup sem cálculos)
+# Subset readonly (lookup sem cálculos, sem writes/deletes)
+# Inclui list/load/search (são reads do bridge) mas NÃO inclui delete_scenario
+# (destrutivo) nem save_scenario (write).
 DATABRICKS_PRICING_MCP_READONLY_TOOLS = [
     "mcp__databricks_pricing__databricks_pricing_diagnostics",
     "mcp__databricks_pricing__databricks_pricing_get_dbu_rate",
@@ -68,4 +75,7 @@ DATABRICKS_PRICING_MCP_READONLY_TOOLS = [
     "mcp__databricks_pricing__databricks_pricing_list_instances",
     "mcp__databricks_pricing__databricks_pricing_list_regions",
     "mcp__databricks_pricing__databricks_pricing_currency_convert",
+    "mcp__databricks_pricing__databricks_pricing_list_scenarios",
+    "mcp__databricks_pricing__databricks_pricing_load_scenario",
+    "mcp__databricks_pricing__databricks_pricing_search_scenarios",
 ]

@@ -124,7 +124,9 @@ Esse número é a "Hello World" do engine — toda alteração no código deve p
 - [Multi-cloud](concepts/multi-cloud.md) — diferenças Azure vs AWS no modelo DBU + instance pricing
 - [Instance pricing (mock Fase 1)](concepts/instance-pricing.md) — limitações do mock + roadmap pra Azure Retail / AWS Pricing API
 
-## 7. Tools MCP disponíveis
+## 7. Tools MCP disponíveis (13 totais)
+
+### Cotação determinística (Chunk 2.1 — 9 tools)
 
 | Tool | Uso |
 |---|---|
@@ -136,7 +138,25 @@ Esse número é a "Hello World" do engine — toda alteração no código deve p
 | `databricks_pricing_calc_cluster_cost` | **Tool principal** — custo total mensal + breakdown DBU/Instance |
 | `databricks_pricing_compare_payg_vs_dbcu` | Comparação 1y/3y com breakeven (quando user pede "DBCU", "RI", "savings") |
 | `databricks_pricing_currency_convert` | USD→BRL (ou outra) via fx_rate |
-| `databricks_pricing_save_scenario` | **Bridge App** — salvar em `outputs/cost-scenarios/<uuid>.json` (CONDICIONAL — só com pedido explícito) |
+| `databricks_pricing_save_scenario` | **Bridge Agent → App** — salvar em `outputs/cost-scenarios/<uuid>.json` (CONDICIONAL — só com pedido explícito) |
+
+### Bridge App → Agent (Chunk 2.3 — 4 tools)
+
+| Tool | Uso |
+|---|---|
+| `databricks_pricing_list_scenarios(filter_source?, filter_cloud?)` | Lista cenários salvos com filtros opcionais. Use quando user pergunta "quais cenários você tem?" |
+| `databricks_pricing_load_scenario(uuid)` | Carrega envelope completo (uuid, name, source, parent_uuid + scenario). Use para "carrega XYZ e recalcula com 8 workers" |
+| `databricks_pricing_search_scenarios(query, limit=10)` | Busca fuzzy por name+description. Use para "carrega o cenário do ETL Bronze" |
+| `databricks_pricing_delete_scenario(uuid)` | **DESTRUCTIVE.** Só com pedido explícito ("limpa o cenário X"). Idempotente: retorna `deleted=false` se uuid não existe |
+
+### Source vocabulary (rastreamento de linhagem)
+
+| Source | Origem |
+|---|---|
+| `agent` | Cenário gravado pelo agent via `save_scenario` |
+| `manual` | Cenário criado novo no App (Tab "Cenário Cluster") |
+| `app-edited` | Cenário carregado de outro existente (qualquer source) e re-salvo. Inclui `parent_uuid` rastreando linhagem |
+| `import` | Reservado pra futura tool de import bulk |
 
 ## 8. Cliente nominal vs sem cliente (slug rules)
 

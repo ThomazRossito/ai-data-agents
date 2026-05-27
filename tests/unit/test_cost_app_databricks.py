@@ -133,8 +133,9 @@ class TestScenarioPersistence:
         assert envelope["name"] == "ETL Bronze"
         assert envelope["description"] == "Pipeline diário"
         assert envelope["source"] == "manual"
+        assert envelope["parent_uuid"] is None  # Chunk 2.3: campo novo, default None
         assert "created_at" in envelope
-        assert envelope["schema_version"] == "1.0.0"
+        assert envelope["schema_version"] == "1.1.0"  # Chunk 2.3 bump (1.0.0 → 1.1.0)
         assert envelope["scenario"]["cloud"] == "azure"
 
     def test_load_reconstructs_scenario(self, tmp_scenarios_dir, example_scenario):
@@ -196,3 +197,146 @@ class TestScenarioPersistence:
         scenario_uuid = save_scenario(example_scenario, name="From Agent", source="agent")
         loaded_entry = next(e for e in list_saved_scenarios() if e["uuid"] == scenario_uuid)
         assert loaded_entry["source"] == "agent"
+
+
+# ── Chunk 2.3: bridge bidirecional (parent_uuid + filters + search + load_envelope) ──
+
+
+class TestScenarioBridge:
+    """Testes da bridge bidirecional Agent↔App (Chunk 2.3)."""
+
+    def test_save_with_invalid_source_raises(self, tmp_scenarios_dir, example_scenario):
+        """Source desconhecido deve falhar — protege contra typos."""
+        with pytest.raises(ValueError, match="source="):
+            save_scenario(example_scenario, name="X", source="invalid_xyz")
+
+    def test_save_app_edited_with_parent_uuid(self, tmp_scenarios_dir, example_scenario):
+        """source='app-edited' deve preservar parent_uuid."""
+        from data_agents.cost_app.databricks.scenarios import load_envelope
+
+        # Cenário pai (do agent)
+        parent_uuid = save_scenario(example_scenario, name="Pai", source="agent")
+        # Cenário filho (editado no app)
+        child_uuid = save_scenario(
+            example_scenario,
+            name="Filho",
+            source="app-edited",
+            parent_uuid=parent_uuid,
+        )
+        env = load_envelope(child_uuid)
+        assert env["source"] == "app-edited"
+        assert env["parent_uuid"] == parent_uuid
+        assert env["schema_version"] == "1.1.0"
+
+    def test_load_envelope_returns_full_metadata(self, tmp_scenarios_dir, example_scenario):
+        """load_envelope retorna metadata completo (não só DatabricksScenario)."""
+        from data_agents.cost_app.databricks.scenarios import load_envelope
+
+        scenario_uuid = save_scenario(
+            example_scenario, name="ETL", description="desc", source="agent"
+        )
+        env = load_envelope(scenario_uuid)
+        assert env["uuid"] == scenario_uuid
+        assert env["name"] == "ETL"
+        assert env["description"] == "desc"
+        assert env["source"] == "agent"
+        assert env["parent_uuid"] is None
+        assert "scenario" in env
+
+    def test_load_envelope_backward_compat_schema_1_0_0(self, tmp_scenarios_dir):
+        """Schema 1.0.0 (sem parent_uuid) deve ser carregável."""
+        import json
+        from data_agents.cost_app.databricks.scenarios import load_envelope
+
+        # Simula envelope antigo gravado manualmente
+        old_uuid = "00000000-0000-0000-0000-000000000001"
+        old_envelope = {
+            "uuid": old_uuid,
+            "name": "Antigo",
+            "description": "",
+            "source": "manual",
+            "created_at": "2025-01-01T00:00:00+00:00",
+            "schema_version": "1.0.0",
+            "scenario": {
+                "cloud": "azure",
+                "compute_type": "jobs_compute",
+                "tier": "premium",
+                "photon": False,
+                "driver_instance": "Standard_DS4_v2",
+                "worker_instance": "Standard_DS4_v2",
+                "num_workers": 4,
+                "hours_per_day": 8,
+                "days_per_month": 22,
+                "region": "brazilsouth",
+                "instance_pricing_model": "on_demand",
+                "driver_instance_cost_per_hour_usd": 0.526,
+                "worker_instance_cost_per_hour_usd": 0.526,
+            },
+        }
+        (tmp_scenarios_dir / f"{old_uuid}.json").parent.mkdir(parents=True, exist_ok=True)
+        (tmp_scenarios_dir / f"{old_uuid}.json").write_text(json.dumps(old_envelope))
+
+        env = load_envelope(old_uuid)
+        assert env["parent_uuid"] is None  # default backward-compat
+
+    def test_list_filter_by_source(self, tmp_scenarios_dir, example_scenario):
+        """Filtro source deve isolar manuais vs agent."""
+        save_scenario(example_scenario, name="M1", source="manual")
+        save_scenario(example_scenario, name="A1", source="agent")
+        save_scenario(example_scenario, name="A2", source="agent")
+
+        only_agent = list_saved_scenarios(filter_source="agent")
+        assert len(only_agent) == 2
+        assert {e["name"] for e in only_agent} == {"A1", "A2"}
+
+        only_manual = list_saved_scenarios(filter_source="manual")
+        assert len(only_manual) == 1
+        assert only_manual[0]["name"] == "M1"
+
+    def test_list_filter_by_cloud(self, tmp_scenarios_dir, example_scenario):
+        """Filtro cloud deve isolar azure vs aws."""
+        from dataclasses import replace
+
+        aws_scenario = replace(example_scenario, cloud="aws", region="us-east-1")
+        save_scenario(example_scenario, name="Azure-1")
+        save_scenario(aws_scenario, name="AWS-1")
+
+        only_azure = list_saved_scenarios(filter_cloud="azure")
+        assert len(only_azure) == 1
+        assert only_azure[0]["name"] == "Azure-1"
+
+    def test_search_matches_name_higher_than_description(self, tmp_scenarios_dir, example_scenario):
+        """Match no name deve ranquear acima de match na description."""
+        from data_agents.cost_app.databricks.scenarios import search_scenarios
+
+        save_scenario(example_scenario, name="ETL Bronze", description="generic")
+        save_scenario(example_scenario, name="Pipeline X", description="contém ETL no body")
+
+        results = search_scenarios("ETL", limit=10)
+        assert len(results) == 2
+        # Match no name (score=2) deve vir antes do match na description (score=1)
+        assert results[0]["name"] == "ETL Bronze"
+        assert results[1]["name"] == "Pipeline X"
+
+    def test_search_case_insensitive(self, tmp_scenarios_dir, example_scenario):
+        save_scenario(example_scenario, name="ETL BRONZE")
+        from data_agents.cost_app.databricks.scenarios import search_scenarios
+
+        assert len(search_scenarios("etl bronze")) == 1
+        assert len(search_scenarios("ETL")) == 1
+        assert len(search_scenarios("xyz")) == 0
+
+    def test_search_empty_query_returns_empty(self, tmp_scenarios_dir, example_scenario):
+        from data_agents.cost_app.databricks.scenarios import search_scenarios
+
+        save_scenario(example_scenario, name="X")
+        assert search_scenarios("") == []
+        assert search_scenarios("   ") == []
+
+    def test_search_respects_limit(self, tmp_scenarios_dir, example_scenario):
+        from data_agents.cost_app.databricks.scenarios import search_scenarios
+
+        for i in range(5):
+            save_scenario(example_scenario, name=f"ETL-{i}")
+        results = search_scenarios("ETL", limit=3)
+        assert len(results) == 3

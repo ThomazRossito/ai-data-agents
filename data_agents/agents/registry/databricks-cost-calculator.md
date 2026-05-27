@@ -209,6 +209,21 @@ Chame `databricks_pricing_save_scenario(...)` com o cenário + `name` + `descrip
 
 Cite no output: "Cenário salvo no App. Abra http://localhost:8514 → Histórico → procure por '<name>'".
 
+### Bridge App → Agent (Chunk 2.3) — Load + Recalculate Variant
+
+Quando o usuário pede "carrega o cenário XYZ que salvei ontem e recalcula com 8 workers":
+
+1. **Buscar:** `databricks_pricing_search_scenarios(query="XYZ")` retorna candidatos (máx 10).
+2. **Confirmar com user** qual UUID se houver ambiguidade (mais de 1 match).
+3. **Carregar:** `databricks_pricing_load_scenario(uuid)` retorna envelope completo (uuid, name, source, parent_uuid, scenario com todos os 14 campos).
+4. **Apresentar diff:** mostre as premissas do cenário carregado + a mudança pedida ("agora vou recalcular com num_workers=8 em vez de 4").
+5. **Calcular variante:** chame `databricks_pricing_calc_cluster_cost(...)` com os campos do envelope + a alteração.
+6. **Save variant (CONDICIONAL R5):** se o user pediu salvar a variante no app, chame `save_scenario(...)` com `name=<algo descritivo, ex: "Cenário XYZ — 8 workers">` e mencione que é variant do parent (no campo `description`).
+
+Outras tools do bridge:
+- `databricks_pricing_list_scenarios(filter_source=?, filter_cloud=?)` — lista todos com filtros (use quando user pergunta "quais cenários você tem salvos?")
+- `databricks_pricing_delete_scenario(uuid)` — **DESTRUCTIVE.** Só execute com pedido explícito ("limpa o cenário X", "apaga os testes"). Confirme antes de chamar.
+
 ### Passo 9 — Apresentar resumo
 
 Termine sua resposta apontando os 2 arquivos via `computer://` links absolutos. Não invente sumário paralelo — o Supervisor vai relatar o `cost_report.md` verbatim.

@@ -38,6 +38,7 @@ from data_agents.cost_app.databricks.instance_prices import (
     list_regions_for_cloud,
 )
 from data_agents.cost_app.databricks.scenarios import (
+    delete_scenario,
     list_saved_scenarios,
     load_scenario,
     save_scenario,
@@ -599,13 +600,22 @@ def render_tab_cenario_cluster() -> None:
                     if not scenario_name.strip():
                         st.error("Nome obrigatório.")
                     else:
+                        # Source tracking: se carregou um cenário existente e está re-salvando,
+                        # vira "app-edited" com parent_uuid rastreando linhagem. Caso contrário,
+                        # cenário novo → "manual".
+                        parent = st.session_state.get("loaded_scenario_uuid")
+                        is_edit = parent is not None
                         new_uuid = save_scenario(
                             scenario,
                             name=scenario_name.strip(),
                             description=scenario_desc.strip(),
-                            source="manual",
+                            source="app-edited" if is_edit else "manual",
+                            parent_uuid=parent,
                         )
-                        st.success(f"✓ Salvo `{new_uuid[:8]}`")
+                        msg = f"✓ Salvo `{new_uuid[:8]}`"
+                        if is_edit:
+                            msg += f" (editado de `{parent[:8]}`)"
+                        st.success(msg)
                         st.balloons()
 
 
@@ -945,6 +955,158 @@ def render_tab_workloads_multiplos() -> None:
     ]
 
 
+# ─── Tab 5: Histórico (Chunk 2.3 — bridge bidirecional Agent↔App) ───────────
+
+
+_SOURCE_LABELS = {
+    "agent": "🤖 Agent",
+    "manual": "✋ Manual",
+    "app-edited": "✏️ Editado",
+    "import": "📥 Import",
+    "unknown": "❓ Desconhecido",
+}
+
+
+def _format_created_at(iso: str) -> str:
+    """Formata ISO timestamp pra display compacto (YYYY-MM-DD HH:MM)."""
+    if not iso:
+        return "—"
+    try:
+        from datetime import datetime as _dt
+
+        dt = _dt.fromisoformat(iso.replace("Z", "+00:00"))
+        return dt.strftime("%Y-%m-%d %H:%M")
+    except (ValueError, TypeError):
+        return iso[:16] if len(iso) > 16 else iso
+
+
+def render_tab_historico() -> None:
+    """Tab 5: Histórico de cenários salvos (bridge bidirecional).
+
+    Mostra todos os cenários em outputs/cost-scenarios/ com filtros, badge
+    no header (contagem por source), e botões Load/Delete por linha.
+    """
+    st.markdown("#### 📋 Histórico de Cenários")
+    st.caption(
+        "Bridge bidirecional: cenários salvos pelo Agent (via MCP `save_scenario`) "
+        "e pelo App. Use Load pra reabrir num cenário existente, Delete pra remover."
+    )
+
+    all_entries = list_saved_scenarios()
+
+    if not all_entries:
+        st.info(
+            "📭 Nenhum cenário salvo ainda. "
+            "Crie um na Tab 'Cenário Cluster' ou peça ao agent: `/cost-databricks ... salva no app`."
+        )
+        return
+
+    # Badges por source (counts)
+    counts: dict[str, int] = {}
+    for e in all_entries:
+        counts[e["source"]] = counts.get(e["source"], 0) + 1
+
+    badge_cols = st.columns(len(_SOURCE_LABELS))
+    for col, (src, label) in zip(badge_cols, _SOURCE_LABELS.items()):
+        with col:
+            count = counts.get(src, 0)
+            if count > 0:
+                st.metric(label, count)
+            else:
+                st.metric(label, count, label_visibility="visible")
+
+    st.divider()
+
+    # Filtros
+    col_f1, col_f2, col_f3 = st.columns([2, 2, 3])
+    with col_f1:
+        source_options = ["(todos)"] + sorted({e["source"] for e in all_entries})
+        filter_source = st.selectbox(
+            "Filtrar por Source",
+            options=source_options,
+            key="hist_filter_source",
+        )
+    with col_f2:
+        cloud_options = ["(todos)"] + sorted({e["cloud"] for e in all_entries if e["cloud"] != "?"})
+        filter_cloud = st.selectbox(
+            "Filtrar por Cloud",
+            options=cloud_options,
+            key="hist_filter_cloud",
+        )
+    with col_f3:
+        search_query = st.text_input(
+            "🔍 Buscar (nome/descrição)",
+            placeholder="ex: ETL bronze",
+            key="hist_search",
+        )
+
+    # Aplica filtros
+    filtered = all_entries
+    if filter_source != "(todos)":
+        filtered = [e for e in filtered if e["source"] == filter_source]
+    if filter_cloud != "(todos)":
+        filtered = [e for e in filtered if e["cloud"] == filter_cloud]
+    if search_query.strip():
+        q = search_query.strip().lower()
+        filtered = [e for e in filtered if q in e["name"].lower() or q in e["description"].lower()]
+
+    st.caption(f"**{len(filtered)} de {len(all_entries)} cenários** após filtros")
+
+    if not filtered:
+        st.warning("Nenhum cenário casa com os filtros aplicados.")
+        return
+
+    # Tabela com ações
+    for entry in filtered:
+        with st.container(border=True):
+            col_info, col_actions = st.columns([5, 2])
+
+            with col_info:
+                source_label = _SOURCE_LABELS.get(entry["source"], entry["source"])
+                created = _format_created_at(entry["created_at"])
+                parent_info = ""
+                if entry.get("parent_uuid"):
+                    parent_info = f" · derivado de `{entry['parent_uuid'][:8]}`"
+
+                st.markdown(
+                    f"**{entry['name']}** · `{entry['uuid'][:8]}`  \n"
+                    f"{source_label} · {entry['cloud']} · {entry['compute_type']} · {created}"
+                    f"{parent_info}"
+                )
+                if entry["description"]:
+                    st.caption(entry["description"])
+
+            with col_actions:
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("📥 Load", key=f"load_{entry['uuid']}", use_container_width=True):
+                        st.session_state.loaded_scenario_uuid = entry["uuid"]
+                        st.success(f"Carregado `{entry['uuid'][:8]}`. Vá na Tab 'Cenário Cluster'.")
+                        st.rerun()
+                with col_btn2:
+                    # Delete com confirmação inline via st.session_state flag
+                    confirm_key = f"confirm_delete_{entry['uuid']}"
+                    if st.session_state.get(confirm_key):
+                        if st.button(
+                            "✓ Confirma",
+                            key=f"confirm_{entry['uuid']}",
+                            type="primary",
+                            use_container_width=True,
+                        ):
+                            delete_scenario(entry["uuid"])
+                            st.session_state[confirm_key] = False
+                            # Limpa loaded_scenario_uuid se era esse
+                            if st.session_state.get("loaded_scenario_uuid") == entry["uuid"]:
+                                st.session_state.loaded_scenario_uuid = None
+                            st.rerun()
+                    else:
+                        if st.button(
+                            "🗑️ Delete", key=f"del_{entry['uuid']}", use_container_width=True
+                        ):
+                            st.session_state[confirm_key] = True
+                            st.rerun()
+
+
 def render_tab_export() -> None:
     """Tab 4: Export XLSX (single scenario ou multi com aggregate)."""
     st.markdown("#### 📤 Export XLSX")
@@ -1083,12 +1245,20 @@ def main() -> None:
             )
         )
 
-    tab1, tab2, tab3, tab4 = st.tabs(
+    # Tab Histórico inclui contador de cenários do agent (badge)
+    saved_for_badge = list_saved_scenarios()
+    agent_count = sum(1 for e in saved_for_badge if e["source"] == "agent")
+    historico_label = "📋 Histórico"
+    if agent_count > 0:
+        historico_label = f"📋 Histórico 🤖×{agent_count}"
+
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
         [
             "🖥️ Cenário Cluster",
             "⚖️ Compare PAYG vs DBCU",
             "🔗 Workloads Múltiplos",
             "📤 Export XLSX",
+            historico_label,
         ]
     )
 
@@ -1100,6 +1270,8 @@ def main() -> None:
         render_tab_workloads_multiplos()
     with tab4:
         render_tab_export()
+    with tab5:
+        render_tab_historico()
 
 
 if __name__ == "__main__":
