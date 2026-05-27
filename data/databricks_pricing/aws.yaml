@@ -1,0 +1,295 @@
+# =============================================================================
+# Databricks Pricing Catalog — AWS
+# =============================================================================
+# Fonte primária: https://www.databricks.com/product/pricing
+# Fonte secundária (instance types): https://www.databricks.com/product/pricing/product-pricing/instance-types
+# Instance prices: consultados em RUNTIME via AWS Pricing API
+#   (https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/)
+#
+# Atualização: trimestral via scripts/refresh_databricks_pricing.py
+#
+# ATENÇÃO: TODOS os valores DBU rates abaixo são reference pricing PAYG (retail).
+# Não cobrem descontos negociados Enterprise, custom contracts.
+# =============================================================================
+
+schema_version: "1.0.0"
+cloud: aws
+last_updated: "2026-05-26"
+last_verified_against_source: "2026-05-26"
+source_url: "https://www.databricks.com/product/pricing"
+notes: |
+  DBU rates verificados manualmente contra databricks.com em 2026-05-26.
+  Instance prices buscados via AWS Pricing API em runtime.
+  Spot rates extremamente voláteis — valores aqui são MÉDIAS de 90 dias.
+
+# =============================================================================
+# Regions suportadas
+# =============================================================================
+regions:
+  - id: us-east-1
+    display_name: "US East (N. Virginia)"
+    aws_region_code: us-east-1
+    primary: true  # default Databricks AWS
+
+  - id: us-west-2
+    display_name: "US West (Oregon)"
+    aws_region_code: us-west-2
+
+  - id: sa-east-1
+    display_name: "South America (São Paulo)"
+    aws_region_code: sa-east-1
+
+  - id: eu-west-1
+    display_name: "EU (Ireland)"
+    aws_region_code: eu-west-1
+
+  - id: eu-central-1
+    display_name: "EU (Frankfurt)"
+    aws_region_code: eu-central-1
+
+# =============================================================================
+# DBU Rates (USD por DBU·hora) — AWS
+# =============================================================================
+dbu_rates_per_hour:
+
+  # All-Purpose Compute (Standard/Premium/Enterprise tiers)
+  all_purpose_compute:
+    standard:
+      no_photon: 0.40
+      photon: 0.55
+    premium:
+      no_photon: 0.55
+      photon: 0.65
+    enterprise:
+      no_photon: 0.65
+      photon: 0.85
+
+  # Jobs Compute
+  jobs_compute:
+    standard:
+      no_photon: 0.10
+      photon: 0.15
+    premium:
+      no_photon: 0.15
+      photon: 0.22
+    enterprise:
+      no_photon: 0.20
+      photon: 0.30
+
+  # Serverless Compute
+  serverless_compute:
+    base_per_dbu: 0.95
+
+  # Delta Live Tables
+  delta_live_tables:
+    core: 0.20
+    pro: 0.25
+    advanced: 0.36
+
+  # SQL Warehouse
+  sql:
+    classic: 0.22
+    pro: 0.55
+    serverless: 0.70
+
+  # Model Serving
+  model_serving:
+    cpu_per_dbu: 0.07
+    gpu_t4_per_dbu: 0.07
+    gpu_a10_per_dbu: 0.07
+
+  # Vector Search
+  vector_search:
+    storage_endpoint_per_hour: 0.45
+    storage_per_million_vectors_month: 0.18
+    query_per_million_queries: 1.00
+
+  # Mosaic AI Agent Framework
+  mosaic_agent:
+    serverless_per_dbu: 0.95
+
+# =============================================================================
+# DBU Multiplier por Instance Type (EC2)
+# =============================================================================
+instance_dbu_map:
+
+  # General Purpose
+  m5.large: { dbu_per_hour: 0.50, vcpu: 2, ram_gb: 8 }
+  m5.xlarge: { dbu_per_hour: 1.00, vcpu: 4, ram_gb: 16 }
+  m5.2xlarge: { dbu_per_hour: 2.00, vcpu: 8, ram_gb: 32 }
+  m5.4xlarge: { dbu_per_hour: 4.00, vcpu: 16, ram_gb: 64 }
+  m5.8xlarge: { dbu_per_hour: 8.00, vcpu: 32, ram_gb: 128 }
+  m5.12xlarge: { dbu_per_hour: 12.00, vcpu: 48, ram_gb: 192 }
+  m5.16xlarge: { dbu_per_hour: 16.00, vcpu: 64, ram_gb: 256 }
+  m5.24xlarge: { dbu_per_hour: 24.00, vcpu: 96, ram_gb: 384 }
+
+  # General Purpose (Graviton ARM)
+  m6g.xlarge: { dbu_per_hour: 0.80, vcpu: 4, ram_gb: 16 }
+  m6g.2xlarge: { dbu_per_hour: 1.60, vcpu: 8, ram_gb: 32 }
+  m6g.4xlarge: { dbu_per_hour: 3.20, vcpu: 16, ram_gb: 64 }
+
+  # Memory Optimized (R5)
+  r5.xlarge: { dbu_per_hour: 1.50, vcpu: 4, ram_gb: 32 }
+  r5.2xlarge: { dbu_per_hour: 3.00, vcpu: 8, ram_gb: 64 }
+  r5.4xlarge: { dbu_per_hour: 6.00, vcpu: 16, ram_gb: 128 }
+  r5.8xlarge: { dbu_per_hour: 12.00, vcpu: 32, ram_gb: 256 }
+  r5.12xlarge: { dbu_per_hour: 18.00, vcpu: 48, ram_gb: 384 }
+  r5.16xlarge: { dbu_per_hour: 24.00, vcpu: 64, ram_gb: 512 }
+
+  # Memory Optimized (R6i, R6id)
+  r6i.xlarge: { dbu_per_hour: 1.50, vcpu: 4, ram_gb: 32 }
+  r6i.2xlarge: { dbu_per_hour: 3.00, vcpu: 8, ram_gb: 64 }
+  r6i.4xlarge: { dbu_per_hour: 6.00, vcpu: 16, ram_gb: 128 }
+  r6id.xlarge: { dbu_per_hour: 1.75, vcpu: 4, ram_gb: 32, disk_gb: 237 }
+  r6id.2xlarge: { dbu_per_hour: 3.50, vcpu: 8, ram_gb: 64, disk_gb: 474 }
+  r6id.4xlarge: { dbu_per_hour: 7.00, vcpu: 16, ram_gb: 128, disk_gb: 950 }
+
+  # Compute Optimized (C5)
+  c5.xlarge: { dbu_per_hour: 0.75, vcpu: 4, ram_gb: 8 }
+  c5.2xlarge: { dbu_per_hour: 1.50, vcpu: 8, ram_gb: 16 }
+  c5.4xlarge: { dbu_per_hour: 3.00, vcpu: 16, ram_gb: 32 }
+  c5.9xlarge: { dbu_per_hour: 6.75, vcpu: 36, ram_gb: 72 }
+  c5.12xlarge: { dbu_per_hour: 9.00, vcpu: 48, ram_gb: 96 }
+  c5.18xlarge: { dbu_per_hour: 13.50, vcpu: 72, ram_gb: 144 }
+  c5.24xlarge: { dbu_per_hour: 18.00, vcpu: 96, ram_gb: 192 }
+
+  # Storage Optimized (i3)
+  i3.xlarge: { dbu_per_hour: 1.50, vcpu: 4, ram_gb: 30, disk_gb: 950 }
+  i3.2xlarge: { dbu_per_hour: 3.00, vcpu: 8, ram_gb: 61, disk_gb: 1900 }
+  i3.4xlarge: { dbu_per_hour: 6.00, vcpu: 16, ram_gb: 122, disk_gb: 3800 }
+  i3.8xlarge: { dbu_per_hour: 12.00, vcpu: 32, ram_gb: 244, disk_gb: 7600 }
+  i3.16xlarge: { dbu_per_hour: 24.00, vcpu: 64, ram_gb: 488, disk_gb: 15200 }
+
+  # GPU (P3 - V100 / G4dn - T4 / G5 - A10G)
+  p3.2xlarge: { dbu_per_hour: 4.40, vcpu: 8, ram_gb: 61, gpu: 1, gpu_type: "V100" }
+  p3.8xlarge: { dbu_per_hour: 17.60, vcpu: 32, ram_gb: 244, gpu: 4, gpu_type: "V100" }
+  p3.16xlarge: { dbu_per_hour: 35.20, vcpu: 64, ram_gb: 488, gpu: 8, gpu_type: "V100" }
+  g4dn.xlarge: { dbu_per_hour: 1.30, vcpu: 4, ram_gb: 16, gpu: 1, gpu_type: "T4" }
+  g4dn.4xlarge: { dbu_per_hour: 5.20, vcpu: 16, ram_gb: 64, gpu: 1, gpu_type: "T4" }
+  g4dn.12xlarge: { dbu_per_hour: 15.60, vcpu: 48, ram_gb: 192, gpu: 4, gpu_type: "T4" }
+  g5.xlarge: { dbu_per_hour: 1.61, vcpu: 4, ram_gb: 16, gpu: 1, gpu_type: "A10G" }
+  g5.4xlarge: { dbu_per_hour: 6.43, vcpu: 16, ram_gb: 64, gpu: 1, gpu_type: "A10G" }
+  g5.12xlarge: { dbu_per_hour: 19.30, vcpu: 48, ram_gb: 192, gpu: 4, gpu_type: "A10G" }
+
+# =============================================================================
+# DBCU Commit Discounts
+# =============================================================================
+dbcu_commit_discounts:
+  - tier_min_usd_year: 0
+    tier_max_usd_year: 10000
+    discount_pct_1y: 0
+    discount_pct_3y: 0
+    note: "Sem desconto — pay-as-you-go"
+
+  - tier_min_usd_year: 10000
+    tier_max_usd_year: 100000
+    discount_pct_1y: 15
+    discount_pct_3y: 22
+
+  - tier_min_usd_year: 100000
+    tier_max_usd_year: 500000
+    discount_pct_1y: 22
+    discount_pct_3y: 30
+
+  - tier_min_usd_year: 500000
+    tier_max_usd_year: 1500000
+    discount_pct_1y: 28
+    discount_pct_3y: 35
+
+  - tier_min_usd_year: 1500000
+    tier_max_usd_year: null
+    discount_pct_1y: 32
+    discount_pct_3y: 40
+
+# =============================================================================
+# Spot Instance Discount Estimates
+# =============================================================================
+# AWS Spot pode dar até 90% off vs On-Demand, mas interrupção 2min de aviso.
+# Valores: médias de 90 dias por region. Real flutua MUITO.
+# =============================================================================
+spot_discounts:
+  us-east-1:
+    avg_discount_pct: 80
+    interrupt_rate_hourly: "<5%"
+    suitable_for: "Jobs batch, training ML tolerante a falha"
+
+  us-west-2:
+    avg_discount_pct: 78
+    interrupt_rate_hourly: "<5%"
+
+  sa-east-1:
+    avg_discount_pct: 60
+    interrupt_rate_hourly: "10-15%"
+    suitable_for: "Limitado — capacity reduzida em SP"
+
+  eu-west-1:
+    avg_discount_pct: 70
+    interrupt_rate_hourly: "5-10%"
+
+  eu-central-1:
+    avg_discount_pct: 72
+    interrupt_rate_hourly: "5-10%"
+
+# =============================================================================
+# Storage — S3
+# =============================================================================
+storage:
+  s3:
+    standard_per_gb_month_usd: 0.023
+    standard_ia_per_gb_month_usd: 0.0125
+    one_zone_ia_per_gb_month_usd: 0.01
+    glacier_instant_per_gb_month_usd: 0.004
+    glacier_flexible_per_gb_month_usd: 0.0036
+    glacier_deep_archive_per_gb_month_usd: 0.00099
+
+  operations:
+    get_per_1k: 0.0004
+    put_per_1k: 0.005
+    list_per_1k: 0.005
+
+  delta_lake_overhead_pct: 10
+
+# =============================================================================
+# Networking
+# =============================================================================
+networking:
+  privatelink_endpoint_per_hour: 0.014
+  privatelink_data_per_gb: 0.0035
+  nat_gateway_per_hour: 0.045
+  nat_gateway_per_gb: 0.045
+
+  egress:
+    us_outbound_per_gb: 0.09       # primeiros 10 TB
+    br_outbound_per_gb: 0.15
+    eu_outbound_per_gb: 0.09
+    cross_region_us_per_gb: 0.02
+    cross_region_intl_per_gb: 0.02
+
+# =============================================================================
+# Reserved Instances (EC2 RI) Discounts
+# =============================================================================
+# Aplica APENAS no compute (instance), não no DBU rate.
+# =============================================================================
+reserved_instance_discounts:
+  reserved_1y_no_upfront_pct: 25
+  reserved_1y_partial_upfront_pct: 28
+  reserved_1y_all_upfront_pct: 32
+  reserved_3y_no_upfront_pct: 45
+  reserved_3y_partial_upfront_pct: 52
+  reserved_3y_all_upfront_pct: 58
+  savings_plan_compute_1y_pct: 27
+  savings_plan_compute_3y_pct: 50
+  savings_plan_ec2_instance_1y_pct: 32
+  savings_plan_ec2_instance_3y_pct: 60
+
+# =============================================================================
+# Photon Engine Modeling
+# =============================================================================
+photon_modeling:
+  dbu_consumption_multiplier: 2.0
+  typical_speedup_factor: 2.5
+  break_even_speedup: 2.0
+  not_recommended_for:
+    - "PySpark UDFs em Python puro"
+    - "Workloads I/O-bound (não CPU-bound)"
+    - "ML training (use ML Runtime sem Photon)"
