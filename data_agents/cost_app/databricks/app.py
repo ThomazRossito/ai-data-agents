@@ -387,11 +387,17 @@ def render_tab_cenario_cluster() -> None:
 
             photon_speedup: float | None = None
             if photon:
+                # loaded pode ser None (cenário novo, sem carregar saved)
+                default_speedup = (
+                    loaded.photon_speedup_factor or 2.5
+                    if loaded is not None
+                    else 2.5
+                )
                 photon_speedup = st.number_input(
                     "Photon speedup esperado (x)",
                     min_value=1.0,
                     max_value=10.0,
-                    value=loaded.photon_speedup_factor or 2.5,
+                    value=default_speedup,
                     step=0.1,
                     help="Default 2.5x (típico SQL). <2x = Photon ENCARECE.",
                 )

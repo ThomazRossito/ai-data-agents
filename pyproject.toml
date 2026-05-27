@@ -218,6 +218,9 @@ exclude = [
     "^data_agents/monitoring/",
     "^data_agents/visualization/",
     "^data_agents/mcp_servers/",
+    # cost_app/databricks/app.py é Streamlit (UI) e exporters/comparisons/workloads
+    # usam openpyxl/plotly sem stubs públicos. Mesma política dos outros frontends.
+    "^data_agents/cost_app/",
 ]
 
 [[tool.mypy.overrides]]
