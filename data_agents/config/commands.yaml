@@ -415,6 +415,44 @@ commands:
     prompt_template: |-
       [DOMA EXPRESS] Delegue IMEDIATAMENTE para data-contracts-engineer. Não crie PRD, não peça aprovação. Instrua o agente a ler `kb/governance/index.md` e `kb/data-quality/index.md` antes de executar. Tarefa: {task}
     display_template: '[bold yellow]📋 [DOMA Express] Direcionando para: {agent}[/bold yellow]'
+  cost-databricks:
+    agent: databricks-cost-calculator
+    doma_mode: express
+    description: |-
+      Calcula custo de qualquer workload Databricks (Azure ou AWS) de forma CONVERSACIONAL — descreva em linguagem natural e o agent monta o cenário pra você. Modelo determinístico: DBU rate (compute_type × tier × Photon × cloud) + Instance price (SKU × region × cloud). Use para estimar custo de cluster, comparar Pay-as-you-go vs DBCU 1y vs DBCU 3y, comparar Photon on/off, converter USD↔BRL, gerar TCO 12/24/36 meses, ou comparar Azure vs AWS. Exemplos: /cost-databricks ETL Bronze 4 workers DS4_v2 8h/dia 22d/mês brazilsouth Jobs Premium | /cost-databricks vale a pena DBCU 24/7 com 10 workers? | /cost-databricks compara Photon on/off pro workload SQL pesado. NAO precisa JSON — o agent constrói o cenário a partir da descrição e salva 2 arquivos (cost_report.md + scenario_used.json). save_scenario pro App Streamlit (porta 8514) só executa com pedido explícito ("salva no app", "manda pro Streamlit").
+    skills:
+    - kb/databricks-pricing/index.md
+    - skills/databricks/pricing/SKILL.md
+    prompt_template: |-
+      [DOMA EXPRESS] Invoque IMEDIATAMENTE o agente `databricks-cost-calculator` via tool Agent(). NÃO responda em texto, NÃO crie PRD, NÃO peça aprovação. O agente já possui suas próprias regras invioláveis e KB.
+
+      ⚠️ PROTOCOLO DE SÍNTESE (não negociável):
+
+      1. **Aceite o resultado do agente como verdade.** O agente é o único autorizado a chamar tools MCP (`databricks_pricing_*`). Você NUNCA chama essas tools diretamente — isso viola S1/S2 da constituição. Mesmo se o agente falhar, você NÃO substitui o trabalho dele.
+
+      2. **Path do output:** o agente retorna em sua mensagem final os 2 paths (`cost_report.md` + `scenario_used.json`). Use EXATAMENTE os paths que o agente forneceu — não tente adivinhar o slug do cliente. Se o agente disse `output/prj_banco_z/`, vá nesse path. Se você não viu o path no retorno do agente, faça `Glob("output/**/cost_report.md")` e use o arquivo mais recente.
+
+      3. **Leia e exiba verbatim.** Use Read() no `cost_report.md` retornado e exiba o conteúdo SEM modificar: sem arredondar, sem resumir, sem reinterpretar, sem adicionar recursos, sem propor otimizações próprias. Cole o conteúdo do arquivo como está.
+
+      4. **Adicione computer:// links no final.** Uma linha com link para `cost_report.md` e outra para `scenario_used.json`, usando os paths absolutos. Se o agente também chamou `save_scenario` (R5 — só com pedido explícito), cite o UUID + URL do App (`http://localhost:8514`).
+
+      5. **Se o agente errar (sem arquivo salvo, sem total, sem breakdown):**
+         a. NÃO assuma a tarefa dele
+         b. NÃO chame MCP tools sozinho
+         c. NÃO invente um cost_report.md baseado em estimativas próprias
+         d. Reporte o erro do agente verbatim ao usuário e pergunte se quer re-delegar
+         e. Re-delegação máxima: 1 vez (e somente se o usuário pedir)
+
+      6. **Proibições absolutas:**
+         - NUNCA escreva números próprios (ex: "~$726", "~R$3.600") que não estejam no `cost_report.md` do agente
+         - NUNCA afirme aceleração Photon ("vai economizar 30%") sem o agente ter rodado benchmark
+         - NUNCA chame `save_scenario` por conta própria — bridge App requer pedido humano explícito (R5 do agente)
+         - NUNCA mapeie SKU cross-cloud unilateralmente (DS4_v2 ≈ m5.2xlarge) — agente pergunta ao usuário
+
+      Você é RELATOR PURO. Se o agente errou, o erro aparece pro usuário e ele corrige na próxima rodada. Não maquie.
+
+      Tarefa: {task}
+    display_template: '[bold yellow]💰 [DOMA Express] Calculando custos Databricks com: {agent}[/bold yellow]'
   cost-azure:
     agent: azure-cost-calculator
     doma_mode: express
