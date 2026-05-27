@@ -29,7 +29,6 @@ from data_agents.cost_app.databricks.comparisons import (
 )
 from data_agents.cost_app.databricks.exporters import (
     build_xlsx_multi_scenarios,
-    build_xlsx_single_scenario,
     suggest_filename,
 )
 from data_agents.cost_app.databricks.instance_prices import (

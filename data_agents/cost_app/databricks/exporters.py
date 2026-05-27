@@ -14,7 +14,6 @@ Sheets gerados:
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from datetime import datetime, timezone
 from io import BytesIO
 

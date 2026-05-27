@@ -6,7 +6,6 @@ import pytest
 from openpyxl import load_workbook
 
 from data_agents.cost_app.databricks.comparisons import (
-    ComparisonResult,
     compute_comparison,
     get_summary_table,
 )
@@ -16,7 +15,6 @@ from data_agents.cost_app.databricks.exporters import (
     suggest_filename,
 )
 from data_agents.cost_app.databricks.workloads import (
-    WorkloadAggregate,
     aggregate_workloads,
 )
 from data_agents.cost_app.databricks.workloads import (

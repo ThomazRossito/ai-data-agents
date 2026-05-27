@@ -1,8 +1,6 @@
 """Testes do package data_agents/cost_app/databricks/ (instance_prices + scenarios)."""
 
 import json
-import os
-from pathlib import Path
 
 import pytest
 
