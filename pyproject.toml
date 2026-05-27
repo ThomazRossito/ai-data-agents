@@ -116,6 +116,9 @@ ui = [
     # HTML do UI (ui/exporter.py). Movido para cá; sem [ui] o exporter
     # levanta ImportError com mensagem clara.
     "markdown2>=2.4",
+    # Cost App: charts (Plotly) — usado em data_agents/cost_app/databricks/app.py
+    # pra renderizar donut breakdown DBU vs Instance cost.
+    "plotly>=5.20",
 ]
 viz = [
     # Visualização 3D do escritório dos agentes em tempo real.
