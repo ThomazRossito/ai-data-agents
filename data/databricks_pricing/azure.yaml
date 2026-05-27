@@ -1,0 +1,293 @@
+# =============================================================================
+# Databricks Pricing Catalog — Azure
+# =============================================================================
+# Fonte primária: https://www.databricks.com/product/pricing
+# Fonte secundária (instance types): https://www.databricks.com/product/pricing/product-pricing/instance-types
+# Instance prices: consultados em RUNTIME via Azure Retail Prices API
+#   (https://prices.azure.com/api/retail/prices)
+#
+# Atualização: trimestral via scripts/refresh_databricks_pricing.py
+# Validação: ver tests/unit/test_cost_engine_databricks.py
+#
+# ATENÇÃO: TODOS os valores DBU rates abaixo são reference pricing PAYG (retail).
+# Não cobrem descontos negociados Enterprise, MCA, CSP ou contratos custom.
+# =============================================================================
+
+schema_version: "1.0.0"
+cloud: azure
+last_updated: "2026-05-26"
+last_verified_against_source: "2026-05-26"
+source_url: "https://www.databricks.com/product/pricing"
+notes: |
+  DBU rates verificados manualmente.
+  Instance prices serão buscados via Azure Retail Prices API em runtime.
+  Spot/Low-priority é estimativa — variabilidade real depende de demanda Azure.
+
+# =============================================================================
+# Regions suportadas
+# =============================================================================
+regions:
+  - id: brazilsouth
+    display_name: "Brazil South (São Paulo)"
+    azure_region_code: brazilsouth
+    primary: true  # foco BR no MVP
+
+  - id: eastus
+    display_name: "US East (Virginia)"
+    azure_region_code: eastus
+
+  - id: eastus2
+    display_name: "US East 2"
+    azure_region_code: eastus2
+
+  - id: westus2
+    display_name: "US West 2 (Washington)"
+    azure_region_code: westus2
+
+  - id: westeurope
+    display_name: "West Europe (Netherlands)"
+    azure_region_code: westeurope
+
+  - id: northeurope
+    display_name: "North Europe (Ireland)"
+    azure_region_code: northeurope
+
+# =============================================================================
+# DBU Rates (USD por DBU·hora)
+# =============================================================================
+# Modelo: cost = DBU_rate × DBU_per_node × num_nodes × hours
+# Photon: pode dobrar o DBU consumption mas reduz wall-clock time
+#         (não está embutido aqui — controla via flag no calculate_cost)
+# =============================================================================
+dbu_rates_per_hour:
+
+  # All-Purpose Compute (notebooks interativos, exploração)
+  all_purpose_compute:
+    standard:
+      no_photon: 0.40
+      photon: 0.55
+    premium:
+      no_photon: 0.55
+      photon: 0.65
+    # Enterprise tier não publicado retail — negociado
+
+  # Jobs Compute (workloads scheduled, ETL)
+  jobs_compute:
+    standard:
+      no_photon: 0.15
+      photon: 0.22
+    premium:
+      no_photon: 0.20
+      photon: 0.30
+
+  # Serverless Compute (managed, pay-per-second)
+  serverless_compute:
+    base_per_dbu: 0.95
+    # Inclui infra Databricks-managed — sem instance cost adicional
+
+  # Delta Live Tables
+  delta_live_tables:
+    core: 0.20
+    pro: 0.25
+    advanced: 0.36
+
+  # SQL Warehouse
+  sql:
+    classic: 0.22
+    pro: 0.55
+    serverless: 0.70
+
+  # Model Serving (real-time inference)
+  model_serving:
+    cpu_per_dbu: 0.07
+    gpu_t4_per_dbu: 0.07
+    gpu_a10_per_dbu: 0.07
+    # Compute-hour rate × DBU multiplier conforme instance
+
+  # Vector Search (RAG, semantic search)
+  vector_search:
+    storage_endpoint_per_hour: 0.45
+    storage_per_million_vectors_month: 0.18
+    query_per_million_queries: 1.00
+
+  # Mosaic AI Agent Framework
+  mosaic_agent:
+    serverless_per_dbu: 0.95
+
+# =============================================================================
+# DBU Multiplier por Instance Type
+# =============================================================================
+# Mapeia Azure VM SKU → DBU/hora consumido.
+# Fonte: https://www.databricks.com/product/pricing/product-pricing/instance-types
+# Cobre instances mais comuns Azure Databricks. Lista completa nas docs oficiais.
+# =============================================================================
+instance_dbu_map:
+
+  # General Purpose DSv2
+  Standard_DS3_v2: { dbu_per_hour: 0.75, vcpu: 4, ram_gb: 14 }
+  Standard_DS4_v2: { dbu_per_hour: 1.50, vcpu: 8, ram_gb: 28 }
+  Standard_DS5_v2: { dbu_per_hour: 3.00, vcpu: 16, ram_gb: 56 }
+
+  # Memory Optimized DSv2
+  Standard_DS12_v2: { dbu_per_hour: 1.50, vcpu: 4, ram_gb: 28 }
+  Standard_DS13_v2: { dbu_per_hour: 3.00, vcpu: 8, ram_gb: 56 }
+  Standard_DS14_v2: { dbu_per_hour: 6.00, vcpu: 16, ram_gb: 112 }
+  Standard_DS15_v2: { dbu_per_hour: 8.00, vcpu: 20, ram_gb: 140 }
+
+  # Memory Optimized Eds_v4
+  Standard_E4ds_v4: { dbu_per_hour: 1.00, vcpu: 4, ram_gb: 32 }
+  Standard_E8ds_v4: { dbu_per_hour: 2.00, vcpu: 8, ram_gb: 64 }
+  Standard_E16ds_v4: { dbu_per_hour: 4.00, vcpu: 16, ram_gb: 128 }
+  Standard_E32ds_v4: { dbu_per_hour: 8.00, vcpu: 32, ram_gb: 256 }
+  Standard_E64ds_v4: { dbu_per_hour: 16.00, vcpu: 64, ram_gb: 504 }
+
+  # Compute Optimized Fs_v2
+  Standard_F4s_v2: { dbu_per_hour: 0.75, vcpu: 4, ram_gb: 8 }
+  Standard_F8s_v2: { dbu_per_hour: 1.50, vcpu: 8, ram_gb: 16 }
+  Standard_F16s_v2: { dbu_per_hour: 3.00, vcpu: 16, ram_gb: 32 }
+  Standard_F32s_v2: { dbu_per_hour: 6.00, vcpu: 32, ram_gb: 64 }
+  Standard_F64s_v2: { dbu_per_hour: 12.00, vcpu: 64, ram_gb: 128 }
+  Standard_F72s_v2: { dbu_per_hour: 13.50, vcpu: 72, ram_gb: 144 }
+
+  # Storage Optimized Ls_v2
+  Standard_L8s_v2: { dbu_per_hour: 2.00, vcpu: 8, ram_gb: 64 }
+  Standard_L16s_v2: { dbu_per_hour: 4.00, vcpu: 16, ram_gb: 128 }
+  Standard_L32s_v2: { dbu_per_hour: 8.00, vcpu: 32, ram_gb: 256 }
+  Standard_L64s_v2: { dbu_per_hour: 16.00, vcpu: 64, ram_gb: 512 }
+  Standard_L80s_v2: { dbu_per_hour: 20.00, vcpu: 80, ram_gb: 640 }
+
+  # GPU NC-series (Model Serving / training)
+  Standard_NC6s_v3: { dbu_per_hour: 4.40, vcpu: 6, ram_gb: 112, gpu: 1, gpu_type: "V100" }
+  Standard_NC12s_v3: { dbu_per_hour: 8.80, vcpu: 12, ram_gb: 224, gpu: 2, gpu_type: "V100" }
+  Standard_NC24s_v3: { dbu_per_hour: 17.60, vcpu: 24, ram_gb: 448, gpu: 4, gpu_type: "V100" }
+
+# =============================================================================
+# DBCU Commit Discounts (Databricks Commit Unit)
+# =============================================================================
+# Desconto progressivo por volume anual contratado.
+# Valores ILUSTRATIVOS baseados em contratos enterprise comuns —
+# desconto real é negociado caso-a-caso.
+# =============================================================================
+dbcu_commit_discounts:
+  - tier_min_usd_year: 0
+    tier_max_usd_year: 10000
+    discount_pct_1y: 0
+    discount_pct_3y: 0
+    note: "Sem desconto — pay-as-you-go"
+
+  - tier_min_usd_year: 10000
+    tier_max_usd_year: 100000
+    discount_pct_1y: 15
+    discount_pct_3y: 22
+
+  - tier_min_usd_year: 100000
+    tier_max_usd_year: 500000
+    discount_pct_1y: 22
+    discount_pct_3y: 30
+
+  - tier_min_usd_year: 500000
+    tier_max_usd_year: 1500000
+    discount_pct_1y: 28
+    discount_pct_3y: 35
+
+  - tier_min_usd_year: 1500000
+    tier_max_usd_year: null
+    discount_pct_1y: 32
+    discount_pct_3y: 40
+
+# =============================================================================
+# Spot / Low-Priority VM Discount Estimates
+# =============================================================================
+# Azure Spot VMs oferecem desconto até ~90% vs on-demand, mas podem ser
+# interrompidas com 30s de aviso. Discount real flutua por região e demanda.
+# Valores aqui são MÉDIAS observadas — não garantidas.
+# =============================================================================
+spot_discounts:
+  brazilsouth:
+    avg_discount_pct: 65
+    interrupt_rate_hourly: "5-10%"
+    suitable_for: "Jobs batch sem SLA crítico"
+
+  eastus:
+    avg_discount_pct: 80
+    interrupt_rate_hourly: "2-5%"
+    suitable_for: "Workloads tolerantes a falha"
+
+  eastus2:
+    avg_discount_pct: 78
+    interrupt_rate_hourly: "3-6%"
+
+  westus2:
+    avg_discount_pct: 75
+    interrupt_rate_hourly: "3-6%"
+
+  westeurope:
+    avg_discount_pct: 70
+    interrupt_rate_hourly: "4-8%"
+
+  northeurope:
+    avg_discount_pct: 72
+    interrupt_rate_hourly: "4-8%"
+
+# =============================================================================
+# Storage — Azure Data Lake Storage Gen2 (subjacente ao Lakehouse)
+# =============================================================================
+storage:
+  adls_gen2:
+    hot_per_gb_month_usd: 0.0184
+    cool_per_gb_month_usd: 0.01
+    cold_per_gb_month_usd: 0.0036
+    archive_per_gb_month_usd: 0.00099
+
+  operations:
+    read_per_10k: 0.0044
+    write_per_10k: 0.0648
+    list_per_10k: 0.0648
+
+  delta_lake_overhead_pct: 10  # overhead estimado vs Parquet raw
+
+# =============================================================================
+# Networking
+# =============================================================================
+networking:
+  private_link_endpoint_per_hour: 0.013
+  vnet_peering_inbound_per_gb: 0.0089
+  vnet_peering_outbound_per_gb: 0.0089
+
+  egress:
+    us_outbound_per_gb: 0.0875
+    br_outbound_per_gb: 0.181
+    eu_outbound_per_gb: 0.087
+
+# =============================================================================
+# Reserved Instances Multipliers (Azure Hybrid Benefit + Reserved)
+# =============================================================================
+# Desconto vs On-Demand quando user tem Azure Hybrid Benefit OU compra RI.
+# Aplica APENAS no compute (instance cost), não no DBU rate.
+# =============================================================================
+reserved_instance_discounts:
+  hybrid_benefit_only_pct: 30          # Windows License savings
+  reserved_1y_no_upfront_pct: 25
+  reserved_1y_partial_upfront_pct: 27
+  reserved_1y_all_upfront_pct: 29
+  reserved_3y_no_upfront_pct: 50
+  reserved_3y_partial_upfront_pct: 52
+  reserved_3y_all_upfront_pct: 55
+  savings_plan_compute_1y_pct: 27
+  savings_plan_compute_3y_pct: 52
+
+# =============================================================================
+# Photon Engine Multipliers
+# =============================================================================
+# Photon habilitado aumenta DBU consumption mas reduz wall-clock time.
+# Para queries SQL típicas: ~2-3x speedup, custo final geralmente ~30% menor.
+# Para PySpark UDFs: Photon não acelera, custo é apenas maior.
+# =============================================================================
+photon_modeling:
+  dbu_consumption_multiplier: 2.0      # DBU consumido por hora dobra com Photon
+  typical_speedup_factor: 2.5          # típico em SQL queries
+  break_even_speedup: 2.0              # acima disso, Photon vale a pena
+  not_recommended_for:
+    - "PySpark UDFs em Python puro"
+    - "Workloads I/O-bound (não CPU-bound)"
+    - "ML training (use ML Runtime sem Photon)"
