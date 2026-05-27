@@ -44,6 +44,7 @@ try:
         build_xlsx_single_scenario,
         suggest_filename,
     )
+
     _EXPORTERS_AVAILABLE = True
 except ImportError:
     _EXPORTERS_AVAILABLE = False
