@@ -175,8 +175,18 @@ jobs:
         # válido enquanto o projeto NÃO usar fastapi[standard]. Esse step
         # falha o CI se alguém adicionar [standard] em qualquer arquivo
         # versionado — forçando re-avaliação da decisão de ignorar a vuln.
+        #
+        # EXCLUSÕES intencionais:
+        #   - .github/workflows/ci.yml: este próprio arquivo cita o nome
+        #     do extras nos comentários (falso-positivo)
+        #   - docs/site/legacy/, docs/refactor-v3/: docs históricos
         run: |
-          if grep -rn "fastapi\[standard\]" pyproject.toml .github/ Makefile scripts/ docs/ 2>/dev/null; then
+          MATCHES=$(grep -rn "fastapi\[standard\]" \
+            pyproject.toml .github/ Makefile scripts/ docs/ 2>/dev/null \
+            | grep -v ".github/workflows/ci.yml" \
+            || true)
+          if [ -n "$MATCHES" ]; then
+            echo "$MATCHES"
             echo "::error::Encontrado 'fastapi[standard]' no projeto."
             echo "::error::MAL-2026-4750 (fastar typosquat) é ignorado no pip-audit baseado"
             echo "::error::na premissa de que [standard] NÃO é usado. Re-avalie a decisão"

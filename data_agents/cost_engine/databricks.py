@@ -154,9 +154,7 @@ def load_databricks_catalog(cloud: CloudName) -> dict[str, Any]:
     """
     catalog_path = _CATALOG_DIR / f"{cloud}.yaml"
     if not catalog_path.exists():
-        raise FileNotFoundError(
-            f"Catalog Databricks pricing não encontrado: {catalog_path}"
-        )
+        raise FileNotFoundError(f"Catalog Databricks pricing não encontrado: {catalog_path}")
 
     with open(catalog_path, encoding="utf-8") as f:
         catalog: dict[str, Any] = yaml.safe_load(f)
@@ -164,9 +162,7 @@ def load_databricks_catalog(cloud: CloudName) -> dict[str, Any]:
     schema_version = catalog.get("schema_version", "0.0.0")
     major = int(schema_version.split(".")[0])
     if major != 1:
-        raise ValueError(
-            f"Schema incompatível: {schema_version}. Esperado major version 1."
-        )
+        raise ValueError(f"Schema incompatível: {schema_version}. Esperado major version 1.")
 
     return catalog
 
@@ -177,8 +173,7 @@ def _resolve_dbu_rate(catalog: dict[str, Any], scenario: DatabricksScenario) -> 
     compute = rates.get(scenario.compute_type)
     if compute is None:
         raise ValueError(
-            f"Compute type desconhecido: {scenario.compute_type}. "
-            f"Suportados: {list(rates.keys())}"
+            f"Compute type desconhecido: {scenario.compute_type}. Suportados: {list(rates.keys())}"
         )
 
     # serverless_compute, delta_live_tables, sql, model_serving, vector_search
@@ -205,15 +200,12 @@ def _resolve_dbu_rate(catalog: dict[str, Any], scenario: DatabricksScenario) -> 
     # all_purpose_compute e jobs_compute têm tier + photon
     tier_data = compute.get(scenario.tier)
     if tier_data is None:
-        raise ValueError(
-            f"Tier {scenario.tier!r} não disponível para {scenario.compute_type!r}"
-        )
+        raise ValueError(f"Tier {scenario.tier!r} não disponível para {scenario.compute_type!r}")
 
     photon_key = "photon" if scenario.photon else "no_photon"
     if photon_key not in tier_data:
         raise ValueError(
-            f"Variante {photon_key!r} não disponível em "
-            f"{scenario.compute_type}.{scenario.tier}"
+            f"Variante {photon_key!r} não disponível em {scenario.compute_type}.{scenario.tier}"
         )
     return float(tier_data[photon_key])
 
@@ -242,9 +234,8 @@ def _resolve_dbcu_discount_pct(
 
     for tier_data in tiers:
         max_usd = tier_data["tier_max_usd_year"]
-        if (
-            annual_dbu_usd >= tier_data["tier_min_usd_year"]
-            and (max_usd is None or annual_dbu_usd < max_usd)
+        if annual_dbu_usd >= tier_data["tier_min_usd_year"] and (
+            max_usd is None or annual_dbu_usd < max_usd
         ):
             return float(tier_data[pct_key])
 
@@ -387,9 +378,7 @@ def calculate_databricks_cost(
     annual_dbu_usd = dbu_total_hourly * hours_per_month * 12
     if scenario.dbcu_commit_pct is not None:
         dbcu_pct = scenario.dbcu_commit_pct
-        warnings.append(
-            f"dbcu_commit_pct={dbcu_pct}% manual (override do auto-tier)"
-        )
+        warnings.append(f"dbcu_commit_pct={dbcu_pct}% manual (override do auto-tier)")
     else:
         # Auto-tier baseado em gasto anual DBU
         # Tenta 1y e 3y; reporta os dois
@@ -414,9 +403,7 @@ def calculate_databricks_cost(
     # 12. Conversão de moeda (se aplicável)
     fx_rate = scenario.currency_conversion_rate
     if fx_rate != 1.0:
-        warnings.append(
-            f"Conversão de moeda aplicada: 1 USD = {fx_rate} {scenario.currency_label}"
-        )
+        warnings.append(f"Conversão de moeda aplicada: 1 USD = {fx_rate} {scenario.currency_label}")
 
     monthly_final = monthly_usd * fx_rate
     annual_final = annual_usd * fx_rate
@@ -456,12 +443,8 @@ def calculate_databricks_cost(
             "auto_dbcu_pct_3y": _resolve_dbcu_discount_pct(catalog, annual_dbu_usd, 3),
             "savings_1y_usd": round(savings_1y, 2),
             "savings_3y_usd": round(savings_3y, 2),
-            "monthly_with_dbcu_1y": round(
-                (monthly_usd - (savings_1y / 12)) * fx_rate, 2
-            ),
-            "monthly_with_dbcu_3y": round(
-                (monthly_usd - (savings_3y / 12)) * fx_rate, 2
-            ),
+            "monthly_with_dbcu_1y": round((monthly_usd - (savings_1y / 12)) * fx_rate, 2),
+            "monthly_with_dbcu_3y": round((monthly_usd - (savings_3y / 12)) * fx_rate, 2),
         },
         "source": {
             "catalog_version": catalog.get("schema_version"),

@@ -121,12 +121,8 @@ class TestCanonicalScenarios:
         """
         result = calculate_databricks_cost(basic_scenario_azure)
         assert result["breakdown_hourly_usd"]["instance_driver"] == pytest.approx(0.526)
-        assert result["breakdown_hourly_usd"]["instance_workers"] == pytest.approx(
-            2.104, abs=0.001
-        )
-        assert result["breakdown_hourly_usd"]["instance_total"] == pytest.approx(
-            2.63, abs=0.001
-        )
+        assert result["breakdown_hourly_usd"]["instance_workers"] == pytest.approx(2.104, abs=0.001)
+        assert result["breakdown_hourly_usd"]["instance_total"] == pytest.approx(2.63, abs=0.001)
         assert result["inputs_resolved"]["instance_discount_pct_applied"] == 0
 
     def test_monthly_total_correct(self, basic_scenario_azure):
@@ -162,9 +158,7 @@ class TestSpotPricing:
         # AWS us-east-1 spot discount = 80%
         assert result["inputs_resolved"]["instance_discount_pct_applied"] == 80
         # Instance after discount: $0.192 * 3 * 0.20 = $0.1152/h
-        assert result["breakdown_hourly_usd"]["instance_total"] == pytest.approx(
-            0.1152, abs=0.001
-        )
+        assert result["breakdown_hourly_usd"]["instance_total"] == pytest.approx(0.1152, abs=0.001)
         # DBU rate (Jobs Standard AWS) = $0.10/DBU·h, NÃO afetado
         assert result["inputs_resolved"]["dbu_rate_per_hour_usd"] == 0.10
 
