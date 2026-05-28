@@ -126,6 +126,11 @@ ui = [
     # Cost App: XLSX export — usado em data_agents/cost_app/databricks/exporters.py
     # pra gerar planilhas formatadas (Tab Export).
     "openpyxl>=3.1",
+    # Cost App Real mode: AWS Pricing API via boto3.
+    # Usado em data_agents/cost_app/databricks/instance_prices_real.py quando
+    # DATABRICKS_INSTANCE_PRICES_MODE=real e cloud=aws. Sem boto3, fallback
+    # transparente pro mock (não quebra UI).
+    "boto3>=1.34",
 ]
 viz = [
     # Visualização 3D do escritório dos agentes em tempo real.

@@ -271,28 +271,8 @@ _AWS_PRICES_USD_HOUR: dict[str, dict[str, float]] = {
 # ─── Public API ──────────────────────────────────────────────────────────────
 
 
-def get_instance_price_usd_per_hour(
-    cloud: CloudName,
-    region: str,
-    instance_sku: str,
-) -> float:
-    """
-    Retorna preço USD/hora on-demand pra um instance SKU numa cloud+region.
-
-    ⚠️ MOCK MVP: valores estáticos. Pra produção, MCP databricks_pricing
-    deve substituir por API call (Azure Retail Prices / AWS Pricing API).
-
-    Args:
-        cloud: "azure" ou "aws"
-        region: region id (ex: "brazilsouth", "us-east-1")
-        instance_sku: SKU completo (ex: "Standard_DS4_v2", "m5.xlarge")
-
-    Returns:
-        Preço USD/hora on-demand (sem desconto).
-
-    Raises:
-        KeyError: se cloud/region/sku não encontrado no mock.
-    """
+def _get_mock_price(cloud: str, region: str, instance_sku: str) -> float:
+    """Fetch interno do mock (sem real mode). Usado como fallback do real loader."""
     if cloud == "azure":
         prices = _AZURE_PRICES_USD_HOUR
     elif cloud == "aws":
@@ -313,6 +293,43 @@ def get_instance_price_usd_per_hour(
             f"Disponíveis: {sorted(region_prices.keys())[:5]}..."
         )
 
+    return price
+
+
+def get_instance_price_usd_per_hour(
+    cloud: CloudName,
+    region: str,
+    instance_sku: str,
+) -> float:
+    """
+    Retorna preço USD/hora on-demand pra um instance SKU numa cloud+region.
+
+    **Modo de operação** (controlado via `DATABRICKS_INSTANCE_PRICES_MODE` no .env):
+      - `mock` (default): valores estáticos hardcoded — útil pra dev/test sem rede
+      - `real`: queries via Azure Retail Prices API (público, sem auth) e
+        AWS Pricing API (requer AWS credentials). Fallback transparente pro
+        mock se API falhar (network, auth, region não suportada).
+
+    Args:
+        cloud: "azure" ou "aws"
+        region: region id (ex: "brazilsouth", "us-east-1")
+        instance_sku: SKU completo (ex: "Standard_DS4_v2", "m5.xlarge")
+
+    Returns:
+        Preço USD/hora on-demand (sem desconto).
+
+    Raises:
+        KeyError: se cloud/region/sku não encontrado no mock E API falhou.
+        ValueError: se cloud inválido.
+    """
+    # Tenta real mode quando habilitado; fallback transparente pro mock
+    from data_agents.cost_app.databricks.instance_prices_real import (
+        get_instance_price_real_or_mock,
+    )
+
+    price, _source = get_instance_price_real_or_mock(
+        cloud=cloud, region=region, sku_name=instance_sku, mock_fallback_fn=_get_mock_price
+    )
     return price
 
 
