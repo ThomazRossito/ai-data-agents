@@ -866,3 +866,245 @@ class TestLakeflowConnectSchema:
         zb = catalog["lakeflow_connect"]["zerobus_ingest"]
         assert zb["promo_until"] == "2026-09-01"
         assert zb["per_gb_promo"] < zb["per_gb_list"]
+
+
+# ── PR 3 (2026-05-28): AI/ML SKUs completos ─────────────────────────────────
+
+
+class TestAiMlSkusPresent:
+    """PR 3: 10 novos blocos AI/ML adicionados nos 3 catalogs.
+    Engine ainda não modela (display-only no Tab 8 Catálogo); PR 4 vai adicionar
+    scenario types específicos (LLMScenario, VectorSearchScenario, etc.).
+    """
+
+    AI_ML_BLOCKS = (
+        "model_serving",
+        "foundation_model_serving",
+        "proprietary_foundation_model_serving",
+        "vector_search_v2",
+        "ai_functions",
+        "ai_gateway",
+        "agent_bricks",
+        "agent_evaluation",
+        "model_training",
+        "ai_runtime",
+    )
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    @pytest.mark.parametrize("block", AI_ML_BLOCKS)
+    def test_block_present_in_catalog(self, cloud, block):
+        catalog = load_databricks_catalog(cloud)
+        assert block in catalog, f"{cloud}: missing top-level block {block!r}"
+
+
+class TestModelServing:
+    """Model Serving CPU + GPU. Mesma rate $0.07/DBU; GPU diferenciação por DBU/h."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_cpu_and_gpu_rates_equal(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        ms = catalog["model_serving"]
+        assert ms["cpu_per_dbu"] == 0.070
+        assert ms["gpu_per_dbu"] == 0.070
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_gpu_instance_dbu_rates(self, cloud):
+        """Tabela DBU/h por GPU size confirmada via Chrome MCP."""
+        catalog = load_databricks_catalog(cloud)
+        gpu = catalog["model_serving"]["gpu_instances"]
+        assert gpu["small"]["dbu_per_hour"] == 10.48  # T4
+        assert gpu["medium"]["dbu_per_hour"] == 20.00  # A10G x1
+        assert gpu["large_8x_80"]["dbu_per_hour"] == 628.00  # A100 80GB x8
+
+
+class TestFoundationModelServing:
+    """Foundation Model Serving: 3 modes + 12 modelos com per-model DBU rates."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_pay_per_token_rates(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        ppt = catalog["foundation_model_serving"]["pay_per_token"]
+        assert ppt["input_per_m_tokens_usd"] == 0.50
+        assert ppt["output_per_m_tokens_usd"] == 1.50
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_provisioned_throughput_rate(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        pt = catalog["foundation_model_serving"]["provisioned_throughput"]
+        assert pt["per_hour_per_pt_unit_usd"] == 6.00
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_llama_3_3_70b_dbu_rates(self, cloud):
+        """Llama 3.3 70B é flagship — DBU rates confirmados via Chrome MCP."""
+        catalog = load_databricks_catalog(cloud)
+        models = catalog["foundation_model_serving"]["per_model_dbu_rates"]
+        m = models["llama_3_3_70b"]
+        assert m["input_dbu_per_m"] == 7.143
+        assert m["output_dbu_per_m"] == 21.429
+        assert m["entry_pt_dbu_h"] == 85.714
+        assert m["scaling_pt_dbu_h"] == 342.857
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_has_12_models(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        models = catalog["foundation_model_serving"]["per_model_dbu_rates"]
+        # 12 modelos extraídos da página oficial
+        assert len(models) == 12
+
+
+class TestProprietaryFoundationModelServing:
+    """Proprietary FM: OpenAI/Anthropic/Gemini. $0.07/DBU base + per-model DBU."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_base_rate(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        pfms = catalog["proprietary_foundation_model_serving"]
+        assert pfms["base_per_dbu_pay_per_token"] == 0.07
+        assert pfms["base_per_dbu_batch"] == 0.07
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_openai_gpt_5_5_dbu_rates(self, cloud):
+        """GPT 5.5 Global Short context — rates oficiais."""
+        catalog = load_databricks_catalog(cloud)
+        openai = catalog["proprietary_foundation_model_serving"]["vendors"]["openai"]["models"]
+        gpt55 = openai["gpt_5_5"]
+        assert gpt55["input_dbu_per_m"] == 71.429
+        assert gpt55["output_dbu_per_m"] == 428.571
+        assert gpt55["batch_dbu_per_h"] == 214.286
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_three_vendors_present(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        vendors = catalog["proprietary_foundation_model_serving"]["vendors"]
+        assert "openai" in vendors
+        assert "anthropic" in vendors
+        assert "gemini" in vendors
+
+
+class TestVectorSearchV2:
+    """Vector Search refactor: 2 tiers (Standard 2M + Storage Optimized 64M)."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_standard_tier(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        std = catalog["vector_search_v2"]["tiers"]["standard"]
+        assert std["compute_per_hour_usd"] == 0.28
+        assert std["storage_per_gb_month_usd"] == 0.230
+        assert std["vector_capacity_per_unit"] == 2_000_000
+        assert std["dbu_per_hour"] == 4.00
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_storage_optimized_tier(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        opt = catalog["vector_search_v2"]["tiers"]["storage_optimized"]
+        assert opt["compute_per_hour_usd"] == 1.28
+        assert opt["storage_per_gb_month_usd"] == 0.046
+        assert opt["vector_capacity_per_unit"] == 64_000_000
+        assert opt["dbu_per_hour"] == 18.286
+
+
+class TestAiFunctions:
+    """AI Functions: Parse + Extract + Classify, todos $0.07/DBU promo."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_all_three_functions_present(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        aif = catalog["ai_functions"]
+        assert "ai_parse_document" in aif
+        assert "ai_extract" in aif
+        assert "ai_classify" in aif
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_promo_below_list_price(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        aif = catalog["ai_functions"]
+        assert aif["ai_parse_document"]["per_dbu_promo"] == 0.070
+        assert aif["ai_parse_document"]["per_dbu_list"] == 0.140
+        assert aif["promo_until"] == "2026-06-30"
+
+
+class TestAiGateway:
+    """AI Gateway: Guardrails ($/M tok), Inference Tables + Usage Tracking ($/GB)."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_guardrails_rate(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        assert catalog["ai_gateway"]["ai_guardrails"]["per_m_tokens_usd"] == 1.50
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_inference_tables_rate(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        assert catalog["ai_gateway"]["inference_tables"]["per_gb_usd"] == 0.50
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_usage_tracking_rate(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        assert catalog["ai_gateway"]["usage_tracking"]["per_gb_usd"] == 0.100
+
+
+class TestAgentBricks:
+    """Agent Bricks: Knowledge Assistant ($/Answer) + Supervisor Agent ($/DBU)."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_knowledge_assistant_promo(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        ka = catalog["agent_bricks"]["knowledge_assistant"]
+        assert ka["per_answer_promo_usd"] == 0.150
+        assert ka["per_answer_list_usd"] == 0.300
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_supervisor_agent_promo(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        sa = catalog["agent_bricks"]["supervisor_agent"]
+        assert sa["per_dbu_promo"] == 0.070
+
+
+class TestAgentEvaluation:
+    """Agent Evaluation (MLflow): tokens + synthetic questions."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_token_rates(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        ae = catalog["agent_evaluation"]
+        assert ae["input_per_m_tokens_usd"] == 0.15
+        assert ae["output_per_m_tokens_usd"] == 0.60
+        assert ae["synthetic_data"]["per_question_usd"] == 0.35
+
+
+class TestFoundationModelTraining:
+    """Foundation Model Training: fine-tuning + forecasting, todos $0.65/DBU."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_training_rates(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        mt = catalog["model_training"]
+        assert mt["fine_tuning_per_dbu_usd"] == 0.65
+        assert mt["forecasting_per_dbu_usd"] == 0.65
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_llama_estimates_present(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        est = catalog["model_training"]["fine_tuning_dbu_estimates"]
+        # Llama 3.3 70B: 225 DBU pra 10M words, 11000 DBU pra 500M words
+        assert est["llama_3_3_70b"]["dbu_10m_words"] == 225
+        assert est["llama_3_3_70b"]["dbu_500m_words"] == 11000
+
+
+class TestAiRuntime:
+    """AI Runtime: A10 + H100 GPUs on-demand. Disponível só AWS + Azure."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_gpu_rates(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        ait = catalog["ai_runtime"]
+        assert ait["a10_on_demand_per_dbu_usd"] == 2.50
+        assert ait["h100_on_demand_per_dbu_usd"] == 7.00
+
+    @pytest.mark.parametrize("cloud,available", [("azure", True), ("aws", True), ("gcp", False)])
+    def test_availability_matches_official(self, cloud, available):
+        catalog = load_databricks_catalog(cloud)
+        ai_rt = catalog["ai_runtime"]
+        is_available = cloud in ai_rt.get("available_clouds", [])
+        assert is_available == available, (
+            f"{cloud} AI Runtime availability expected {available}, got {is_available}"
+        )

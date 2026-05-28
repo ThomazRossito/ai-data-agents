@@ -181,9 +181,27 @@ Da página `/product/pricing/product-pricing/instance-types` extraí o sidebar c
 - **app.py**: Tab 1 selectbox de compute_type expandido com 3 novos serverless variants + DEPRECATED tag no antigo. Cloud Provider selectbox + "GCP Databricks (beta)". Tab 8 Catálogo mostra Lakebase + Lakeflow Connect blocks.
 - **Tests**: +30 testes novos (TestServerlessSubTypes, TestGcpCatalog, TestLakebaseSchema, TestLakeflowConnectSchema). 260 testes do escopo cost passam.
 
-### ⏳ Pendente (PRs futuros)
-- **PR 3** (~1500 LOC): Foundation Model Serving (Pay-Per-Token + PT + Batch + 12 modelos), Proprietary FM (OpenAI/Anthropic/Gemini), Vector Search tiers, AI Functions, AI Gateway, Agent Bricks, Agent Evaluation, Model Training, AI Runtime, Photon como SKU separado (não flag)
-- **PR 4** (~400 LOC): Default Storage (DSU), Data Transfer, Managed Services (DQ Monitoring 2x mult), Enhanced Security 15%, Clean Rooms, View Sharing, real-mode GCP (Google Cloud Billing API)
+### ✅ PR 3 implementado (2026-05-28, post-merge PR 2)
+- **Catalogs (azure + aws + gcp)**: 10 novos blocos AI/ML top-level adicionados nos 3:
+  - `model_serving` (CPU + GPU + tabela DBU/h por size: T4=10.48 → A100 80GB×8=628)
+  - `foundation_model_serving` (Pay-Per-Token $0.50/$1.50 + PT $6/h + Batch $6/h + 12 modelos com per-model DBU rates)
+  - `proprietary_foundation_model_serving` (OpenAI 10 modelos GPT 5.x + Anthropic/Gemini stubs)
+  - `vector_search_v2` (Standard 2M + Storage Optimized 64M)
+  - `ai_functions` (Parse + Extract + Classify, $0.07/DBU promo até 2026-06-30)
+  - `ai_gateway` (Guardrails $1.50/M tok + Inference Tables + Usage Tracking)
+  - `agent_bricks` (Knowledge Assistant $0.15/answer + Supervisor $0.07/DBU, promo até 2026-06-30)
+  - `agent_evaluation` (tokens + $0.35/question synthetic)
+  - `model_training` (fine-tuning + forecasting $0.65/DBU + DBU estimates Llama)
+  - `ai_runtime` (A10 $2.50 + H100 $7.00; só AWS + Azure)
+- **app.py**: Tab 8 Catálogo expandida com 10 seções dataframe (cada uma com promo dates + source URL)
+- **Photon SKU**: documentado heterogeneamente em `photon_modeling.factor_by_sku` (PR 2). Engine continua com flag — refactor estrutural completo fica pra PR 5+
+- **Tests**: +99 (TestAiMlSkusPresent parametrizado 10 blocks × 3 clouds + classes por bloco). 169 testes do cost_engine_databricks.py passam, 287 do escopo cost. ruff format + check verdes.
+
+### ⏳ Pendente (PR 4)
+- **PR 4** (~400-600 LOC): Default Storage (DSU + per-operation), Data Transfer (Private/Public/Egress), Managed Services (DQ Monitoring com 2x DBU mult, Predictive Optimization, FGAC, Data Classification), Platform Add-ons (Enhanced Security 15% of Product Spend), Clean Rooms, View Sharing (3 tiers + Open Sharing), Delta Share SAP BDC (FREE)
+- Captura Anthropic + Gemini per-model DBU tables (escopo PR 4 ou separado)
+- Real-mode GCP via Google Cloud Billing API (escopo PR 4 ou separado)
+- Engine refactor pra modelar scenarios AI/ML (LLMScenario, VectorSearchScenario) — escopo PR 5+
 
 ---
 
