@@ -79,12 +79,14 @@ class TestPlatformCredentials:
         # fabric_ontology: auth via Azure CLI (az login), sem env vars extras.
         # azure_pricing: Azure Retail Prices API é pública, sem auth.
         # databricks_pricing: catalog YAML estático local, sem auth.
+        # databricks_billing: mock mode default, sem auth obrigatória (Fase 3).
         CREDENTIAL_FREE_MCPS = {
             "context7",
             "memory_mcp",
             "fabric_ontology",
             "azure_pricing",
             "databricks_pricing",
+            "databricks_billing",
         }
         for platform, info in status.items():
             if platform != "anthropic" and platform not in CREDENTIAL_FREE_MCPS:

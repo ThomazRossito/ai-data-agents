@@ -156,6 +156,7 @@ databricks-genie-mcp = "data_agents.mcp_servers.databricks_genie.server:main"
 migration-source-mcp = "data_agents.mcp_servers.migration_source.server:main"
 azure-pricing-mcp = "data_agents.mcp_servers.azure_pricing.server:main"
 databricks-pricing-mcp = "data_agents.mcp_servers.databricks_pricing.server:main"
+databricks-billing-mcp = "data_agents.mcp_servers.databricks_billing.server:main"
 
 [build-system]
 requires = ["hatchling"]

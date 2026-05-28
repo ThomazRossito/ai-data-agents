@@ -22,6 +22,9 @@ from data_agents.mcp_servers.azure_pricing.server_config import get_azure_pricin
 from data_agents.mcp_servers.context7.server_config import get_context7_mcp_config
 from data_agents.mcp_servers.databricks.server_config import get_databricks_mcp_config
 from data_agents.mcp_servers.databricks_genie.server_config import get_databricks_genie_mcp_config
+from data_agents.mcp_servers.databricks_billing.server_config import (
+    get_databricks_billing_mcp_config,
+)
 from data_agents.mcp_servers.databricks_pricing.server_config import (
     get_databricks_pricing_mcp_config,
 )
@@ -50,12 +53,16 @@ logger = logging.getLogger("data_agents.mcp")
 # fabric_ontology: auth via Azure CLI (az login), sem env vars extras.
 # azure_pricing: Retail Prices API é pública, sem auth.
 # databricks_pricing: catalog YAML estático local, sem auth.
+# databricks_billing: mock mode default (DATABRICKS_BILLING_MOCK_MODE=true),
+#   sem auth obrigatória. Real mode requer DATABRICKS_HOST + DATABRICKS_TOKEN
+#   + DATABRICKS_BILLING_WAREHOUSE_ID, mas em mock mode roda sem credenciais.
 ALWAYS_ACTIVE_MCPS: list[str] = [
     "context7",
     "memory_mcp",
     "fabric_ontology",
     "azure_pricing",
     "databricks_pricing",
+    "databricks_billing",
 ]
 
 # Registry completo de plataformas disponíveis
@@ -125,6 +132,11 @@ ALL_MCP_CONFIGS: dict = {
     # App em data_agents/cost_app/databricks/app.py (porta 8514).
     # Usado pelo agent databricks-cost-calculator (slash /cost-databricks).
     "databricks_pricing": get_databricks_pricing_mcp_config,
+    # databricks_billing: MCP customizado pra análise FinOps de workloads
+    # em produção via system.billing.usage do Unity Catalog (Fase 3).
+    # Mock mode default — não requer credenciais. Real mode usa databricks-sdk
+    # + warehouse pra rodar SQL real. Estende o agent databricks-cost-calculator.
+    "databricks_billing": get_databricks_billing_mcp_config,
     # Adicione novas plataformas aqui:
     # "snowflake": get_snowflake_mcp_config,
     # "bigquery":  get_bigquery_mcp_config,

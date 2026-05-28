@@ -44,6 +44,10 @@ from data_agents.mcp_servers.databricks_genie.server_config import (
     DATABRICKS_GENIE_MCP_TOOLS,
     DATABRICKS_GENIE_MCP_READONLY_TOOLS,
 )
+from data_agents.mcp_servers.databricks_billing.server_config import (
+    DATABRICKS_BILLING_MCP_READONLY_TOOLS,
+    DATABRICKS_BILLING_MCP_TOOLS,
+)
 from data_agents.mcp_servers.databricks_pricing.server_config import (
     DATABRICKS_PRICING_MCP_READONLY_TOOLS,
     DATABRICKS_PRICING_MCP_TOOLS,
@@ -176,6 +180,12 @@ MCP_TOOL_SETS: dict[str, list[str]] = {
     # Usado pelo agent databricks-cost-calculator (slash /cost-databricks).
     "databricks_pricing_all": DATABRICKS_PRICING_MCP_TOOLS,
     "databricks_pricing_readonly": DATABRICKS_PRICING_MCP_READONLY_TOOLS,
+    # Databricks Billing — MCP customizado (Fase 3: análise FinOps via
+    # system.billing.usage). Mock mode default. Estende o mesmo agent
+    # databricks-cost-calculator com modo "actuals" (vs "estimate" da Fase 2).
+    # Todas as tools são reads — readonly = all.
+    "databricks_billing_all": DATABRICKS_BILLING_MCP_TOOLS,
+    "databricks_billing_readonly": DATABRICKS_BILLING_MCP_READONLY_TOOLS,
 }
 
 
