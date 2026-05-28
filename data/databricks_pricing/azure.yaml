@@ -626,3 +626,152 @@ ai_runtime:
   a10_on_demand_per_dbu_usd: 2.50
   h100_on_demand_per_dbu_usd: 7.00
   source_url: "https://www.databricks.com/product/pricing/ai-runtime"
+
+# =============================================================================
+# Default Storage — Databricks-managed storage (PR 4, 2026-05-28)
+# =============================================================================
+# DSU = Databricks Storage Unit. 1 GB-month armazenado = 1 DSU = $0.023.
+# Tier 1 ops (writes/PUT/COPY) e Tier 2 ops (reads/GET) variam por cloud.
+# Fonte: https://www.databricks.com/product/pricing/storage
+default_storage:
+  cost_unit: dsu
+  per_dsu_usd: 0.023
+  source_url: "https://www.databricks.com/product/pricing/storage"
+
+  # DSU conversion per operation (per 1000 operations) — varia por cloud
+  operations_per_1000:
+    azure:
+      stored_data_per_gb_month_dsu: 1.0
+      tier1_writes_dsu: 0.3535          # equivalent to Write operations
+      tier2_reads_dsu: 0.0226           # equivalent to Read operations
+    aws:
+      stored_data_per_gb_month_dsu: 1.0
+      tier1_writes_dsu: 0.2174          # PUT, COPY, POST, LIST
+      tier2_reads_dsu: 0.0174           # GET, SELECT, others
+    gcp:
+      stored_data_per_gb_month_dsu: 1.0
+      tier1_writes_dsu: 0.2174          # Class A operations
+      tier2_reads_dsu: 0.0174           # Class B operations
+
+# =============================================================================
+# Data Transfer & Connectivity (PR 4, 2026-05-28)
+# =============================================================================
+# 4 tipos: Private Connectivity (per GB + per hour endpoint), Public Connectivity,
+# Data Egress. Preços específicos vêm de docs por cloud — bloco aqui documenta
+# estrutura. Azure Private Link inbound/outbound charges são waived indefinitely.
+# Fonte: https://www.databricks.com/product/pricing/data-transfer-connectivity
+data_transfer:
+  source_url: "https://www.databricks.com/product/pricing/data-transfer-connectivity"
+  connection_types:
+    private_connectivity_per_gb:
+      cost_unit: gb
+      note: "Per GB data processed via Databricks private connectivity"
+      billed: true
+    private_connectivity_per_hour:
+      cost_unit: hour
+      note: "Per hour endpoint fees. Azure: WAIVED indefinitely. AWS/GCP: active"
+      billed_azure: false               # waived indefinitely
+      billed_aws: true
+      billed_gcp: true
+    public_connectivity_per_gb:
+      cost_unit: gb
+      note: "Per GB data via Databricks public connectivity (public IPs)"
+      billed: true
+    data_egress_per_gb:
+      cost_unit: gb
+      note: "In-region inter-AZ + cross-region + internet + cross-cloud egress"
+      billed: true
+
+# =============================================================================
+# Managed Services (PR 4, 2026-05-28)
+# =============================================================================
+# 4 SKUs: Data Quality Monitoring + Predictive Optimization + FGAC + Data Classification.
+# Todos $0.35/DBU. DQ Monitoring tem MULTIPLICADOR 2x DBU (cobrança = 2 × consumido).
+# DQ Monitoring promo 50% off até 2026-08-01.
+# Bills: cada SKU tem nome próprio no system.billing.usage.
+# Fonte: https://www.databricks.com/product/pricing/managed-services
+managed_services:
+  source_url: "https://www.databricks.com/product/pricing/managed-services"
+  data_quality_monitoring:
+    cost_unit: dbu_h
+    per_dbu_promo: 0.175                # 50% off de $0.35
+    per_dbu_list: 0.35
+    promo_until: "2026-08-01"
+    dbu_multiplier: 2.0                 # bills = 2× DBU consumido
+    note: "Intelligent data/model monitoring via UC + serverless. DBU multiplicado 2x na cobrança"
+  predictive_optimization:
+    cost_unit: dbu_h
+    per_dbu_usd: 0.35
+    note: "Auto-otimização de tabelas (compaction, clustering)"
+  fine_grained_access_control:
+    cost_unit: dbu_h
+    per_dbu_usd: 0.35
+    note: "FGAC em Single User clusters via serverless"
+  data_classification:
+    cost_unit: dbu_h
+    per_dbu_usd: 0.35
+    note: "Detecta PII automaticamente via serverless"
+
+# =============================================================================
+# Platform Tiers & Add-ons (PR 4, 2026-05-28)
+# =============================================================================
+# Enhanced Security and Compliance: cobrado como 15% of Product Spend (before
+# discounts). Não é SKU separado — é multiplicador sobre o consumo base.
+# Fonte: https://www.databricks.com/product/pricing/platform-addons
+platform_addons:
+  source_url: "https://www.databricks.com/product/pricing/platform-addons"
+  enhanced_security_and_compliance:
+    cost_unit: pct_product_spend
+    pct_of_product_spend: 15.0
+    available_tiers: ["premium", "enterprise"]
+    note: "Aplicado antes de descontos, usage credits, ou support fees. Compliance avançado pra mission-critical data"
+
+# =============================================================================
+# Clean Rooms (PR 4, 2026-05-28)
+# =============================================================================
+# SEM preço próprio — usa SKUs subjacentes.
+# Fonte: https://www.databricks.com/product/pricing/clean-rooms
+clean_rooms:
+  source_url: "https://www.databricks.com/product/pricing/clean-rooms"
+  has_own_sku: false
+  billing_skus:
+    aws: "Jobs Serverless Compute"
+    gcp: "Jobs Serverless Compute"
+    azure: "Automated Serverless Compute"
+  storage_billed_via: "Databricks Storage"
+  note: "Customers pagam apenas consumo de Databricks resources dentro dos Clean Rooms"
+
+# =============================================================================
+# View Sharing (PR 4, 2026-05-28)
+# =============================================================================
+# 4 cenários de cobrança. Open Sharing (non-DB users) e Classic compute em
+# diff. account custam $0.75/DBU. Same account ou Serverless Compute = $0.
+# Bills aparecem como "All-Purpose Serverless" ou "Interactive Serverless" SKU.
+# Fonte: https://www.databricks.com/product/pricing/view-sharing
+view_sharing:
+  source_url: "https://www.databricks.com/product/pricing/view-sharing"
+  scenarios:
+    same_account:
+      per_dbu_usd: 0.0
+      note: "Recipients no mesmo account: no incremental charge"
+    diff_account_serverless:
+      per_dbu_usd: 0.0
+      note: "Recipients em account diferente usando Databricks Serverless Compute"
+    diff_account_classic:
+      per_dbu_usd: 0.75
+      note: "Recipients em account diferente usando Databricks Classic Compute. Bills: All-Purpose/Interactive Serverless SKU"
+    databricks_to_open_sharing:
+      per_dbu_usd: 0.75
+      note: "Sharing com non-Databricks users via open Delta Sharing protocol. Provider paga materialização"
+
+# =============================================================================
+# Delta Share from SAP Business Data Cloud (PR 4, 2026-05-28)
+# =============================================================================
+# 100% FREE — sem cobrança nem por data sharing nem por compute.
+# Fonte: https://www.databricks.com/product/pricing/delta-share-sap-business-data-cloud
+delta_share_sap_bdc:
+  source_url: "https://www.databricks.com/product/pricing/delta-share-sap-business-data-cloud"
+  has_own_sku: false
+  data_sharing_cost: "FREE"
+  compute_cost: "FREE"
+  note: "Sem incremental charge — usa workloads nativos Databricks sem cobrança adicional"

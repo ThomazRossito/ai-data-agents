@@ -1108,3 +1108,148 @@ class TestAiRuntime:
         assert is_available == available, (
             f"{cloud} AI Runtime availability expected {available}, got {is_available}"
         )
+
+
+# ── PR 4 (2026-05-28): Platform SKUs (Storage, Transfer, Managed Services, etc.) ─
+
+
+class TestPlatformSkusPresent:
+    """PR 4: 7 blocos plataforma adicionados nos 3 catalogs."""
+
+    PLATFORM_BLOCKS = (
+        "default_storage",
+        "data_transfer",
+        "managed_services",
+        "platform_addons",
+        "clean_rooms",
+        "view_sharing",
+        "delta_share_sap_bdc",
+    )
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    @pytest.mark.parametrize("block", PLATFORM_BLOCKS)
+    def test_block_present(self, cloud, block):
+        catalog = load_databricks_catalog(cloud)
+        assert block in catalog, f"{cloud}: missing top-level block {block!r}"
+
+
+class TestDefaultStorage:
+    """Default Storage: $0.023/DSU. Operations conversion varia por cloud."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_per_dsu_rate(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        assert catalog["default_storage"]["per_dsu_usd"] == 0.023
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_stored_data_is_1_dsu_per_gb_month(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        ops = catalog["default_storage"]["operations_per_1000"][cloud]
+        assert ops["stored_data_per_gb_month_dsu"] == 1.0
+
+    def test_azure_tier1_writes_higher_than_aws(self):
+        """Azure write operations cost ~63% more DSU/1000 ops que AWS."""
+        azure = load_databricks_catalog("azure")["default_storage"]["operations_per_1000"]["azure"]
+        aws = load_databricks_catalog("aws")["default_storage"]["operations_per_1000"]["aws"]
+        assert azure["tier1_writes_dsu"] > aws["tier1_writes_dsu"]
+
+
+class TestDataTransfer:
+    """Data Transfer: 4 connection types. Azure Private Link endpoint waived."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_four_connection_types(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        conn_types = catalog["data_transfer"]["connection_types"]
+        assert len(conn_types) == 4
+
+    def test_azure_private_link_endpoint_waived(self):
+        # PyYAML interop: aceita bool ou string ("true"/"false") — versão varia.
+        catalog = load_databricks_catalog("azure")
+        endpoint = catalog["data_transfer"]["connection_types"]["private_connectivity_per_hour"]
+        val = endpoint.get("billed_azure")
+        assert val in (False, "false", "False"), f"Expected falsy, got {val!r}"
+
+    def test_aws_private_link_endpoint_billed(self):
+        catalog = load_databricks_catalog("aws")
+        endpoint = catalog["data_transfer"]["connection_types"]["private_connectivity_per_hour"]
+        val = endpoint.get("billed_aws")
+        assert val in (True, "true", "True"), f"Expected truthy, got {val!r}"
+
+
+class TestManagedServices:
+    """Managed Services: 4 SKUs $0.35/DBU. DQ Monitoring tem promo + 2x DBU multiplier."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_dq_monitoring_has_2x_multiplier(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        dq = catalog["managed_services"]["data_quality_monitoring"]
+        assert dq["dbu_multiplier"] == 2.0
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_dq_monitoring_promo_below_list(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        dq = catalog["managed_services"]["data_quality_monitoring"]
+        assert dq["per_dbu_promo"] < dq["per_dbu_list"]
+        assert dq["promo_until"] == "2026-08-01"
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_other_managed_services_are_0_35(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        msv = catalog["managed_services"]
+        assert msv["predictive_optimization"]["per_dbu_usd"] == 0.35
+        assert msv["fine_grained_access_control"]["per_dbu_usd"] == 0.35
+        assert msv["data_classification"]["per_dbu_usd"] == 0.35
+
+
+class TestPlatformAddons:
+    """Enhanced Security and Compliance: 15% of Product Spend."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_enhanced_security_15_pct(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        esc = catalog["platform_addons"]["enhanced_security_and_compliance"]
+        assert esc["pct_of_product_spend"] == 15.0
+        assert esc["cost_unit"] == "pct_product_spend"
+
+
+class TestCleanRoomsAndSharing:
+    """Clean Rooms, View Sharing, Delta Share SAP BDC."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_clean_rooms_no_own_sku(self, cloud):
+        # PyYAML interop: aceita bool ou string.
+        catalog = load_databricks_catalog(cloud)
+        val = catalog["clean_rooms"]["has_own_sku"]
+        assert val in (False, "false", "False"), f"Expected falsy, got {val!r}"
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_clean_rooms_billing_redirects(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        billing = catalog["clean_rooms"]["billing_skus"]
+        # Azure cobra como "Automated Serverless"; AWS/GCP como "Jobs Serverless"
+        assert cloud in billing
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_view_sharing_same_account_free(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        scenarios = catalog["view_sharing"]["scenarios"]
+        assert scenarios["same_account"]["per_dbu_usd"] == 0.0
+        assert scenarios["diff_account_serverless"]["per_dbu_usd"] == 0.0
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_view_sharing_open_sharing_0_75(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        scenarios = catalog["view_sharing"]["scenarios"]
+        assert scenarios["databricks_to_open_sharing"]["per_dbu_usd"] == 0.75
+        assert scenarios["diff_account_classic"]["per_dbu_usd"] == 0.75
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_delta_share_sap_bdc_is_free(self, cloud):
+        # PyYAML interop: aceita bool ou string.
+        catalog = load_databricks_catalog(cloud)
+        dsap = catalog["delta_share_sap_bdc"]
+        has_sku = dsap["has_own_sku"]
+        assert has_sku in (False, "false", "False"), f"Expected falsy, got {has_sku!r}"
+        assert dsap["data_sharing_cost"] == "FREE"
+        assert dsap["compute_cost"] == "FREE"

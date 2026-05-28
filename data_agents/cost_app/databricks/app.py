@@ -1986,6 +1986,171 @@ def render_tab_catalogo() -> None:
                 f"Fonte: {ait.get('source_url', 'databricks.com')}. Bills: Model Training SKU."
             )
 
+        # ─── PR 4 (2026-05-28): Platform SKUs ──────────────────────────────
+        # 7 novos blocos plataforma: Default Storage, Data Transfer, Managed Services,
+        # Platform Add-ons, Clean Rooms, View Sharing, Delta Share SAP BDC.
+
+        # Default Storage
+        ds = catalog_dbu.get("default_storage")
+        if ds:
+            st.markdown("---")
+            st.markdown("##### 💾 Default Storage (Databricks-managed)")
+            st.caption(
+                f"DSU = Databricks Storage Unit. 1 GB·month = 1 DSU = `${ds.get('per_dsu_usd', 0):.3f}`. "
+                f"Fonte: {ds.get('source_url', 'databricks.com')}"
+            )
+            current_cloud = catalog_dbu.get("cloud", "azure")
+            ops = ds.get("operations_per_1000", {}).get(current_cloud, {})
+            ds_rows = [
+                {
+                    "Item": "Stored Data",
+                    "Unit": "GB·month",
+                    "DSU rate": f"{ops.get('stored_data_per_gb_month_dsu', 1.0)} DSU/GB·mo",
+                    "USD cost": f"${ds.get('per_dsu_usd', 0) * ops.get('stored_data_per_gb_month_dsu', 1.0):.4f}/GB·mo",
+                },
+                {
+                    "Item": "Tier 1 (Writes/PUT/COPY)",
+                    "Unit": "1000 ops",
+                    "DSU rate": f"{ops.get('tier1_writes_dsu', 0)} DSU/1k ops",
+                    "USD cost": f"${ds.get('per_dsu_usd', 0) * ops.get('tier1_writes_dsu', 0):.6f}/1k ops",
+                },
+                {
+                    "Item": "Tier 2 (Reads/GET)",
+                    "Unit": "1000 ops",
+                    "DSU rate": f"{ops.get('tier2_reads_dsu', 0)} DSU/1k ops",
+                    "USD cost": f"${ds.get('per_dsu_usd', 0) * ops.get('tier2_reads_dsu', 0):.6f}/1k ops",
+                },
+            ]
+            st.dataframe(pd.DataFrame(ds_rows), use_container_width=True, hide_index=True)
+            st.caption(
+                f"Rates específicos para **{current_cloud.upper()}**. DSU operations diferem por cloud — Azure usa Tier 1/2, AWS usa PUT/GET, GCP usa Class A/B."
+            )
+
+        # Data Transfer
+        dt = catalog_dbu.get("data_transfer")
+        if dt:
+            st.markdown("---")
+            st.markdown("##### 🌐 Data Transfer & Connectivity")
+            st.caption(
+                f"Charges quando data move entre regions/AZs ou sai do Databricks. "
+                f"Preços específicos vêm de docs por cloud (não cobertos no catalog). "
+                f"Fonte: {dt.get('source_url', 'databricks.com')}"
+            )
+            current_cloud = catalog_dbu.get("cloud", "azure")
+            conn_types = dt.get("connection_types", {})
+            dt_rows = []
+            for name, data in conn_types.items():
+                if isinstance(data, dict):
+                    billed_key = f"billed_{current_cloud}"
+                    billed_status = (
+                        "Yes" if data.get(billed_key, data.get("billed", False)) else "WAIVED"
+                    )
+                    dt_rows.append(
+                        {
+                            "Type": name.replace("_", " ").title(),
+                            "Unit": data.get("cost_unit", "—"),
+                            f"Billed in {current_cloud.upper()}": billed_status,
+                            "Note": data.get("note", "")[:80],
+                        }
+                    )
+            st.dataframe(pd.DataFrame(dt_rows), use_container_width=True, hide_index=True)
+
+        # Managed Services
+        msv = catalog_dbu.get("managed_services")
+        if msv:
+            st.markdown("---")
+            st.markdown(
+                "##### 🛠️ Managed Services (DQ Monitoring / Predictive Optimization / FGAC / Data Classification)"
+            )
+            dq = msv.get("data_quality_monitoring", {})
+            if dq.get("promo_until"):
+                st.info(
+                    f"🎁 **DQ Monitoring 50% off** até **{dq['promo_until']}** "
+                    f"(`${dq.get('per_dbu_promo', 0):.3f}/DBU` vs list `${dq.get('per_dbu_list', 0):.3f}/DBU`). "
+                    f"⚠️ DBU multiplicador: **{dq.get('dbu_multiplier', 1)}x** — cada DBU consumido conta como {dq.get('dbu_multiplier', 1)} pra cobrança."
+                )
+            msv_rows = []
+            for sku_name, sku_data in msv.items():
+                if isinstance(sku_data, dict) and "cost_unit" in sku_data:
+                    promo = sku_data.get("per_dbu_promo")
+                    list_p = sku_data.get("per_dbu_list", sku_data.get("per_dbu_usd"))
+                    msv_rows.append(
+                        {
+                            "SKU": sku_name.replace("_", " ").title(),
+                            "Preço (current)": f"${promo:.3f}/DBU"
+                            if promo
+                            else f"${list_p:.3f}/DBU",
+                            "Preço (list)": f"${list_p:.3f}/DBU" if list_p else "—",
+                            "Promo until": sku_data.get("promo_until", "—"),
+                            "DBU mult": sku_data.get("dbu_multiplier", 1.0),
+                        }
+                    )
+            st.dataframe(pd.DataFrame(msv_rows), use_container_width=True, hide_index=True)
+            st.caption(f"Fonte: {msv.get('source_url', 'databricks.com')}")
+
+        # Platform Add-ons
+        pa = catalog_dbu.get("platform_addons")
+        if pa:
+            st.markdown("---")
+            st.markdown("##### 🔐 Platform Tiers & Add-ons")
+            esc = pa.get("enhanced_security_and_compliance", {})
+            if esc:
+                st.markdown(
+                    f"**Enhanced Security and Compliance**: `{esc.get('pct_of_product_spend', 0)}% of Product Spend` "
+                    f"(antes de descontos/credits/uplifts). Aplicável em tiers: "
+                    f"{', '.join(esc.get('available_tiers', []))}."
+                )
+                st.caption(esc.get("note", ""))
+            st.caption(f"Fonte: {pa.get('source_url', 'databricks.com')}")
+
+        # View Sharing
+        vs = catalog_dbu.get("view_sharing")
+        if vs:
+            st.markdown("---")
+            st.markdown("##### 🪟 View Sharing (cross-account + Open Sharing)")
+            st.caption(
+                f"Sharing de Views, MVs e Streaming Tables. "
+                f"Fonte: {vs.get('source_url', 'databricks.com')}"
+            )
+            scenarios = vs.get("scenarios", {})
+            vs_rows = [
+                {
+                    "Cenário": k.replace("_", " ").title(),
+                    "$/DBU": f"${v.get('per_dbu_usd', 0):.2f}",
+                    "Note": v.get("note", "")[:80],
+                }
+                for k, v in scenarios.items()
+            ]
+            st.dataframe(pd.DataFrame(vs_rows), use_container_width=True, hide_index=True)
+
+        # Clean Rooms
+        cr = catalog_dbu.get("clean_rooms")
+        if cr:
+            st.markdown("---")
+            st.markdown("##### 🧹 Clean Rooms")
+            st.caption(
+                f"**Sem SKU própria** — cobrança via SKUs subjacentes. {cr.get('note', '')} "
+                f"Fonte: {cr.get('source_url', 'databricks.com')}"
+            )
+            billing = cr.get("billing_skus", {})
+            current_cloud = catalog_dbu.get("cloud", "azure")
+            cr_rows = [
+                {"Item": "Compute", "Billed as": billing.get(current_cloud, "—")},
+                {"Item": "Storage", "Billed as": cr.get("storage_billed_via", "—")},
+            ]
+            st.dataframe(pd.DataFrame(cr_rows), use_container_width=True, hide_index=True)
+
+        # Delta Share SAP BDC
+        dsap = catalog_dbu.get("delta_share_sap_bdc")
+        if dsap:
+            st.markdown("---")
+            st.markdown("##### 🆓 Delta Share from SAP Business Data Cloud")
+            st.success(
+                f"**100% FREE** — Data Sharing: {dsap.get('data_sharing_cost', 'FREE')} · "
+                f"Compute: {dsap.get('compute_cost', 'FREE')}"
+            )
+            st.caption(f"{dsap.get('note', '')} Fonte: {dsap.get('source_url', 'databricks.com')}")
+
     # ─── Sub-tab 2: Azure VM prices ─────────────────────────────────────────
     with sub2:
         st.markdown("##### Azure VM Prices (Linux on-demand)")
