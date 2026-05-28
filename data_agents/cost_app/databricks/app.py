@@ -1157,9 +1157,14 @@ def render_tab_finops_realizado() -> None:
     with col_form3:
         mode = st.radio(
             "Modo dos dados",
-            options=["Mock", "Real (não disponível)"],
+            options=["Mock", "Real (system.billing)"],
             index=0,
-            help="Real mode requer DATABRICKS_BILLING_MOCK_MODE=false + warehouse_id (não implementado no Chunk 3.1).",
+            help=(
+                "Mock = dados sintéticos pra dev/test. "
+                "Real = SQL contra system.billing (requer DATABRICKS_HOST + "
+                "DATABRICKS_TOKEN + DATABRICKS_BILLING_WAREHOUSE_ID no .env "
+                "+ Unity Catalog habilitado + permissão SELECT em system.billing)."
+            ),
         )
 
     workspace_id: int | None = None
@@ -1170,13 +1175,7 @@ def render_tab_finops_realizado() -> None:
             st.error("workspace_id deve ser numérico.")
             return
 
-    if mode.startswith("Real"):
-        st.warning(
-            "⚠️ Real mode ainda não suportado neste chunk. "
-            "Integração SDK + warehouse virá em chunk posterior. "
-            "Continue com Mock pra demonstrar a análise."
-        )
-        return
+    use_mock = mode.startswith("Mock")
 
     # ─── Carrega dados ──────────────────────────────────────────────────────
     from datetime import datetime, timedelta, timezone
@@ -1186,22 +1185,38 @@ def render_tab_finops_realizado() -> None:
     period = BillingPeriod(start_date=start_date, end_date=end_date, workspace_id=workspace_id)
 
     try:
-        usage_df, prices_df = load_billing_data(period=period, cloud=cloud, mock=True)
+        usage_df, prices_df = load_billing_data(period=period, cloud=cloud, mock=use_mock)
     except RuntimeError as exc:
-        st.error(f"Erro ao carregar dados: {exc}")
+        st.error(f"❌ Erro ao carregar dados: {exc}")
+        if not use_mock:
+            st.caption(
+                "💡 Verifique no .env: DATABRICKS_HOST, DATABRICKS_TOKEN, "
+                "DATABRICKS_BILLING_WAREHOUSE_ID. O warehouse deve estar startado "
+                "e ter SELECT em system.billing."
+            )
         return
 
     if usage_df.empty:
         st.info("📭 Sem registros de consumo na janela selecionada.")
         return
 
-    # Mock metadata banner
-    mock_meta = get_billing_mock_meta()
-    st.caption(
-        f"📦 **Mock mode** · {mock_meta['num_clusters']} clusters fictícios "
-        f"({', '.join(mock_meta['cluster_names'])}) · {mock_meta['num_skus_per_cloud']} SKUs · "
-        f"seed={mock_meta['seed_default']}"
-    )
+    # Banner do mode usado
+    if use_mock:
+        mock_meta = get_billing_mock_meta()
+        st.caption(
+            f"📦 **Mock mode** · {mock_meta['num_clusters']} clusters fictícios "
+            f"({', '.join(mock_meta['cluster_names'])}) · {mock_meta['num_skus_per_cloud']} SKUs · "
+            f"seed={mock_meta['seed_default']}"
+        )
+    else:
+        from data_agents.cost_app.databricks.billing_real import get_last_load_timestamp
+
+        ts = get_last_load_timestamp()
+        ts_str = ts.strftime("%Y-%m-%d %H:%M UTC") if ts else "agora"
+        st.caption(
+            f"🔗 **Real mode** · dados de system.billing.usage · "
+            f"última carga: {ts_str} · cache TTL 5min"
+        )
 
     # ─── Métricas top ───────────────────────────────────────────────────────
     daily = aggregate_dbu_daily(usage_df, period)
@@ -1432,6 +1447,321 @@ def render_tab_finops_realizado() -> None:
             st.error(f"Erro no compare: {exc}")
 
 
+# ─── Tab 7: Otimização Proativa (Fase 4) ────────────────────────────────────
+
+
+def render_tab_otimizacao() -> None:
+    """Tab 7: análises proativas de otimização (rightsizing + idle + Photon ROI)."""
+    from data_agents.cost_engine.billing import BillingPeriod
+    from data_agents.cost_engine.optimization import (
+        IdleThresholds,
+        RightsizingThresholds,
+        detect_idle_clusters,
+        detect_rightsizing_opportunities,
+        evaluate_photon_roi,
+    )
+
+    st.markdown("#### 🔧 Otimização Proativa")
+    st.caption(
+        "Análises sobre workloads em produção pra detectar oportunidades de redução de custo. "
+        "Engine: `cost_engine/optimization.py` (Fase 4). Distinto da Tab 'FinOps Realizado' "
+        "(que mostra consumo bruto)."
+    )
+
+    cloud = st.session_state.cloud.upper()
+
+    # ─── Inputs globais ──────────────────────────────────────────────────────
+    col_f1, col_f2, col_f3 = st.columns([1, 1, 2])
+    with col_f1:
+        period_days = st.selectbox(
+            "Janela",
+            options=[14, 30, 60],
+            index=1,
+            format_func=lambda d: f"Últimos {d} dias",
+            key="opt_period",
+            help="Janelas < 14 dias amplificam ruído. Recomendado: ≥30 dias.",
+        )
+    with col_f2:
+        opt_mode = st.radio(
+            "Modo",
+            options=["Mock", "Real"],
+            index=0,
+            horizontal=True,
+            key="opt_mode",
+            help="Mock = dados sintéticos. Real = system.billing via warehouse.",
+        )
+    with col_f3:
+        st.caption(
+            "Análises disponíveis: rightsizing (subutilização), idle hunting "
+            "(sempre on sem uso), Photon ROI (custo 2× vs aceleração)."
+        )
+
+    use_mock = opt_mode == "Mock"
+
+    # ─── Carrega dados (compartilhado entre todas as análises) ───────────────
+    from datetime import datetime, timedelta, timezone
+
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=period_days - 1)
+    period = BillingPeriod(start_date=start_date, end_date=end_date)
+
+    try:
+        usage_df, _prices_df = load_billing_data(period=period, cloud=cloud, mock=use_mock)
+    except RuntimeError as exc:
+        st.error(f"❌ Erro ao carregar dados: {exc}")
+        return
+
+    if usage_df.empty:
+        st.info("📭 Sem registros de consumo na janela selecionada.")
+        return
+
+    if use_mock:
+        st.caption("📦 Mock mode — dados sintéticos pra demonstração")
+    else:
+        st.caption("🔗 Real mode — dados de system.billing.usage")
+
+    st.divider()
+
+    # ─── Sub-tabs internos (3 análises) ──────────────────────────────────────
+    sub1, sub2, sub3 = st.tabs(["📉 Rightsizing", "💤 Idle Hunting", "⚡ Photon ROI"])
+
+    # ── Rightsizing ──────────────────────────────────────────────────────────
+    with sub1:
+        st.markdown("##### 📉 Rightsizing — Clusters Subutilizados")
+        st.caption(
+            "Detecta clusters cuja média de DBU/h consumido está muito abaixo do esperado "
+            "pelo seu compute_type — candidatos a downsize."
+        )
+
+        col_t1, col_t2 = st.columns(2)
+        with col_t1:
+            underuse_pct = (
+                st.slider(
+                    "Limiar de subutilização (%)",
+                    min_value=10,
+                    max_value=80,
+                    value=50,
+                    step=5,
+                    key="rightsize_underuse",
+                    help="Cluster com utilização abaixo desse % é flagged como downsize.",
+                )
+                / 100.0
+            )
+        with col_t2:
+            min_days = st.slider(
+                "Dias mínimos observados",
+                min_value=3,
+                max_value=30,
+                value=7,
+                key="rightsize_min_days",
+            )
+
+        rightsize_df = detect_rightsizing_opportunities(
+            usage_df,
+            period,
+            thresholds=RightsizingThresholds(
+                underuse_pct=underuse_pct,
+                min_days_observed=min_days,
+            ),
+        )
+
+        if rightsize_df.empty:
+            st.info("Nenhum cluster com dados suficientes pra análise.")
+        else:
+            downsize_count = int((rightsize_df["suggestion"] == "downsize").sum())
+            st.metric("Candidatos a downsize", f"{downsize_count} / {len(rightsize_df)}")
+
+            display_cols = [
+                "cluster_name",
+                "compute_type",
+                "days_observed",
+                "avg_dbu_per_hour",
+                "expected_dbu_per_hour",
+                "utilization_pct",
+                "suggestion",
+                "potential_savings_pct",
+            ]
+            st.dataframe(
+                rightsize_df[display_cols],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "utilization_pct": st.column_config.NumberColumn(
+                        "Utilização %", format="%.2f%%"
+                    ),
+                    "potential_savings_pct": st.column_config.NumberColumn(
+                        "Savings potencial", format="%.2f%%"
+                    ),
+                    "avg_dbu_per_hour": st.column_config.NumberColumn("Avg DBU/h", format="%.2f"),
+                    "expected_dbu_per_hour": st.column_config.NumberColumn(
+                        "Expected DBU/h", format="%.2f"
+                    ),
+                },
+            )
+
+            if downsize_count > 0:
+                st.caption(
+                    "💡 **Próximo passo:** investigar cada candidato — pode ser autoscale "
+                    "configurado mas nunca usado, ou cluster manual oversized. NÃO ajuste "
+                    "automaticamente: pode haver picos pontuais que justificam o sizing."
+                )
+
+    # ── Idle Hunting ─────────────────────────────────────────────────────────
+    with sub2:
+        st.markdown("##### 💤 Idle Hunting — Clusters Sempre On Sem Uso")
+        st.caption(
+            "Detecta clusters ativos em quase todos os dias da janela MAS com DBU/h "
+            "muito baixo (auto-termination desativado ou agressivo demais)."
+        )
+
+        col_i1, col_i2 = st.columns(2)
+        with col_i1:
+            max_dbu_h = st.slider(
+                "Threshold DBU/h (idle)",
+                min_value=0.1,
+                max_value=2.0,
+                value=0.5,
+                step=0.1,
+                key="idle_max_dbu",
+                help="Cluster com avg DBU/h abaixo desse valor é candidato a idle.",
+            )
+        with col_i2:
+            min_active_pct = (
+                st.slider(
+                    "% dias ativos (sempre on)",
+                    min_value=50,
+                    max_value=100,
+                    value=70,
+                    step=5,
+                    key="idle_active_pct",
+                )
+                / 100.0
+            )
+
+        idle_df = detect_idle_clusters(
+            usage_df,
+            period,
+            thresholds=IdleThresholds(
+                max_dbu_per_hour=max_dbu_h,
+                min_active_days_pct=min_active_pct,
+            ),
+        )
+
+        if idle_df.empty:
+            st.info("Nenhum cluster analisável na janela.")
+        else:
+            idle_count = int((idle_df["verdict"] == "idle").sum())
+            low_use_count = int((idle_df["verdict"] == "low_use").sum())
+
+            col_m1, col_m2 = st.columns(2)
+            with col_m1:
+                st.metric("Idle (sempre on, sem uso)", idle_count)
+            with col_m2:
+                st.metric("Low use (uso bursty)", low_use_count)
+
+            display_cols = [
+                "cluster_name",
+                "active_days",
+                "active_days_pct",
+                "total_dbus",
+                "avg_dbu_per_hour",
+                "verdict",
+                "savings_hint",
+            ]
+            st.dataframe(
+                idle_df[display_cols],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "active_days_pct": st.column_config.NumberColumn("Active %", format="%.2f%%"),
+                    "avg_dbu_per_hour": st.column_config.NumberColumn("Avg DBU/h", format="%.2f"),
+                    "total_dbus": st.column_config.NumberColumn("Total DBUs", format="%.2f"),
+                },
+            )
+
+            if idle_count > 0:
+                st.caption(
+                    "💡 **Próximo passo (idle):** habilitar auto-termination com timeout "
+                    "agressivo (10-15min idle), ou migrar pra Serverless SQL que tem "
+                    "auto-pause built-in."
+                )
+
+    # ── Photon ROI ───────────────────────────────────────────────────────────
+    with sub3:
+        st.markdown("##### ⚡ Photon ROI — Vale a Pena Pagar 2× DBU?")
+        st.warning(
+            "⚠️ **Caveat forte:** comparação válida apenas se os 2 clusters rodam workload "
+            "SIMILAR (mesma natureza de query). Sem `system.query.history`, usamos DBU total "
+            "como proxy de tempo — resultado é estimativa, não definitivo."
+        )
+
+        cluster_options = sorted(usage_df["cluster_name"].dropna().unique().tolist())
+        if len(cluster_options) < 2:
+            st.info(
+                "Pelo menos 2 clusters distintos são necessários pra comparação. "
+                "Janela atual tem apenas " + str(len(cluster_options)) + "."
+            )
+            return
+
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            cluster_with = st.selectbox(
+                "Cluster COM Photon",
+                options=cluster_options,
+                index=0,
+                key="photon_with",
+            )
+        with col_p2:
+            other_options = [c for c in cluster_options if c != cluster_with]
+            cluster_without = st.selectbox(
+                "Cluster SEM Photon",
+                options=other_options,
+                index=0,
+                key="photon_without",
+            )
+
+        if st.button("📊 Comparar Photon vs sem Photon", use_container_width=True):
+            try:
+                # Mapeia name → cluster_id
+                with_id_series = usage_df[usage_df["cluster_name"] == cluster_with]["cluster_id"]
+                without_id_series = usage_df[usage_df["cluster_name"] == cluster_without][
+                    "cluster_id"
+                ]
+
+                if with_id_series.empty or without_id_series.empty:
+                    st.error("Cluster sem cluster_id válido na janela.")
+                    return
+
+                cluster_id_with = str(with_id_series.iloc[0])
+                cluster_id_without = str(without_id_series.iloc[0])
+
+                result = evaluate_photon_roi(usage_df, period, cluster_id_with, cluster_id_without)
+
+                # Verdict display
+                verdict_labels = {
+                    "photon_worth_it": "✅ Photon compensa",
+                    "photon_marginal": "⚠️ Marginal — depende do workload",
+                    "photon_not_worth": "❌ Photon não compensa (custo 2× sem aceleração suficiente)",
+                }
+
+                col_v1, col_v2, col_v3 = st.columns(3)
+                with col_v1:
+                    st.metric("DBU com Photon", f"{result.total_dbus_with:.2f}")
+                with col_v2:
+                    st.metric("DBU sem Photon", f"{result.total_dbus_without:.2f}")
+                with col_v3:
+                    st.metric("Relative consumption", f"{result.relative_consumption:.2f}")
+
+                st.markdown(f"**Verdict:** {verdict_labels.get(result.verdict, result.verdict)}")
+                st.markdown(
+                    f"**Speedup proxy estimado:** {result.actual_speedup_proxy:.2f}× "
+                    f"(precisa ≥ {result.breakeven_speedup:.1f}× pra empatar custo)"
+                )
+                st.caption(f"⚠️ Caveat: {result.caveat}")
+            except ValueError as exc:
+                st.error(f"Erro no compare: {exc}")
+
+
 def render_tab_export() -> None:
     """Tab 4: Export XLSX (single scenario ou multi com aggregate)."""
     st.markdown("#### 📤 Export XLSX")
@@ -1577,7 +1907,7 @@ def main() -> None:
     if agent_count > 0:
         historico_label = f"📋 Histórico 🤖×{agent_count}"
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
         [
             "🖥️ Cenário Cluster",
             "⚖️ Compare PAYG vs DBCU",
@@ -1585,6 +1915,7 @@ def main() -> None:
             "📤 Export XLSX",
             historico_label,
             "📊 FinOps Realizado",
+            "🔧 Otimização",
         ]
     )
 
@@ -1600,6 +1931,8 @@ def main() -> None:
         render_tab_historico()
     with tab6:
         render_tab_finops_realizado()
+    with tab7:
+        render_tab_otimizacao()
 
 
 if __name__ == "__main__":
