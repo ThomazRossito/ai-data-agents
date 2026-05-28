@@ -71,7 +71,7 @@ A meta não é magia — é **remover o atrito entre intenção e execução** q
 
 ## Estado atual (2026-05-09) — v2.3.0
 
-- **<!-- INVENTORY:agents_total -->16<!-- /INVENTORY:agents_total --> agentes**, **<!-- INVENTORY:mcps_registered -->19<!-- /INVENTORY:mcps_registered --> MCPs** (<!-- INVENTORY:mcps_custom -->9<!-- /INVENTORY:mcps_custom --> custom, <!-- INVENTORY:mcps_external -->9<!-- /INVENTORY:mcps_external --> de terceiros), **<!-- INVENTORY:kbs_total -->18<!-- /INVENTORY:kbs_total --> KBs**, **<!-- INVENTORY:skills_total -->49<!-- /INVENTORY:skills_total --> skills**, **<!-- INVENTORY:commands_total -->40<!-- /INVENTORY:commands_total --> slash commands** ✅.
+- **<!-- INVENTORY:agents_total -->16<!-- /INVENTORY:agents_total --> agentes**, **<!-- INVENTORY:mcps_registered -->20<!-- /INVENTORY:mcps_registered --> MCPs** (<!-- INVENTORY:mcps_custom -->10<!-- /INVENTORY:mcps_custom --> custom, <!-- INVENTORY:mcps_external -->9<!-- /INVENTORY:mcps_external --> de terceiros), **<!-- INVENTORY:kbs_total -->18<!-- /INVENTORY:kbs_total --> KBs**, **<!-- INVENTORY:skills_total -->49<!-- /INVENTORY:skills_total --> skills**, **<!-- INVENTORY:commands_total -->40<!-- /INVENTORY:commands_total --> slash commands** ✅.
 - Modelos: todos os agentes em `kimi-k2.6` (Moonshot); diferenciação por tier via `max_turns` + `effort` (ver ADR-004).
 - **Loop de aprendizado autônomo** ✅: `LESSON_LEARNED` captura erros e eventos de baixa performance entre sessões; injetado no system prompt antes de operações de alto risco. Dashboard "🧠 Lições Aprendidas" no Streamlit.
 - **S4 Autonomous Mode** ✅: auto-aprovação configurável de delegações read-only/single-agent/baixo custo (`S4_AUTONOMOUS_MODE=false` por padrão).

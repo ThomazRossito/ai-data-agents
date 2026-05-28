@@ -188,6 +188,16 @@ class Settings(BaseSettings):
     # Cotação USD→BRL pra conversão (default 5.0)
     databricks_pricing_fx_usd_brl: float = 5.0
 
+    # --- Databricks Billing MCP (Fase 3 — análise FinOps via system.billing) ---
+    # Mock mode default = true: usa DataFrame fake (billing_mock.py). Não requer
+    # Databricks real. Quando false, MCP tenta SQL real via databricks-sdk +
+    # DATABRICKS_BILLING_WAREHOUSE_ID (warehouse pra executar SQL Pro).
+    # No Chunk 3.1 só mock mode está implementado; real mode retorna RuntimeError
+    # informativo até integração SDK ficar pronta em chunk posterior.
+    databricks_billing_command: str = "databricks-billing-mcp"
+    databricks_billing_mock_mode: bool = True
+    databricks_billing_warehouse_id: str = ""
+
     # --- Permissões dos Agentes ---
     # "bypassPermissions" (padrão): agentes executam sem pedir confirmação — ideal para automação.
     # "acceptEdits": agentes pedem confirmação antes de operações write/execute — recomendado
