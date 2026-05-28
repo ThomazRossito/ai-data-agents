@@ -49,9 +49,9 @@ escalation_rules:
   - trigger: "Análise FinOps de workload já em produção (system.billing, query DBU usage real)"
     target: "databricks-engineer"
     reason: "FinOps com dados reais exige acesso ao billing real do workspace — fora do escopo de cotação determinística"
-  - trigger: "Cotação de recursos não-Databricks (Fabric, Synapse, BigQuery, Snowflake)"
-    target: "azure-cost-calculator (se Azure) ou fora do escopo"
-    reason: "Outros agentes cobrem outras plataformas"
+  - trigger: "Cotação de recursos não-Databricks Azure (Fabric, Synapse, AI Search, Foundry)"
+    target: "azure-cost-calculator"
+    reason: "azure-cost-calculator cobre todos os serviços Azure não-Databricks via Retail Prices API"
 ---
 # Databricks Cost Calculator
 
