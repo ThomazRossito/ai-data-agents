@@ -161,7 +161,15 @@ class TestInterpretVerdict:
 
 class TestAppImportsClean:
     def test_app_module_imports(self):
-        """app.py import deve funcionar (sem ScriptRunContext)."""
+        """app.py import deve funcionar quando o ambiente tem [ui] extras.
+
+        Pulado em [dev] puro (sem plotly/streamlit), porque app.py importa
+        `plotly.graph_objects` e `streamlit` no top-level. O teste valida
+        sanidade do tab registration, não a infra dos extras.
+        """
+        pytest.importorskip("plotly", reason="plotly só disponível com extras [ui]")
+        pytest.importorskip("streamlit", reason="streamlit só disponível com extras [ui]")
+
         from data_agents.cost_app.databricks import app
 
         assert hasattr(app, "render_tab_finops_realizado")
