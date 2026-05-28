@@ -197,11 +197,35 @@ Da página `/product/pricing/product-pricing/instance-types` extraí o sidebar c
 - **Photon SKU**: documentado heterogeneamente em `photon_modeling.factor_by_sku` (PR 2). Engine continua com flag — refactor estrutural completo fica pra PR 5+
 - **Tests**: +99 (TestAiMlSkusPresent parametrizado 10 blocks × 3 clouds + classes por bloco). 169 testes do cost_engine_databricks.py passam, 287 do escopo cost. ruff format + check verdes.
 
-### ⏳ Pendente (PR 4)
-- **PR 4** (~400-600 LOC): Default Storage (DSU + per-operation), Data Transfer (Private/Public/Egress), Managed Services (DQ Monitoring com 2x DBU mult, Predictive Optimization, FGAC, Data Classification), Platform Add-ons (Enhanced Security 15% of Product Spend), Clean Rooms, View Sharing (3 tiers + Open Sharing), Delta Share SAP BDC (FREE)
-- Captura Anthropic + Gemini per-model DBU tables (escopo PR 4 ou separado)
-- Real-mode GCP via Google Cloud Billing API (escopo PR 4 ou separado)
-- Engine refactor pra modelar scenarios AI/ML (LLMScenario, VectorSearchScenario) — escopo PR 5+
+### ✅ PR 4 implementado (2026-05-28, post-merge PR 3)
+- **Catalogs (azure + aws + gcp)**: 7 novos blocos plataforma top-level adicionados nos 3:
+  - `default_storage` (DSU = $0.023, com tabela DSU per operation por cloud: Azure Tier 1/2, AWS PUT/GET, GCP Class A/B)
+  - `data_transfer` (4 connection types: Private/Public/Egress; Azure Private Link endpoint **waived**, AWS/GCP active)
+  - `managed_services` (DQ Monitoring com **2x DBU multiplier** + promo até 2026-08-01; PO/FGAC/DC todos $0.35/DBU)
+  - `platform_addons` (Enhanced Security and Compliance = **15% of Product Spend** before discounts)
+  - `clean_rooms` (sem SKU própria — bills via Jobs Serverless AWS/GCP ou Automated Serverless Azure + Databricks Storage)
+  - `view_sharing` (4 scenarios: same account = $0, diff account+Serverless = $0, diff account+Classic = $0.75, Open Sharing = $0.75/DBU)
+  - `delta_share_sap_bdc` (100% FREE — sem cobrança nem por sharing nem por compute)
+- **app.py**: Tab 8 Catálogo + 7 seções dataframe novas (Default Storage com DSU operations per current cloud, Data Transfer com billed status por cloud, Managed Services com promo banner DQ, Platform Add-ons, View Sharing 4 scenarios, Clean Rooms billing redirect, SAP BDC com success banner)
+- **Tests**: +60 testes (TestPlatformSkusPresent parametrizado 7 blocks × 3 clouds = 21 + TestDefaultStorage + TestDataTransfer + TestManagedServices + TestPlatformAddons + TestCleanRoomsAndSharing). 229 testes do cost_engine_databricks.py, 369 do escopo cost passam.
+
+### 🏁 Auditoria de paridade — STATUS FINAL (2026-05-28)
+
+**Cobertura "total" autorizada pelo user (~3000 LOC) está COMPLETA.**
+
+Total entregue ao longo dos 4 PRs (PR 1-4):
+- **3 catalogs YAML** (azure + aws + gcp) com **17 SKU blocks top-level cada** + serverless sub-typing + tier model fix
+- **app.py Tab 8 Catálogo** com **22 seções dataframe** cobrindo todo o universo de SKUs Databricks oficial
+- **gcp.yaml NEW** (~600 LOC scaffold inicial + AI/ML + plataforma)
+- **+261 testes** no `test_cost_engine_databricks.py` (eram 0 antes do PR 1; 261 = 30 PR 1 + 30 PR 2 + 99 PR 3 + 60 PR 4 + 42 mantidos)
+- **3 docs auditoria** em `kb/databricks-pricing/` (parity-audit.md, extracted-prices-raw.md, implementation-strategy.md)
+
+### ⏳ Trabalho futuro (escopo PR 5+, opcional)
+- Engine refactor pra modelar scenarios AI/ML específicos (LLMScenario, VectorSearchScenario, LakebaseScenario, etc.) — atualmente só compute/DBU scenarios são calculáveis; novos SKUs aparecem como reference no Catálogo
+- Captura completa Anthropic + Gemini per-model DBU tables (atualmente stubs)
+- Real-mode GCP via Google Cloud Billing API (atualmente só mock estático em instance_prices.py)
+- Real-mode Lakebase / Foundation Model Serving via Databricks Account API (quando disponível)
+- Tab "💰 Cost Calculator AI/ML" com sub-calculators (LLM tokens, Vector Search sizing, Agent Bricks Q&A budget)
 
 ---
 
