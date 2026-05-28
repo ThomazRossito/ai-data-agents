@@ -173,10 +173,17 @@ Da página `/product/pricing/product-pricing/instance-types` extraí o sidebar c
   - 9 testes novos (`TestTierValidation` + `TestServerlessRateCorrection`)
   - 227 testes passando, ruff verde
 
+### ✅ PR 2 implementado (2026-05-28, post-merge)
+- **Engine**: `ComputeType` Literal expandido com `jobs_serverless`, `dlt_serverless`, `all_purpose_serverless`. `CloudName` Literal expandido com `"gcp"`.
+- **YAMLs (azure + aws)**: Sub-types serverless com rates oficiais; bloco `lakebase` ($/CU·h, 2 promo prices); bloco `lakeflow_connect` (Managed Connectors + Zerobus); `serverless_compute` antigo agora com `_deprecated: true`; `photon_modeling.factor_by_sku` heterogêneo (2.9X Jobs/DLT, 2.0X All-Purpose).
+- **gcp.yaml**: scaffold completo criado (350 LOC) — Premium+Enterprise, 7 regions, 25 GCE machine types, lakeflow_connect; Lakebase intencionalmente ausente (não disponível em GCP per oficial).
+- **instance_prices.py**: + `_GCP_PRICES_USD_HOUR` mock (50 SKUs, 7 regions). Real-mode GCP é trabalho futuro (Google Cloud Billing API).
+- **app.py**: Tab 1 selectbox de compute_type expandido com 3 novos serverless variants + DEPRECATED tag no antigo. Cloud Provider selectbox + "GCP Databricks (beta)". Tab 8 Catálogo mostra Lakebase + Lakeflow Connect blocks.
+- **Tests**: +30 testes novos (TestServerlessSubTypes, TestGcpCatalog, TestLakebaseSchema, TestLakeflowConnectSchema). 260 testes do escopo cost passam.
+
 ### ⏳ Pendente (PRs futuros)
-- **PR 2**: Sub-typing serverless_compute (jobs_serverless $0.35, dlt_serverless $0.35, sql_serverless $0.70, all_purpose_serverless $0.75), Lakebase ($/CU·h), Lakeflow Connect, gcp.yaml scaffold, unit_type enum
-- **PR 3**: Foundation Model Serving (Pay-Per-Token + PT + Batch + 12 modelos), Proprietary FM (OpenAI/Anthropic/Gemini), Vector Search tiers, AI Functions, AI Gateway, Agent Bricks, Agent Evaluation, Model Training, AI Runtime
-- **PR 4**: Default Storage (DSU), Data Transfer, Managed Services (DQ Monitoring 2x mult), Enhanced Security 15%, Clean Rooms, View Sharing
+- **PR 3** (~1500 LOC): Foundation Model Serving (Pay-Per-Token + PT + Batch + 12 modelos), Proprietary FM (OpenAI/Anthropic/Gemini), Vector Search tiers, AI Functions, AI Gateway, Agent Bricks, Agent Evaluation, Model Training, AI Runtime, Photon como SKU separado (não flag)
+- **PR 4** (~400 LOC): Default Storage (DSU), Data Transfer, Managed Services (DQ Monitoring 2x mult), Enhanced Security 15%, Clean Rooms, View Sharing, real-mode GCP (Google Cloud Billing API)
 
 ---
 

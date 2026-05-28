@@ -21,7 +21,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-CloudName = Literal["azure", "aws"]
+# PR 2 (2026-05-28): + "gcp". Real-mode GCP via Cloud Billing API é trabalho
+# futuro (PR 3/4). Por enquanto, GCP usa só mock estático.
+CloudName = Literal["azure", "aws", "gcp"]
 
 
 # ─── Azure Retail Prices estimados ──────────────────────────────────────────
@@ -268,6 +270,83 @@ _AWS_PRICES_USD_HOUR: dict[str, dict[str, float]] = {
 }
 
 
+# ─── GCP GCE Prices estimados (PR 2, 2026-05-28) ───────────────────────────
+# Mock estático — sem real-mode pra GCP ainda. Cobertura beta.
+# Valores derivados de Google Cloud Pricing Calculator spot-checks.
+# Region multiplier: south america ~25% acima de us-central1 (similar Azure BR/Eastus).
+_GCP_PRICES_USD_HOUR: dict[str, dict[str, float]] = {
+    "us-central1": {
+        "n2-standard-2": 0.0971,
+        "n2-standard-4": 0.1942,
+        "n2-standard-8": 0.3885,
+        "n2-standard-16": 0.7770,
+        "n2-standard-32": 1.5540,
+        "n2-standard-48": 2.3310,
+        "n2-standard-64": 3.1080,
+        "n2-standard-96": 4.6620,
+        "n2-highmem-4": 0.2620,
+        "n2-highmem-8": 0.5240,
+        "n2-highmem-16": 1.0480,
+        "n2-highmem-32": 2.0960,
+        "n2-highmem-64": 4.1920,
+        "c2-standard-4": 0.2088,
+        "c2-standard-8": 0.4176,
+        "c2-standard-16": 0.8352,
+        "c2-standard-30": 1.5660,
+        "n1-standard-4-t4": 0.5500,
+        "a2-highgpu-1g": 3.6730,
+        "a2-highgpu-2g": 7.3460,
+        "a2-highgpu-4g": 14.6920,
+        "a2-highgpu-8g": 29.3840,
+    },
+    "us-east1": {
+        # Mesmo preço de us-central1 (continental US, paridade típica GCP)
+        "n2-standard-4": 0.1942,
+        "n2-standard-8": 0.3885,
+        "n2-standard-16": 0.7770,
+        "n2-highmem-8": 0.5240,
+        "n2-highmem-16": 1.0480,
+        "c2-standard-8": 0.4176,
+    },
+    "us-east4": {
+        # ~5% premium sobre us-central1
+        "n2-standard-4": 0.2039,
+        "n2-standard-8": 0.4079,
+        "n2-standard-16": 0.8159,
+    },
+    "us-west1": {
+        "n2-standard-4": 0.1942,
+        "n2-standard-8": 0.3885,
+        "n2-standard-16": 0.7770,
+    },
+    "europe-west1": {
+        # ~10% acima us-central1
+        "n2-standard-4": 0.2136,
+        "n2-standard-8": 0.4274,
+        "n2-standard-16": 0.8548,
+        "n2-highmem-8": 0.5764,
+        "c2-standard-8": 0.4594,
+    },
+    "europe-west4": {
+        # ~8% acima us-central1
+        "n2-standard-4": 0.2098,
+        "n2-standard-8": 0.4196,
+        "n2-standard-16": 0.8392,
+    },
+    "southamerica-east1": {
+        # ~25% acima us-central1 (similar Azure BR/Eastus delta)
+        "n2-standard-2": 0.1214,
+        "n2-standard-4": 0.2428,
+        "n2-standard-8": 0.4856,
+        "n2-standard-16": 0.9713,
+        "n2-standard-32": 1.9425,
+        "n2-highmem-8": 0.6550,
+        "n2-highmem-16": 1.3100,
+        "c2-standard-8": 0.5220,
+    },
+}
+
+
 # ─── Public API ──────────────────────────────────────────────────────────────
 
 
@@ -277,6 +356,8 @@ def _get_mock_price(cloud: str, region: str, instance_sku: str) -> float:
         prices = _AZURE_PRICES_USD_HOUR
     elif cloud == "aws":
         prices = _AWS_PRICES_USD_HOUR
+    elif cloud == "gcp":
+        prices = _GCP_PRICES_USD_HOUR
     else:
         raise ValueError(f"Cloud desconhecida: {cloud!r}")
 
@@ -339,6 +420,8 @@ def list_instances_for_region(cloud: CloudName, region: str) -> list[str]:
         prices = _AZURE_PRICES_USD_HOUR
     elif cloud == "aws":
         prices = _AWS_PRICES_USD_HOUR
+    elif cloud == "gcp":
+        prices = _GCP_PRICES_USD_HOUR
     else:
         raise ValueError(f"Cloud desconhecida: {cloud!r}")
 
@@ -352,6 +435,8 @@ def list_regions_for_cloud(cloud: CloudName) -> list[str]:
         return sorted(_AZURE_PRICES_USD_HOUR.keys())
     if cloud == "aws":
         return sorted(_AWS_PRICES_USD_HOUR.keys())
+    if cloud == "gcp":
+        return sorted(_GCP_PRICES_USD_HOUR.keys())
     raise ValueError(f"Cloud desconhecida: {cloud!r}")
 
 
@@ -360,9 +445,11 @@ def get_mock_metadata() -> dict[str, object]:
     return {
         "is_mock": True,
         "last_updated": "2026-05",
-        "source_notes": "Estimativas estáticas baseadas em portais de pricing (Azure Calculator + AWS Calculator). Não usar pra cotação real sem validar contra APIs oficiais.",
+        "source_notes": "Estimativas estáticas baseadas em portais de pricing (Azure Calculator + AWS Calculator + GCP Calculator). Não usar pra cotação real sem validar contra APIs oficiais.",
         "azure_regions_count": len(_AZURE_PRICES_USD_HOUR),
         "aws_regions_count": len(_AWS_PRICES_USD_HOUR),
+        "gcp_regions_count": len(_GCP_PRICES_USD_HOUR),
         "total_skus_azure": sum(len(v) for v in _AZURE_PRICES_USD_HOUR.values()),
         "total_skus_aws": sum(len(v) for v in _AWS_PRICES_USD_HOUR.values()),
+        "total_skus_gcp": sum(len(v) for v in _GCP_PRICES_USD_HOUR.values()),
     }

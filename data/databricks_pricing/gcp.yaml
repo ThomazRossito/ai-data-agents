@@ -1,0 +1,351 @@
+# =============================================================================
+# Databricks Pricing Catalog — GCP (Google Cloud Platform)
+# =============================================================================
+# Fonte primária: https://www.databricks.com/product/sku-groups (SSG, HTML completo)
+# Fonte secundária (DBU rates): /product/pricing/* (validados via Chrome MCP em 2026-05-28)
+# Instance prices (GCE): consultados em RUNTIME via Google Cloud Billing API
+#   (https://cloud.google.com/billing/v1/services/<service-id>/skus) — TODO.
+#
+# Atualização: trimestral via scripts/refresh_databricks_pricing.py (TODO)
+#
+# ATENÇÃO: todos os DBU rates são reference pricing PAYG (retail). Não cobrem
+# descontos negociados Enterprise, CUDs (Committed Use Discounts) GCP, ou
+# contratos custom. GCP prices derivados via paridade estrutural com AWS (per
+# /product/sku-groups), salvo confirmação específica via página individual.
+# =============================================================================
+
+schema_version: "1.0.0"
+cloud: gcp
+last_updated: "2026-05-28"
+last_verified_against_source: "2026-05-28"
+source_url: "https://www.databricks.com/product/sku-groups"
+audit_doc: "kb/databricks-pricing/extracted-prices-raw.md"
+notes: |
+  GCP scaffold criado em PR 2 (2026-05-28). Cobertura inicial:
+    - DBU rates Premium e Enterprise (derivados via paridade AWS)
+    - Sub-types serverless (jobs/dlt/all_purpose) com rates oficiais
+    - SKUs Service-specific conforme /product/sku-groups
+  Status: BETA — preços precisam de confirmação via Chrome MCP nas páginas
+  individuais quando user confirmar prioridade GCP. PR 3 vai consolidar.
+
+  Footnotes oficiais (per /product/sku-groups):
+    * SKU marcada * = "iceberg only"
+    ** SKU marcada ** = "GCP Marketplace metered"
+
+  Instance prices: por enquanto consumidor (App) deve fornecer via parâmetro;
+  integração com Google Cloud Billing API é trabalho futuro.
+
+# =============================================================================
+# Regions suportadas (subset comum)
+# =============================================================================
+regions:
+  - id: us-central1
+    display_name: "US Central (Iowa)"
+    gcp_region_code: us-central1
+    primary: true
+
+  - id: us-east1
+    display_name: "US East (South Carolina)"
+    gcp_region_code: us-east1
+
+  - id: us-east4
+    display_name: "US East (Northern Virginia)"
+    gcp_region_code: us-east4
+
+  - id: us-west1
+    display_name: "US West (Oregon)"
+    gcp_region_code: us-west1
+
+  - id: europe-west1
+    display_name: "Europe West (Belgium)"
+    gcp_region_code: europe-west1
+
+  - id: europe-west4
+    display_name: "Europe West (Netherlands)"
+    gcp_region_code: europe-west4
+
+  - id: southamerica-east1
+    display_name: "South America East (São Paulo)"
+    gcp_region_code: southamerica-east1
+
+# =============================================================================
+# DBU Rates (USD por DBU·hora)
+# =============================================================================
+# GCP estrutura idêntica a AWS (per /product/sku-groups), com Premium e
+# Enterprise. Standard NÃO existe oficialmente.
+# =============================================================================
+dbu_rates_per_hour:
+
+  # All-Purpose Compute (Premium/Enterprise — Standard DEPRECATED)
+  all_purpose_compute:
+    standard:
+      # DEPRECATED: tier 'standard' não consta em /product/pricing/datascience-ml
+      no_photon: 0.40
+      photon: 0.55
+      _deprecated: true
+    premium:
+      no_photon: 0.55
+      photon: 0.65
+    enterprise:
+      no_photon: 0.65
+      photon: 0.85
+
+  # Jobs Compute
+  jobs_compute:
+    standard:
+      # DEPRECATED
+      no_photon: 0.10
+      photon: 0.15
+      _deprecated: true
+    premium:
+      no_photon: 0.15
+      photon: 0.22
+    enterprise:
+      no_photon: 0.20
+      photon: 0.30
+
+  # Serverless Compute — backward-compat alias (DEPRECATED em PR 3)
+  serverless_compute:
+    base_per_dbu: 0.35
+    _deprecated: true
+    _deprecated_note: "Use jobs_serverless / dlt_serverless / sql_serverless / all_purpose_serverless"
+
+  # Jobs Serverless Compute
+  jobs_serverless:
+    base_per_dbu: 0.35
+    photon_auto_enabled: true
+    modes: ["standard", "performance_optimized"]
+
+  # DLT Serverless Compute
+  dlt_serverless:
+    base_per_dbu: 0.35
+    photon_auto_enabled: true
+    modes: ["standard", "performance_optimized"]
+
+  # All-Purpose Serverless Compute
+  all_purpose_serverless:
+    base_per_dbu: 0.75
+    photon_auto_enabled: true
+    photon_factor_classic: 2.0
+
+  # Delta Live Tables (Classic)
+  delta_live_tables:
+    core: 0.20
+    pro: 0.25
+    advanced: 0.36
+
+  # SQL Warehouse
+  sql:
+    classic: 0.22
+    pro: 0.55
+    serverless: 0.70
+
+  # Model Serving
+  model_serving:
+    cpu_per_dbu: 0.07
+    gpu_t4_per_dbu: 0.07
+    gpu_a10_per_dbu: 0.07
+
+  # Vector Search (legacy structure — PR 3 vai expandir pra tiers Standard/Storage-Opt)
+  vector_search:
+    storage_endpoint_per_hour: 0.45
+    storage_per_million_vectors_month: 0.18
+    query_per_million_queries: 1.00
+
+  # Mosaic AI Agent Framework (legacy — PR 3 vai expandir pra Knowledge Assistant/Supervisor)
+  mosaic_agent:
+    serverless_per_dbu: 0.95
+
+# =============================================================================
+# DBU Multiplier por Instance Type (GCE)
+# =============================================================================
+# Mapeia GCE machine types → DBU/hora. Lista representativa; expandir conforme
+# uso real. Valores derivados via paridade vCPU/RAM com AWS m5/r5 series.
+# =============================================================================
+instance_dbu_map:
+
+  # General Purpose (N2)
+  n2-standard-2: { dbu_per_hour: 0.50, vcpu: 2, ram_gb: 8 }
+  n2-standard-4: { dbu_per_hour: 1.00, vcpu: 4, ram_gb: 16 }
+  n2-standard-8: { dbu_per_hour: 2.00, vcpu: 8, ram_gb: 32 }
+  n2-standard-16: { dbu_per_hour: 4.00, vcpu: 16, ram_gb: 64 }
+  n2-standard-32: { dbu_per_hour: 8.00, vcpu: 32, ram_gb: 128 }
+  n2-standard-48: { dbu_per_hour: 12.00, vcpu: 48, ram_gb: 192 }
+  n2-standard-64: { dbu_per_hour: 16.00, vcpu: 64, ram_gb: 256 }
+  n2-standard-96: { dbu_per_hour: 24.00, vcpu: 96, ram_gb: 384 }
+
+  # Memory Optimized (N2 high-memory)
+  n2-highmem-4: { dbu_per_hour: 1.50, vcpu: 4, ram_gb: 32 }
+  n2-highmem-8: { dbu_per_hour: 3.00, vcpu: 8, ram_gb: 64 }
+  n2-highmem-16: { dbu_per_hour: 6.00, vcpu: 16, ram_gb: 128 }
+  n2-highmem-32: { dbu_per_hour: 12.00, vcpu: 32, ram_gb: 256 }
+  n2-highmem-64: { dbu_per_hour: 24.00, vcpu: 64, ram_gb: 512 }
+
+  # Compute Optimized (C2)
+  c2-standard-4: { dbu_per_hour: 0.75, vcpu: 4, ram_gb: 16 }
+  c2-standard-8: { dbu_per_hour: 1.50, vcpu: 8, ram_gb: 32 }
+  c2-standard-16: { dbu_per_hour: 3.00, vcpu: 16, ram_gb: 64 }
+  c2-standard-30: { dbu_per_hour: 5.50, vcpu: 30, ram_gb: 120 }
+
+  # GPU (A100 / T4)
+  a2-highgpu-1g: { dbu_per_hour: 8.80, vcpu: 12, ram_gb: 85, gpu: 1, gpu_type: "A100" }
+  a2-highgpu-2g: { dbu_per_hour: 17.60, vcpu: 24, ram_gb: 170, gpu: 2, gpu_type: "A100" }
+  a2-highgpu-4g: { dbu_per_hour: 35.20, vcpu: 48, ram_gb: 340, gpu: 4, gpu_type: "A100" }
+  a2-highgpu-8g: { dbu_per_hour: 70.40, vcpu: 96, ram_gb: 680, gpu: 8, gpu_type: "A100" }
+  n1-standard-4-t4: { dbu_per_hour: 1.50, vcpu: 4, ram_gb: 15, gpu: 1, gpu_type: "T4" }
+
+# =============================================================================
+# DBCU Commit Discounts (Databricks Commit Unit)
+# =============================================================================
+# GCP tem mesma estrutura tiered de AWS/Azure. Valores ilustrativos —
+# desconto real é negociado.
+# =============================================================================
+dbcu_commit_discounts:
+  - tier_min_usd_year: 0
+    tier_max_usd_year: 10000
+    discount_pct_1y: 0
+    discount_pct_3y: 0
+    note: "Sem desconto — pay-as-you-go"
+
+  - tier_min_usd_year: 10000
+    tier_max_usd_year: 100000
+    discount_pct_1y: 15
+    discount_pct_3y: 22
+
+  - tier_min_usd_year: 100000
+    tier_max_usd_year: 500000
+    discount_pct_1y: 22
+    discount_pct_3y: 30
+
+  - tier_min_usd_year: 500000
+    tier_max_usd_year: 1500000
+    discount_pct_1y: 28
+    discount_pct_3y: 35
+
+  - tier_min_usd_year: 1500000
+    tier_max_usd_year: null
+    discount_pct_1y: 32
+    discount_pct_3y: 40
+
+# =============================================================================
+# Spot / Preemptible VM Discount Estimates
+# =============================================================================
+# GCP Spot VMs (antigo "Preemptible"): desconto até 91%, podem ser interrompidas
+# com 30s de aviso. Valores são MÉDIAS — variabilidade real depende de demanda.
+# =============================================================================
+spot_discounts:
+  us-central1:
+    avg_discount_pct: 80
+    interrupt_rate_hourly: "2-5%"
+
+  us-east1:
+    avg_discount_pct: 78
+    interrupt_rate_hourly: "3-6%"
+
+  us-west1:
+    avg_discount_pct: 75
+    interrupt_rate_hourly: "3-6%"
+
+  europe-west1:
+    avg_discount_pct: 72
+    interrupt_rate_hourly: "4-8%"
+
+  europe-west4:
+    avg_discount_pct: 72
+    interrupt_rate_hourly: "4-8%"
+
+  southamerica-east1:
+    avg_discount_pct: 60
+    interrupt_rate_hourly: "5-10%"
+    suitable_for: "Jobs batch sem SLA crítico"
+
+# =============================================================================
+# Storage — Google Cloud Storage + Persistent Disk
+# =============================================================================
+storage:
+  gcs:
+    standard_per_gb_month_usd: 0.020         # Standard storage
+    nearline_per_gb_month_usd: 0.010
+    coldline_per_gb_month_usd: 0.004
+    archive_per_gb_month_usd: 0.0012
+
+  persistent_disk:
+    standard_per_gb_month_usd: 0.040
+    ssd_per_gb_month_usd: 0.170
+    balanced_per_gb_month_usd: 0.100
+
+  operations:
+    class_a_per_10k: 0.05                    # Writes, listing
+    class_b_per_10k: 0.004                   # Reads
+
+  delta_lake_overhead_pct: 10
+
+# =============================================================================
+# Networking
+# =============================================================================
+networking:
+  vpc_peering_per_gb: 0.01
+  private_service_connect_per_hour: 0.012
+
+  egress:
+    # Internet egress (most expensive)
+    internet_per_gb_first_1tb: 0.12
+    internet_per_gb_1to10tb: 0.11
+    internet_per_gb_above_10tb: 0.08
+    # Cross-region (same continent)
+    cross_region_same_continent_per_gb: 0.08
+    # Cross-region (different continent)
+    cross_region_cross_continent_per_gb: 0.12
+
+# =============================================================================
+# Reserved Instances / Committed Use Discounts (CUDs) — GCP
+# =============================================================================
+# CUDs aplicam APENAS no instance cost (não no DBU rate).
+# Aceita 1y ou 3y; "resource-based" (recursos específicos) ou "spend-based" (flexível).
+# =============================================================================
+reserved_instance_discounts:
+  cud_1y_resource_pct: 25
+  cud_3y_resource_pct: 55
+  cud_1y_spend_pct: 20
+  cud_3y_spend_pct: 46
+  # CUDs spend-based são "flexible" — válidos pra qualquer instance family
+  sustained_use_discount_max_pct: 30   # SUD auto-aplicado quando uso >25% do mês
+
+# =============================================================================
+# Photon Engine Modeling
+# =============================================================================
+photon_modeling:
+  dbu_consumption_multiplier: 2.0
+  typical_speedup_factor: 2.5
+  break_even_speedup: 2.0
+  not_recommended_for:
+    - "PySpark UDFs em Python puro"
+    - "Workloads I/O-bound (não CPU-bound)"
+    - "ML training (use ML Runtime sem Photon)"
+  # PR 2 (2026-05-28): Photon factor HETEROGÊNEO por SKU.
+  factor_by_sku:
+    jobs_compute: 2.9
+    delta_live_tables: 2.9
+    all_purpose_compute: 2.0
+
+# =============================================================================
+# Lakeflow Connect — Ingestão Managed (PR 2, 2026-05-28)
+# =============================================================================
+# Disponível em GCP per /product/sku-groups. Mesma estrutura de AWS/Azure.
+lakeflow_connect:
+  managed_connectors:
+    cost_unit: dbu_h
+    base_per_dbu: 0.35
+    free_tier_dbu_per_workspace_per_day: 100
+  zerobus_ingest:
+    cost_unit: gb_ingested
+    promo_until: "2026-09-01"
+    per_gb_promo: 0.050
+    per_gb_list: 0.100
+  source_url: "https://www.databricks.com/product/pricing/lakeflow-connect"
+
+# =============================================================================
+# Lakebase — NÃO DISPONÍVEL em GCP (2026-05-28)
+# =============================================================================
+# Fonte: https://www.databricks.com/product/pricing/lakebase
+# "Disponível AWS + Azure" — sem GCP. Bloco intencionalmente ausente.

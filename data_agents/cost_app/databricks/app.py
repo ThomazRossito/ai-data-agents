@@ -157,11 +157,17 @@ def render_sidebar() -> None:
         st.divider()
 
         # Cloud + Region
+        # PR 2 (2026-05-28): + GCP (gcp.yaml scaffold). Cobertura beta — preços
+        # GCP derivados via paridade AWS per /product/sku-groups.
         st.markdown("### 🌐 Cloud + Region")
         cloud = st.selectbox(
             "Cloud Provider",
-            options=["azure", "aws"],
-            format_func=lambda c: {"azure": "Azure Databricks", "aws": "AWS Databricks"}[c],
+            options=["azure", "aws", "gcp"],
+            format_func=lambda c: {
+                "azure": "Azure Databricks",
+                "aws": "AWS Databricks",
+                "gcp": "GCP Databricks (beta)",
+            }[c],
             key="cloud",
             label_visibility="collapsed",
         )
@@ -263,12 +269,18 @@ def render_tab_cenario_cluster() -> None:
             st.markdown("#### ⚙️ Configuração")
 
             # Compute Type + Tier (lado a lado)
+            # PR 2 (2026-05-28): + 3 serverless sub-types oficiais.
+            # serverless_compute mantido como alias DEPRECATED pra back-compat com
+            # cenários salvos. Engine resolve igual ao jobs_serverless ($0.35/DBU).
             compute_options = [
                 "all_purpose_compute",
                 "jobs_compute",
                 "delta_live_tables",
                 "sql",
-                "serverless_compute",
+                "jobs_serverless",
+                "dlt_serverless",
+                "all_purpose_serverless",
+                "serverless_compute",  # legacy alias (deprecated)
                 "model_serving",
                 "vector_search",
                 "mosaic_agent",
@@ -276,13 +288,18 @@ def render_tab_cenario_cluster() -> None:
             compute_type = st.selectbox(
                 "Compute Type",
                 options=compute_options,
-                index=compute_options.index(loaded.compute_type) if loaded else 1,
+                index=compute_options.index(loaded.compute_type)
+                if loaded and loaded.compute_type in compute_options
+                else 1,
                 format_func=lambda c: {
                     "all_purpose_compute": "All-Purpose (notebooks)",
                     "jobs_compute": "Jobs (scheduled)",
                     "delta_live_tables": "Delta Live Tables",
                     "sql": "SQL Warehouse",
-                    "serverless_compute": "Serverless",
+                    "jobs_serverless": "Jobs Serverless ($0.35/DBU)",
+                    "dlt_serverless": "DLT Serverless ($0.35/DBU)",
+                    "all_purpose_serverless": "All-Purpose Serverless ($0.75/DBU)",
+                    "serverless_compute": "Serverless (DEPRECATED — use sub-type acima)",
                     "model_serving": "Model Serving",
                     "vector_search": "Vector Search",
                     "mosaic_agent": "Mosaic AI Agent",
@@ -316,10 +333,15 @@ def render_tab_cenario_cluster() -> None:
                 )
 
         # Serverless: Databricks-managed (sem instances declaradas pelo user)
-        # Cobre 3 cases: serverless_compute, sql_serverless, e sql+tier=serverless
-        is_serverless = compute_type in ("serverless_compute", "sql_serverless") or (
-            compute_type == "sql" and tier == "serverless"
-        )
+        # PR 2 (2026-05-28): expandido pra todos os 4 sub-types oficiais.
+        # Mantém sincronizado com _SERVERLESS_COMPUTE_TYPES no cost_engine.databricks.
+        is_serverless = compute_type in (
+            "serverless_compute",  # legacy alias
+            "sql_serverless",
+            "jobs_serverless",  # PR 2
+            "dlt_serverless",  # PR 2
+            "all_purpose_serverless",  # PR 2
+        ) or (compute_type == "sql" and tier == "serverless")
 
         with st.container(border=True):
             st.markdown("#### 🖥️ Instances")
@@ -1614,6 +1636,77 @@ def render_tab_catalogo() -> None:
             )
         else:
             st.warning("Catalog YAML sem entries DBU — verifique estrutura.")
+
+        # ─── PR 2 (2026-05-28): Lakebase + Lakeflow Connect ─────────────────
+        # SKUs novos não-DBU (ou parcialmente DBU). Renderizados aqui pra
+        # transparência. Engine não modela ainda — PR 3 vai adicionar
+        # scenario types específicos (LakebaseScenario, etc.).
+        lakebase_data = catalog_dbu.get("lakebase")
+        if lakebase_data:
+            st.markdown("---")
+            st.markdown("##### 🗄️ Lakebase — Database Serverless")
+            st.caption(
+                f"Postgres managed pra serving de data/features. "
+                f"Disponível em: **{', '.join(lakebase_data.get('available_clouds', []))}**. "
+                f"Fonte: {lakebase_data.get('source_url', 'databricks.com')}"
+            )
+            promo_until = lakebase_data.get("promo_until")
+            if promo_until:
+                st.info(
+                    f"🎁 **Promoção 50% off** ativa até **{promo_until}** — preços abaixo já refletem o desconto."
+                )
+            lakebase_rows = [
+                {
+                    "Item": "Autoscaling Compute",
+                    "Preço (promo)": f"${lakebase_data.get('autoscaling_per_cu_h_promo', 0):.3f}/CU·h",
+                    "Preço list": f"${lakebase_data.get('autoscaling_per_cu_h_list', 0):.3f}/CU·h",
+                },
+                {
+                    "Item": "Always-On Compute (min)",
+                    "Preço (promo)": f"${lakebase_data.get('always_on_min_per_cu_h_promo', 0):.3f}/CU·h",
+                    "Preço list": f"${lakebase_data.get('always_on_min_per_cu_h_list', 0):.3f}/CU·h",
+                },
+                {
+                    "Item": "Database Storage",
+                    "Preço (promo)": f"${lakebase_data.get('storage_per_gb_month', 0):.3f}/GB·month",
+                    "Preço list": "—",
+                },
+            ]
+            st.dataframe(pd.DataFrame(lakebase_rows), use_container_width=True, hide_index=True)
+            st.caption(
+                "📐 CU = Capacity Unit (unidade Postgres-equivalent). "
+                "Não disponível em GCP. Engine ainda não modela Lakebase — usar como referência apenas."
+            )
+
+        lfc_data = catalog_dbu.get("lakeflow_connect")
+        if lfc_data:
+            st.markdown("---")
+            st.markdown("##### 🔌 Lakeflow Connect — Ingestão Managed")
+            st.caption(
+                f"Connectors enterprise + Zerobus Ingest (push API). "
+                f"Fonte: {lfc_data.get('source_url', 'databricks.com')}"
+            )
+            mc = lfc_data.get("managed_connectors", {})
+            zb = lfc_data.get("zerobus_ingest", {})
+            lfc_rows = [
+                {
+                    "Item": "Managed Connectors",
+                    "Preço": f"${mc.get('base_per_dbu', 0):.2f}/DBU",
+                    "Free tier": f"{mc.get('free_tier_dbu_per_workspace_per_day', 0)} DBU/workspace/dia",
+                    "Promo": "—",
+                },
+                {
+                    "Item": "Zerobus Ingest",
+                    "Preço": f"${zb.get('per_gb_promo', 0):.3f}/GB (promo) / ${zb.get('per_gb_list', 0):.3f}/GB (list)",
+                    "Free tier": "—",
+                    "Promo": f"50% off até {zb.get('promo_until', '—')}",
+                },
+            ]
+            st.dataframe(pd.DataFrame(lfc_rows), use_container_width=True, hide_index=True)
+            st.caption(
+                "💡 Bills aparecem como **Jobs Serverless** ou **Automated Serverless** SKU. "
+                "Engine ainda não modela ingest jobs — usar como referência."
+            )
 
     # ─── Sub-tab 2: Azure VM prices ─────────────────────────────────────────
     with sub2:

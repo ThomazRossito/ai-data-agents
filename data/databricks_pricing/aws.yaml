@@ -92,11 +92,35 @@ dbu_rates_per_hour:
       no_photon: 0.20
       photon: 0.30
 
-  # Serverless Compute (managed, pay-per-second)
-  # PR 1 fix (2026-05-28): valor era $0.95 (fictício), real é $0.35/DBU pra Jobs Serverless.
-  # PR 2 vai sub-tipar: dlt_serverless $0.35, sql_serverless $0.70, all_purpose_serverless $0.75.
+  # Serverless Compute — backward-compat alias (DEPRECATED em PR 3)
+  # Sempre que possível, usar os sub-types específicos abaixo.
   serverless_compute:
     base_per_dbu: 0.35
+    _deprecated: true
+    _deprecated_note: "Use jobs_serverless / dlt_serverless / sql_serverless / all_purpose_serverless"
+
+  # Jobs Serverless Compute — PR 2 (2026-05-28)
+  # Fonte: https://www.databricks.com/product/pricing/lakeflow-jobs
+  jobs_serverless:
+    base_per_dbu: 0.35
+    photon_auto_enabled: true
+    modes: ["standard", "performance_optimized"]
+
+  # DLT Serverless Compute — PR 2 (2026-05-28)
+  # Fonte: https://www.databricks.com/product/pricing/lakeflow-spark-declarative-pipelines
+  dlt_serverless:
+    base_per_dbu: 0.35
+    photon_auto_enabled: true
+    modes: ["standard", "performance_optimized"]
+
+  # All-Purpose Serverless Compute — PR 2 (2026-05-28)
+  # Fonte: https://www.databricks.com/product/pricing/datascience-ml
+  all_purpose_serverless:
+    base_per_dbu: 0.75
+    photon_auto_enabled: true
+    photon_factor_classic: 2.0
+
+  # SQL Serverless: já existe em sql.serverless ($0.70/DBU acima)
 
   # Delta Live Tables
   delta_live_tables:
@@ -311,3 +335,43 @@ photon_modeling:
     - "PySpark UDFs em Python puro"
     - "Workloads I/O-bound (não CPU-bound)"
     - "ML training (use ML Runtime sem Photon)"
+  # PR 2 (2026-05-28): Photon factor HETEROGÊNEO por SKU (Databricks oficial).
+  factor_by_sku:
+    jobs_compute: 2.9
+    delta_live_tables: 2.9
+    all_purpose_compute: 2.0
+
+# =============================================================================
+# Lakebase — Database Serverless (PR 2, 2026-05-28)
+# =============================================================================
+# Postgres managed. Disponível AWS + Azure (sem GCP).
+# Nova unidade: Capacity Unit Hour ($/CU·h).
+# IMPORTANTE: preços promocional (50% off) válidos até 2027-01-31.
+# Fonte: https://www.databricks.com/product/pricing/lakebase
+lakebase:
+  cost_unit: cu_h
+  promo_until: "2027-01-31"
+  autoscaling_per_cu_h_promo: 0.092
+  autoscaling_per_cu_h_list: 0.184
+  always_on_min_per_cu_h_promo: 0.069
+  always_on_min_per_cu_h_list: 0.138
+  storage_per_gb_month: 0.345
+  source_url: "https://www.databricks.com/product/pricing/lakebase"
+  available_clouds: ["azure", "aws"]
+
+# =============================================================================
+# Lakeflow Connect — Ingestão Managed (PR 2, 2026-05-28)
+# =============================================================================
+# Managed Connectors + Zerobus Ingest.
+# Fonte: https://www.databricks.com/product/pricing/lakeflow-connect
+lakeflow_connect:
+  managed_connectors:
+    cost_unit: dbu_h
+    base_per_dbu: 0.35
+    free_tier_dbu_per_workspace_per_day: 100
+  zerobus_ingest:
+    cost_unit: gb_ingested
+    promo_until: "2026-09-01"
+    per_gb_promo: 0.050
+    per_gb_list: 0.100
+  source_url: "https://www.databricks.com/product/pricing/lakeflow-connect"
