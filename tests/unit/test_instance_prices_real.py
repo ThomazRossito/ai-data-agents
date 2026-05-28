@@ -185,30 +185,30 @@ class TestFetchAzureVMPrice:
 
 class TestFetchAWSEC2Price:
     def test_returns_none_when_boto3_not_installed(self, monkeypatch):
-        """Simula boto3 ausente — fallback transparente."""
+        """Simula boto3 ausente — fallback transparente.
+
+        Fix em PR 1 (2026-05-28): versão anterior usava sys.meta_path.insert
+        com _Blocker custom, mas falhava quando boto3 já estava cacheado em
+        sys.modules por outros tests do session (vazava preço real $0.192).
+
+        Mecanismo atual: setar sys.modules['boto3'] = None força o próximo
+        `import boto3` a levantar ImportError imediatamente
+        ('import of boto3 halted; None in sys.modules'). monkeypatch.setitem
+        garante teardown automático.
+        """
         import sys
 
-        # Backup boto3 se estiver instalado
-        boto3_backup = sys.modules.pop("boto3", None)
-        try:
+        # None em sys.modules → próximo `import boto3` levanta ImportError direto
+        monkeypatch.setitem(sys.modules, "boto3", None)
+        monkeypatch.setitem(sys.modules, "botocore", None)
+        monkeypatch.setitem(sys.modules, "botocore.exceptions", None)
 
-            class _Blocker:
-                def find_module(self, name, path=None):
-                    if name == "boto3":
-                        return self
+        # Garante cache limpo (fixture isola_env já chama clear_cache, mas
+        # explicit é seguro contra interferência cross-test)
+        instance_prices_real.clear_cache()
 
-                def load_module(self, name):
-                    raise ImportError(f"blocked: {name}")
-
-            sys.meta_path.insert(0, _Blocker())
-            try:
-                result = instance_prices_real.fetch_aws_ec2_price("us-east-1", "m5.xlarge")
-                assert result is None
-            finally:
-                sys.meta_path.pop(0)
-        finally:
-            if boto3_backup is not None:
-                sys.modules["boto3"] = boto3_backup
+        result = instance_prices_real.fetch_aws_ec2_price("us-east-1", "m5.xlarge")
+        assert result is None
 
     def test_returns_none_for_unknown_region(self):
         """Region não mapeada → None."""

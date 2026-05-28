@@ -15,11 +15,19 @@
 
 schema_version: "1.0.0"
 cloud: azure
-last_updated: "2026-05-26"
-last_verified_against_source: "2026-05-26"
+last_updated: "2026-05-28"
+last_verified_against_source: "2026-05-28"
 source_url: "https://www.databricks.com/product/pricing"
+audit_doc: "kb/databricks-pricing/extracted-prices-raw.md"
 notes: |
-  DBU rates verificados manualmente.
+  DBU rates verificados via Chrome MCP em 2026-05-28 (25 sub-páginas oficiais).
+  Catalog ajustado em PR 1 (foundational refactor):
+    - Tier 'standard' DEPRECATED (não consta nas páginas oficiais)
+    - Azure Databricks publica apenas 'premium' — corresponde a 'enterprise' em AWS/GCP
+    - serverless_compute corrigido: $0.95 (fictício) → $0.35 (Jobs Serverless real)
+  PR 2 (próximo) vai separar serverless_compute em sub-tipos
+  (jobs_serverless $0.35, dlt_serverless $0.35, sql_serverless $0.70, all_purpose_serverless $0.75)
+  e adicionar Lakebase, Lakeflow Connect, GCP scaffold.
   Instance prices serão buscados via Azure Retail Prices API em runtime.
   Spot/Low-priority é estimativa — variabilidade real depende de demanda Azure.
 
@@ -62,27 +70,44 @@ regions:
 dbu_rates_per_hour:
 
   # All-Purpose Compute (notebooks interativos, exploração)
+  # Oficial 2026-05-28: Premium $0.55/DBU (datascience-ml page).
   all_purpose_compute:
     standard:
+      # DEPRECATED: tier 'standard' não consta em /product/pricing/datascience-ml.
+      # Mantido em PR 1 pra back-compat; será removido em PR 2.
       no_photon: 0.40
       photon: 0.55
+      _deprecated: true
     premium:
       no_photon: 0.55
       photon: 0.65
-    # Enterprise tier não publicado retail — negociado
+    # Azure não publica 'enterprise' separado — Azure Premium = AWS/GCP Enterprise.
+    # Catalog AWS/GCP terá bloco enterprise:.
 
   # Jobs Compute (workloads scheduled, ETL)
+  # Oficial 2026-05-28: Premium $0.20/DBU (lakeflow-jobs page, Azure-specific).
+  # NOTA: AWS Premium Jobs Classic = $0.15/DBU. Azure ~33% acima (consistente com
+  #       fato "Azure Premium = AWS Enterprise"). Premium AWS = $0.15, Enterprise AWS = $0.20.
   jobs_compute:
     standard:
+      # DEPRECATED: tier 'standard' não consta em /product/pricing/lakeflow-jobs.
       no_photon: 0.15
       photon: 0.22
+      _deprecated: true
     premium:
       no_photon: 0.20
       photon: 0.30
 
   # Serverless Compute (managed, pay-per-second)
+  # PR 1 fix (2026-05-28): valor era $0.95 (fictício), real é $0.35/DBU pra Jobs Serverless
+  # (default mais comum). Outros variants serão sub-types em PR 2:
+  #   - dlt_serverless: $0.35/DBU
+  #   - sql_serverless: $0.70/DBU
+  #   - all_purpose_serverless: $0.75/DBU
+  # Fonte: /product/pricing/lakeflow-jobs, /product/pricing/lakeflow-spark-declarative-pipelines,
+  #        /product/pricing/databricks-sql, /product/pricing/datascience-ml
   serverless_compute:
-    base_per_dbu: 0.95
+    base_per_dbu: 0.35
     # Inclui infra Databricks-managed — sem instance cost adicional
 
   # Delta Live Tables
