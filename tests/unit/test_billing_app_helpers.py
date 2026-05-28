@@ -44,9 +44,24 @@ class TestLoadBillingData:
         assert all("AWS" in sku for sku in usage_df["sku_name"].unique())
         assert all("AWS" in sku for sku in prices_df["sku_name"].unique())
 
-    def test_real_mode_raises_runtime_error(self):
+    def test_real_mode_raises_when_credentials_missing(self, monkeypatch):
+        """Chunk 3.4: real mode foi implementado, mas requer DATABRICKS_HOST/TOKEN/WAREHOUSE_ID.
+        Sem credenciais, RealModeConfig.from_env levanta RuntimeError descritivo
+        (não mais o placeholder antigo)."""
+        for var in (
+            "DATABRICKS_HOST",
+            "DATABRICKS_TOKEN",
+            "DATABRICKS_BILLING_WAREHOUSE_ID",
+        ):
+            monkeypatch.delenv(var, raising=False)
+
+        # Limpa cache pra garantir que não retorna entry stale
+        from data_agents.cost_app.databricks import billing_real
+
+        billing_real.clear_cache()
+
         period = BillingPeriod(start_date=date(2026, 1, 1), end_date=date(2026, 1, 30))
-        with pytest.raises(RuntimeError, match="Real mode ainda não implementado"):
+        with pytest.raises(RuntimeError, match="DATABRICKS_"):
             load_billing_data(period=period, cloud="AZURE", mock=False)
 
     def test_days_buffer_is_at_least_60(self):

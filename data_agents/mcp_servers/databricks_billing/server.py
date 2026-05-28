@@ -45,6 +45,13 @@ from data_agents.cost_engine.billing import (
     cost_by_compute_type,
     top_cost_clusters,
 )
+from data_agents.cost_engine.optimization import (
+    IdleThresholds,
+    RightsizingThresholds,
+    detect_idle_clusters,
+    detect_rightsizing_opportunities,
+    evaluate_photon_roi,
+)
 
 logger = logging.getLogger("databricks_billing_mcp")
 
@@ -109,8 +116,8 @@ def _load_dataframes(cloud: str = "AZURE") -> tuple:
         (usage_df, prices_df) — pandas DataFrames.
 
     Raises:
-        RuntimeError: se mock_mode=false e a integração real ainda não está
-            implementada (Chunk 3.1 entrega só mock; real fica pra Chunk 3.x).
+        RuntimeError: se mock_mode=false e algum dos requisitos do real mode
+            não está OK (credenciais, warehouse_id, permissões UC).
     """
     if _is_mock_mode():
         # Por padrão gera 60 dias de histórico — caller filtra pela janela depois
@@ -118,12 +125,10 @@ def _load_dataframes(cloud: str = "AZURE") -> tuple:
         prices_df = generate_mock_list_prices_df(cloud=cloud)
         return usage_df, prices_df
 
-    # Real mode — placeholder pro Chunk 3.x. Por ora, falha cedo e claro.
-    raise RuntimeError(
-        "DATABRICKS_BILLING_MOCK_MODE=false ainda não suportado no Chunk 3.1. "
-        "Integração com databricks-sdk + SQL real virá em chunk posterior. "
-        "Use mock mode (DATABRICKS_BILLING_MOCK_MODE=true) por enquanto."
-    )
+    # Real mode (Chunk 3.4): SQL real via databricks-sdk + warehouse
+    from data_agents.cost_app.databricks.billing_real import load_real_dataframes
+
+    return load_real_dataframes(cloud=cloud, days_back=60, use_cache=True)
 
 
 # ─── Tools ───────────────────────────────────────────────────────────────────
@@ -157,7 +162,12 @@ def databricks_billing_diagnostics() -> str:
                 "period_end": str(end),
             }
 
-        meta = get_mock_metadata() if _is_mock_mode() else {"is_mock": False}
+        if _is_mock_mode():
+            meta = get_mock_metadata()
+        else:
+            from data_agents.cost_app.databricks.billing_real import get_real_metadata
+
+            meta = get_real_metadata()
 
         return _envelope(
             {
@@ -447,6 +457,206 @@ def databricks_billing_compare_estimate_vs_actual(
     except Exception as exc:
         logger.exception("compare_estimate_vs_actual falhou")
         return _error(f"compare_estimate_vs_actual failed: {exc}")
+
+
+# ─── Fase 4: Otimização Proativa ─────────────────────────────────────────────
+
+
+@mcp.tool()
+def databricks_billing_get_rightsizing_suggestions(
+    start_date: str,
+    end_date: str,
+    cloud: str = "AZURE",
+    underuse_pct: float = 0.5,
+    min_days_observed: int = 7,
+    min_total_dbus: float = 10.0,
+) -> str:
+    """
+    Detecta clusters subutilizados (candidatos a downsize).
+
+    Algoritmo: compara avg DBU/h consumido vs DBU/h esperado pelo compute_type
+    dominante. Cluster com utilization < underuse_pct é flagged como downsize.
+
+    Args:
+        start_date: 'YYYY-MM-DD' inclusivo.
+        end_date: 'YYYY-MM-DD' inclusivo.
+        cloud: "AZURE" ou "AWS" (default AZURE).
+        underuse_pct: limiar 0.0-1.0 (default 0.5 = 50%).
+        min_days_observed: mínimo de dias com dados pra incluir cluster (default 7).
+        min_total_dbus: mínimo de DBU total pra evitar ruído (default 10.0).
+
+    Returns:
+        JSON com rows ordenadas por potential_savings_pct DESC.
+    """
+    try:
+        usage_df, _ = _load_dataframes(cloud=cloud)
+        period = BillingPeriod(
+            start_date=_parse_date(start_date),
+            end_date=_parse_date(end_date),
+        )
+        thresholds = RightsizingThresholds(
+            underuse_pct=underuse_pct,
+            min_days_observed=min_days_observed,
+            min_total_dbus=min_total_dbus,
+        )
+        result = detect_rightsizing_opportunities(usage_df, period, thresholds)
+        downsize_count = int((result["suggestion"] == "downsize").sum()) if not result.empty else 0
+        return _envelope(
+            {
+                "period": {
+                    "start_date": str(period.start_date),
+                    "end_date": str(period.end_date),
+                    "days": period.days,
+                    "cloud": cloud.upper(),
+                },
+                "thresholds": {
+                    "underuse_pct": underuse_pct,
+                    "min_days_observed": min_days_observed,
+                    "min_total_dbus": min_total_dbus,
+                },
+                "count": len(result),
+                "downsize_candidates": downsize_count,
+                "rows": result.to_dict(orient="records"),
+            }
+        )
+    except ValueError as exc:
+        return _error(f"Invalid input: {exc}")
+    except Exception as exc:
+        logger.exception("get_rightsizing_suggestions falhou")
+        return _error(f"get_rightsizing_suggestions failed: {exc}")
+
+
+@mcp.tool()
+def databricks_billing_get_idle_clusters(
+    start_date: str,
+    end_date: str,
+    cloud: str = "AZURE",
+    max_dbu_per_hour: float = 0.5,
+    min_days_observed: int = 7,
+    min_active_days_pct: float = 0.7,
+) -> str:
+    """
+    Detecta clusters idle (sempre on, mas sem uso real).
+
+    Algoritmo: cluster ativo em >= min_active_days_pct dos dias da janela
+    MAS com avg DBU/h < max_dbu_per_hour → idle (desperdício).
+
+    Args:
+        start_date: 'YYYY-MM-DD' inclusivo.
+        end_date: 'YYYY-MM-DD' inclusivo.
+        cloud: "AZURE" ou "AWS" (default AZURE).
+        max_dbu_per_hour: cluster com avg < esse valor é idle (default 0.5).
+        min_days_observed: mínimo de dias com dados (default 7).
+        min_active_days_pct: % dos dias ativos pra considerar "sempre on" (default 0.7).
+
+    Returns:
+        JSON com rows ordenadas por gravidade (idle > low_use > ok).
+    """
+    try:
+        usage_df, _ = _load_dataframes(cloud=cloud)
+        period = BillingPeriod(
+            start_date=_parse_date(start_date),
+            end_date=_parse_date(end_date),
+        )
+        thresholds = IdleThresholds(
+            max_dbu_per_hour=max_dbu_per_hour,
+            min_days_observed=min_days_observed,
+            min_active_days_pct=min_active_days_pct,
+        )
+        result = detect_idle_clusters(usage_df, period, thresholds)
+        idle_count = int((result["verdict"] == "idle").sum()) if not result.empty else 0
+        low_use_count = int((result["verdict"] == "low_use").sum()) if not result.empty else 0
+        return _envelope(
+            {
+                "period": {
+                    "start_date": str(period.start_date),
+                    "end_date": str(period.end_date),
+                    "days": period.days,
+                    "cloud": cloud.upper(),
+                },
+                "thresholds": {
+                    "max_dbu_per_hour": max_dbu_per_hour,
+                    "min_days_observed": min_days_observed,
+                    "min_active_days_pct": min_active_days_pct,
+                },
+                "count": len(result),
+                "idle_count": idle_count,
+                "low_use_count": low_use_count,
+                "rows": result.to_dict(orient="records"),
+            }
+        )
+    except ValueError as exc:
+        return _error(f"Invalid input: {exc}")
+    except Exception as exc:
+        logger.exception("get_idle_clusters falhou")
+        return _error(f"get_idle_clusters failed: {exc}")
+
+
+@mcp.tool()
+def databricks_billing_evaluate_photon_roi(
+    start_date: str,
+    end_date: str,
+    cluster_id_with_photon: str,
+    cluster_id_without_photon: str,
+    cloud: str = "AZURE",
+) -> str:
+    """
+    Compara 2 clusters (com vs sem Photon) e estima ROI do Photon.
+
+    ⚠️ CAVEAT FORTE: comparação válida apenas se os 2 clusters rodam workload
+    SIMILAR. Sem system.query.history, usamos DBU total como proxy de tempo.
+
+    Algoritmo: relative_consumption = total_dbus_with / total_dbus_without.
+      - < 0.5 → photon_worth_it (Photon acelerou tanto que consumiu metade)
+      - 0.5-0.7 → photon_marginal
+      - > 0.7 → photon_not_worth (cobrou 2× mas acelerou pouco)
+
+    Args:
+        start_date: 'YYYY-MM-DD' inclusivo.
+        end_date: 'YYYY-MM-DD' inclusivo.
+        cluster_id_with_photon: ID do cluster Photon=on.
+        cluster_id_without_photon: ID do cluster Photon=off (comparação).
+        cloud: "AZURE" ou "AWS" (default AZURE).
+
+    Returns:
+        JSON com verdict + métricas + caveat sempre presente.
+    """
+    try:
+        usage_df, _ = _load_dataframes(cloud=cloud)
+        period = BillingPeriod(
+            start_date=_parse_date(start_date),
+            end_date=_parse_date(end_date),
+        )
+        result = evaluate_photon_roi(
+            usage_df=usage_df,
+            period=period,
+            cluster_id_with_photon=cluster_id_with_photon,
+            cluster_id_without_photon=cluster_id_without_photon,
+        )
+        return _envelope(
+            {
+                "period": {
+                    "start_date": str(period.start_date),
+                    "end_date": str(period.end_date),
+                    "days": period.days,
+                    "cloud": cloud.upper(),
+                },
+                "cluster_id_with": result.cluster_id_with,
+                "cluster_id_without": result.cluster_id_without,
+                "total_dbus_with": result.total_dbus_with,
+                "total_dbus_without": result.total_dbus_without,
+                "relative_consumption": result.relative_consumption,
+                "breakeven_speedup": result.breakeven_speedup,
+                "actual_speedup_proxy": result.actual_speedup_proxy,
+                "verdict": result.verdict,
+                "caveat": result.caveat,
+            }
+        )
+    except ValueError as exc:
+        return _error(f"Invalid input: {exc}")
+    except Exception as exc:
+        logger.exception("evaluate_photon_roi falhou")
+        return _error(f"evaluate_photon_roi failed: {exc}")
 
 
 # ─── Entry point ─────────────────────────────────────────────────────────────

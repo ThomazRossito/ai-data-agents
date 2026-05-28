@@ -295,3 +295,135 @@ class TestEnvelopeFormat:
             assert "mock_mode" in data
             assert data["mock_mode"] is True
             assert "data" in data
+
+
+# ─── Fase 4: Otimização Proativa (Chunks 4.1 + 4.2 + 4.3) ────────────────────
+
+
+class TestOptimizationTools:
+    """Testes das 3 tools MCP novas da Fase 4."""
+
+    def test_rightsizing_returns_envelope_with_counts(self, server):
+        start, end = _last_7_days()
+        # Janela curta + min_days_observed=3 pra pegar dados do mock
+        result = server.databricks_billing_get_rightsizing_suggestions(
+            start_date=start, end_date=end, min_days_observed=3, min_total_dbus=0.0
+        )
+        data = _parse(result)
+        assert "count" in data["data"]
+        assert "downsize_candidates" in data["data"]
+        assert isinstance(data["data"]["rows"], list)
+
+    def test_rightsizing_thresholds_preserved_in_envelope(self, server):
+        start, end = _last_7_days()
+        result = server.databricks_billing_get_rightsizing_suggestions(
+            start_date=start, end_date=end, underuse_pct=0.3, min_days_observed=5
+        )
+        data = _parse(result)
+        assert data["data"]["thresholds"]["underuse_pct"] == 0.3
+        assert data["data"]["thresholds"]["min_days_observed"] == 5
+
+    def test_rightsizing_invalid_period_returns_error(self, server):
+        result = server.databricks_billing_get_rightsizing_suggestions(
+            start_date="2026-01-10", end_date="2026-01-01"
+        )
+        data = _parse(result)
+        assert data.get("error") is True
+
+    def test_idle_returns_idle_and_low_use_counts(self, server):
+        start, end = _last_7_days()
+        result = server.databricks_billing_get_idle_clusters(
+            start_date=start, end_date=end, min_days_observed=3
+        )
+        data = _parse(result)
+        assert "idle_count" in data["data"]
+        assert "low_use_count" in data["data"]
+        assert isinstance(data["data"]["rows"], list)
+
+    def test_idle_thresholds_preserved(self, server):
+        start, end = _last_7_days()
+        result = server.databricks_billing_get_idle_clusters(
+            start_date=start, end_date=end, max_dbu_per_hour=0.3
+        )
+        data = _parse(result)
+        assert data["data"]["thresholds"]["max_dbu_per_hour"] == 0.3
+
+    def test_idle_invalid_period_returns_error(self, server):
+        result = server.databricks_billing_get_idle_clusters(
+            start_date="not-a-date", end_date="2026-01-01"
+        )
+        data = _parse(result)
+        assert data.get("error") is True
+
+    def test_photon_roi_returns_verdict(self, server):
+        """Pega 2 clusters do mock e roda compare."""
+        start, end = _last_7_days()
+        # Carrega usage pra pegar IDs reais
+        from data_agents.cost_app.databricks.billing_mock import generate_mock_usage_df
+
+        usage = generate_mock_usage_df(days=60, cloud="AZURE", seed=42)
+        ids = usage["cluster_id"].dropna().unique().tolist()
+        assert len(ids) >= 2, "Mock deveria gerar pelo menos 2 clusters"
+
+        result = server.databricks_billing_evaluate_photon_roi(
+            start_date=start,
+            end_date=end,
+            cluster_id_with_photon=str(ids[0]),
+            cluster_id_without_photon=str(ids[1]),
+        )
+        data = _parse(result)
+        assert "verdict" in data["data"]
+        assert data["data"]["verdict"] in {
+            "photon_worth_it",
+            "photon_marginal",
+            "photon_not_worth",
+        }
+        assert "caveat" in data["data"]
+        assert "PROXY" in data["data"]["caveat"]
+
+    def test_photon_roi_unknown_cluster_returns_error(self, server):
+        start, end = _last_7_days()
+        result = server.databricks_billing_evaluate_photon_roi(
+            start_date=start,
+            end_date=end,
+            cluster_id_with_photon="fake-cluster",
+            cluster_id_without_photon="other-fake",
+        )
+        data = _parse(result)
+        assert data.get("error") is True
+
+    def test_all_optimization_tools_return_envelope(self, server):
+        """As 3 tools devem retornar JSON com timestamp + mock_mode + data."""
+        start, end = _last_7_days()
+        from data_agents.cost_app.databricks.billing_mock import generate_mock_usage_df
+
+        usage = generate_mock_usage_df(days=60, cloud="AZURE", seed=42)
+        ids = usage["cluster_id"].dropna().unique().tolist()
+
+        tools_to_test = [
+            (
+                "databricks_billing_get_rightsizing_suggestions",
+                {"start_date": start, "end_date": end},
+            ),
+            (
+                "databricks_billing_get_idle_clusters",
+                {"start_date": start, "end_date": end},
+            ),
+            (
+                "databricks_billing_evaluate_photon_roi",
+                {
+                    "start_date": start,
+                    "end_date": end,
+                    "cluster_id_with_photon": str(ids[0]),
+                    "cluster_id_without_photon": str(ids[1]),
+                },
+            ),
+        ]
+        for tool_name, kwargs in tools_to_test:
+            tool_func = getattr(server, tool_name)
+            result = tool_func(**kwargs)
+            data = json.loads(result)
+            assert "timestamp" in data
+            assert "mock_mode" in data
+            assert data["mock_mode"] is True
+            assert "data" in data

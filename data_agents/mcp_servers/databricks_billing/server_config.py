@@ -48,13 +48,18 @@ def get_databricks_billing_mcp_config() -> dict:
 # server_name = "databricks_billing" (chave em ALL_MCP_CONFIGS)
 
 DATABRICKS_BILLING_MCP_TOOLS = [
+    # Fase 3: análise de consumo
     "mcp__databricks_billing__databricks_billing_diagnostics",
     "mcp__databricks_billing__databricks_billing_get_dbu_usage_daily",
     "mcp__databricks_billing__databricks_billing_get_top_cost_clusters",
     "mcp__databricks_billing__databricks_billing_get_cost_by_compute_type",
     "mcp__databricks_billing__databricks_billing_compare_estimate_vs_actual",
+    # Fase 4: otimização proativa
+    "mcp__databricks_billing__databricks_billing_get_rightsizing_suggestions",
+    "mcp__databricks_billing__databricks_billing_get_idle_clusters",
+    "mcp__databricks_billing__databricks_billing_evaluate_photon_roi",
 ]
 
-# Todas as 5 tools são READS de system.billing (não há writes).
+# Todas as tools são READS de system.billing (não há writes).
 # Readonly = idêntico ao set completo.
 DATABRICKS_BILLING_MCP_READONLY_TOOLS = list(DATABRICKS_BILLING_MCP_TOOLS)

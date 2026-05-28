@@ -36,21 +36,24 @@ def load_billing_data(
     Args:
         period: BillingPeriod com janela.
         cloud: "AZURE" ou "AWS".
-        mock: True usa generator sintético. False tenta SQL real (placeholder).
-        seed: seed do mock pra reprodutibilidade nos testes.
+        mock: True usa generator sintético. False usa SQL real via
+            databricks-sdk (Chunk 3.4).
+        seed: seed do mock pra reprodutibilidade nos testes (ignorado em real).
 
     Returns:
         (usage_df, prices_df) — DataFrames já no schema do engine.
 
     Raises:
-        RuntimeError: se mock=False (real mode ainda não implementado no
-            Chunk 3.x — mesmo placeholder do MCP server).
+        RuntimeError: se mock=False e config do real mode está inválida
+            (DATABRICKS_HOST/TOKEN/BILLING_WAREHOUSE_ID ausentes) ou se a
+            execução SQL falhar (permissão, warehouse pausado, UC desabilitado).
     """
     if not mock:
-        raise RuntimeError(
-            "Real mode ainda não implementado. Use mock=True por enquanto. "
-            "Integração com databricks-sdk + warehouse virá em chunk posterior."
-        )
+        # Real mode (Chunk 3.4) — usa o mesmo loader do MCP pra consistência
+        from data_agents.cost_app.databricks.billing_real import load_real_dataframes
+
+        days_back = max(period.days + 10, 60)
+        return load_real_dataframes(cloud=cloud, days_back=days_back, use_cache=True)
 
     from data_agents.cost_app.databricks.billing_mock import (
         generate_mock_list_prices_df,
