@@ -37,19 +37,22 @@ if TYPE_CHECKING:
 
 # SKUs realistas que casam com o schema system.billing.usage.
 # Valores price_per_dbu confirmados no kb/databricks-pricing/concepts/dbu-model.md.
+# PR 1 fix 2026-05-28: PREMIUM_SERVERLESS_COMPUTE_* era $0.95 (fictício),
+# corrigido para $0.35 (Jobs Serverless real, /product/pricing/lakeflow-jobs).
+# PR 2 vai adicionar SKUs distintas pra DLT/SQL/All-Purpose Serverless.
 _MOCK_SKUS_AZURE: tuple[tuple[str, float, float], ...] = (
     # (sku_name, price_per_dbu, baseline_daily_dbus_per_cluster)
     ("PREMIUM_JOBS_COMPUTE_AZURE", 0.20, 12.0),
     ("PREMIUM_ALL_PURPOSE_COMPUTE_AZURE", 0.55, 6.0),
     ("PREMIUM_SQL_PRO_COMPUTE_AZURE", 0.22, 4.0),
-    ("PREMIUM_SERVERLESS_COMPUTE_AZURE", 0.95, 3.0),
+    ("PREMIUM_SERVERLESS_COMPUTE_AZURE", 0.35, 3.0),
 )
 
 _MOCK_SKUS_AWS: tuple[tuple[str, float, float], ...] = (
     ("PREMIUM_JOBS_COMPUTE_AWS", 0.10, 12.0),
     ("PREMIUM_ALL_PURPOSE_COMPUTE_AWS", 0.55, 6.0),
     ("PREMIUM_SQL_PRO_COMPUTE_AWS", 0.22, 4.0),
-    ("PREMIUM_SERVERLESS_COMPUTE_AWS", 0.95, 3.0),
+    ("PREMIUM_SERVERLESS_COMPUTE_AWS", 0.35, 3.0),
 )
 
 # Clusters fictícios com nomes plausíveis (ETL Bronze é o canonical do projeto).

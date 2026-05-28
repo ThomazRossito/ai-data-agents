@@ -72,8 +72,57 @@ ComputeType = Literal[
     "vector_search",
     "mosaic_agent",
 ]
-Tier = Literal["standard", "premium", "enterprise"]
+# PR 1 (auditoria 2026-05-28): tier model alinhado com Databricks oficial.
+# `standard` é DEPRECATED — não consta em nenhuma das 25 sub-páginas de pricing
+# oficiais (kb/databricks-pricing/extracted-prices-raw.md). PR 2 vai removê-lo.
+#
+# Mapping confirmado em https://www.databricks.com/product/pricing/* (todas as 25 páginas):
+#   "The Premium tier on Azure Databricks corresponds to the Enterprise tier on AWS and GCP"
+#
+# Implicação prática:
+#   - Azure só publica "Premium" oficialmente (= Enterprise em AWS/GCP).
+#   - AWS/GCP publicam Premium e Enterprise.
+#   - O catalog YAML ainda tem "standard" pra back-compat até PR 2.
+#
+# Helper validate_tier() abaixo emite warning quando "standard" é usado.
+Tier = str  # ampliado pra str em PR 1; volta a Literal["premium", "enterprise"] em PR 2
+OFFICIAL_TIERS: tuple[str, ...] = ("premium", "enterprise")
+DEPRECATED_TIERS: tuple[str, ...] = ("standard",)
 PricingModel = Literal["on_demand", "spot", "reserved_1y", "reserved_3y"]
+
+
+def validate_tier(tier: str, cloud: CloudName | None = None) -> tuple[bool, str | None]:
+    """Valida tier contra hierarquia oficial Databricks.
+
+    Returns:
+        (is_official, warning_message_or_None)
+
+    Regras:
+        - "premium" e "enterprise" são OFICIAIS (sempre válidos)
+        - "standard" é DEPRECATED — válido pra back-compat, mas emite warning
+        - Qualquer outro valor é UNKNOWN — válido (engine lê do YAML), warning leve
+
+    Para cloud="azure", também avisa que Azure só publica "premium" oficialmente.
+    """
+    tier_normalized = tier.lower().strip()
+
+    if tier_normalized in OFFICIAL_TIERS:
+        if cloud == "azure" and tier_normalized == "enterprise":
+            return True, (
+                "Azure Databricks não publica tier 'enterprise' oficialmente — "
+                "Azure 'premium' corresponde a AWS/GCP 'enterprise'. "
+                "Catalog YAML pode aceitar 'enterprise' como alias para 'premium' no Azure."
+            )
+        return True, None
+
+    if tier_normalized in DEPRECATED_TIERS:
+        return False, (
+            f"Tier {tier!r} é DEPRECATED — não consta nas 25 páginas oficiais de pricing "
+            f"Databricks (verificado 2026-05-28). Use 'premium' ou 'enterprise'. "
+            f"Suporte será removido em PR 2."
+        )
+
+    return False, f"Tier {tier!r} desconhecido. Esperado: 'premium' ou 'enterprise'."
 
 
 # Onde vivem os catalogs YAML
@@ -331,6 +380,11 @@ def calculate_databricks_cost(
         )
 
     warnings: list[str] = []
+
+    # 0. Valida tier contra hierarquia oficial Databricks (PR 1, 2026-05-28)
+    tier_ok, tier_warning = validate_tier(scenario.tier, cloud=scenario.cloud)
+    if tier_warning:
+        warnings.append(tier_warning)
 
     # 1. Resolve DBU rate (USD/DBU·h)
     dbu_rate = _resolve_dbu_rate(catalog, scenario)

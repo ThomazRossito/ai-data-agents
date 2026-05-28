@@ -465,11 +465,13 @@ class TestServerlessNoInstanceCost:
         )
         result = calculate_databricks_cost(scenario, catalog)
 
-        # DBU rate serverless azure premium = $0.95/DBU·h
+        # DBU rate serverless azure premium = $0.35/DBU·h
+        # (PR 1 fix 2026-05-28: era $0.95 fictício, real Jobs Serverless = $0.35)
+        # Fonte: https://www.databricks.com/product/pricing/lakeflow-jobs
         # Driver DS12_v2 = 1.5 DBU/h, 4 workers × 1.5 = 6.0 DBU/h
-        # Total DBU/h = 7.5 × $0.95 = $7.125/h
-        # Mensal = $7.125 × 2.5h × 22d = $391.875
-        assert result["totals"]["monthly"] == pytest.approx(391.87, abs=0.5)
+        # Total DBU/h = 7.5 × $0.35 = $2.625/h
+        # Mensal = $2.625 × 2.5h × 22d = $144.375
+        assert result["totals"]["monthly"] == pytest.approx(144.37, abs=0.5)
 
     def test_non_serverless_keeps_instance_cost(self):
         """Cenário Jobs Premium (não-serverless) DEVE manter instance_cost (regression check)."""
@@ -562,3 +564,113 @@ class TestServerlessNoInstanceCost:
         result = calculate_databricks_cost(scenario, catalog)
         # SQL Pro tem instance (não é managed)
         assert result["breakdown_hourly_usd"]["instance_total"] > 0.0
+
+
+# ── PR 1 (2026-05-28): tier model alinhado com Databricks oficial ────────────
+
+
+class TestTierValidation:
+    """Audit 2026-05-28 (kb/databricks-pricing/extracted-prices-raw.md): tier 'standard'
+    não consta em nenhuma das 25 sub-páginas de pricing oficiais Databricks.
+    Em PR 1 levantamos warning; em PR 2 será erro.
+    """
+
+    def test_validate_tier_premium_is_official(self):
+        from data_agents.cost_engine.databricks import validate_tier
+
+        ok, warning = validate_tier("premium")
+        assert ok is True
+        assert warning is None
+
+    def test_validate_tier_enterprise_is_official_aws(self):
+        from data_agents.cost_engine.databricks import validate_tier
+
+        ok, warning = validate_tier("enterprise", cloud="aws")
+        assert ok is True
+        assert warning is None
+
+    def test_validate_tier_enterprise_on_azure_warns(self):
+        """Azure não publica Enterprise — Azure Premium ≡ AWS/GCP Enterprise."""
+        from data_agents.cost_engine.databricks import validate_tier
+
+        ok, warning = validate_tier("enterprise", cloud="azure")
+        # tier ainda é oficial (existe em AWS/GCP), mas merece warning de mapping
+        assert ok is True
+        assert warning is not None
+        assert "Azure" in warning
+
+    def test_validate_tier_standard_is_deprecated(self):
+        from data_agents.cost_engine.databricks import validate_tier
+
+        ok, warning = validate_tier("standard")
+        assert ok is False
+        assert warning is not None
+        assert "DEPRECATED" in warning
+
+    def test_validate_tier_unknown_value(self):
+        from data_agents.cost_engine.databricks import validate_tier
+
+        ok, warning = validate_tier("foobar")
+        assert ok is False
+        assert warning is not None
+        assert "desconhecido" in warning.lower()
+
+    def test_calculate_cost_with_tier_standard_emits_warning(self):
+        """End-to-end: tier=standard em scenario produz warning no result."""
+        scenario = DatabricksScenario(
+            cloud="aws",
+            compute_type="jobs_compute",
+            tier="standard",
+            photon=False,
+            driver_instance="m5.xlarge",
+            worker_instance="m5.xlarge",
+            num_workers=1,
+            hours_per_day=1,
+            days_per_month=1,
+            region="us-east-1",
+            instance_pricing_model="on_demand",
+            driver_instance_cost_per_hour_usd=0.192,
+            worker_instance_cost_per_hour_usd=0.192,
+        )
+        result = calculate_databricks_cost(scenario)
+        assert any("DEPRECATED" in w for w in result["warnings"])
+
+    def test_calculate_cost_with_tier_premium_no_deprecation_warning(self):
+        """Regression check: tier=premium NÃO produz warning de deprecation."""
+        scenario = DatabricksScenario(
+            cloud="aws",
+            compute_type="jobs_compute",
+            tier="premium",
+            photon=False,
+            driver_instance="m5.xlarge",
+            worker_instance="m5.xlarge",
+            num_workers=1,
+            hours_per_day=1,
+            days_per_month=1,
+            region="us-east-1",
+            instance_pricing_model="on_demand",
+            driver_instance_cost_per_hour_usd=0.192,
+            worker_instance_cost_per_hour_usd=0.192,
+        )
+        result = calculate_databricks_cost(scenario)
+        assert not any("DEPRECATED" in w for w in result["warnings"])
+
+
+# ── PR 1 (2026-05-28): Serverless rate corrigido ($0.95 → $0.35) ────────────
+
+
+class TestServerlessRateCorrection:
+    """Audit 2026-05-28: serverless_compute.base_per_dbu era $0.95 (fictício).
+    Real Jobs Serverless: $0.35/DBU (https://www.databricks.com/product/pricing/lakeflow-jobs).
+    PR 2 vai sub-tipar pra DLT $0.35, SQL $0.70, All-Purpose $0.75.
+    """
+
+    def test_azure_serverless_rate_is_0_35(self):
+        catalog = load_databricks_catalog("azure")
+        rate = catalog["dbu_rates_per_hour"]["serverless_compute"]["base_per_dbu"]
+        assert rate == 0.35
+
+    def test_aws_serverless_rate_is_0_35(self):
+        catalog = load_databricks_catalog("aws")
+        rate = catalog["dbu_rates_per_hour"]["serverless_compute"]["base_per_dbu"]
+        assert rate == 0.35

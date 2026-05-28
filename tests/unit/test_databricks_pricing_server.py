@@ -70,12 +70,14 @@ class TestGetDBURate:
         assert data["data"]["dbu_rate_per_hour_usd"] == 0.10
 
     def test_serverless_compute_returns_base_per_dbu(self):
+        # PR 1 fix 2026-05-28: era $0.95 fictício, real Jobs Serverless = $0.35.
+        # Fonte: https://www.databricks.com/product/pricing/lakeflow-jobs
         result = server.databricks_pricing_get_dbu_rate(
             compute_type="serverless_compute",
             cloud="azure",
         )
         data = _parse(result)
-        assert data["data"]["dbu_rate_per_hour_usd"] == 0.95
+        assert data["data"]["dbu_rate_per_hour_usd"] == 0.35
 
     def test_unknown_compute_returns_error(self):
         result = server.databricks_pricing_get_dbu_rate(

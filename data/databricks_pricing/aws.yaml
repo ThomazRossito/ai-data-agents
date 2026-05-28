@@ -14,11 +14,19 @@
 
 schema_version: "1.0.0"
 cloud: aws
-last_updated: "2026-05-26"
-last_verified_against_source: "2026-05-26"
+last_updated: "2026-05-28"
+last_verified_against_source: "2026-05-28"
 source_url: "https://www.databricks.com/product/pricing"
+audit_doc: "kb/databricks-pricing/extracted-prices-raw.md"
 notes: |
-  DBU rates verificados manualmente contra databricks.com em 2026-05-26.
+  DBU rates verificados via Chrome MCP em 2026-05-28 (25 sub-páginas oficiais).
+  Catalog ajustado em PR 1 (foundational refactor):
+    - Tier 'standard' DEPRECATED (não consta nas páginas oficiais)
+    - AWS publica oficialmente Premium e Enterprise (Azure só Premium = AWS Enterprise)
+    - serverless_compute corrigido: $0.95 (fictício) → $0.35 (Jobs Serverless real)
+  PR 2 (próximo) vai separar serverless_compute em sub-tipos
+  (jobs_serverless $0.35, dlt_serverless $0.35, sql_serverless $0.70, all_purpose_serverless $0.75)
+  e adicionar Lakebase, Lakeflow Connect, GCP scaffold.
   Instance prices buscados via AWS Pricing API em runtime.
   Spot rates extremamente voláteis — valores aqui são MÉDIAS de 90 dias.
 
@@ -52,11 +60,15 @@ regions:
 # =============================================================================
 dbu_rates_per_hour:
 
-  # All-Purpose Compute (Standard/Premium/Enterprise tiers)
+  # All-Purpose Compute (Premium/Enterprise tiers — Standard DEPRECATED)
+  # Oficial 2026-05-28: AWS Premium All-Purpose Classic = $0.55/DBU (datascience-ml).
   all_purpose_compute:
     standard:
+      # DEPRECATED: tier 'standard' não consta em /product/pricing/datascience-ml.
+      # Mantido em PR 1 pra back-compat; será removido em PR 2.
       no_photon: 0.40
       photon: 0.55
+      _deprecated: true
     premium:
       no_photon: 0.55
       photon: 0.65
@@ -64,11 +76,15 @@ dbu_rates_per_hour:
       no_photon: 0.65
       photon: 0.85
 
-  # Jobs Compute
+  # Jobs Compute (Premium/Enterprise — Standard DEPRECATED)
+  # Oficial 2026-05-28: AWS Premium Jobs Classic = $0.15/DBU (lakeflow-jobs).
+  # Azure Premium = AWS Enterprise (= $0.20/DBU AWS).
   jobs_compute:
     standard:
+      # DEPRECATED: tier 'standard' não consta em /product/pricing/lakeflow-jobs.
       no_photon: 0.10
       photon: 0.15
+      _deprecated: true
     premium:
       no_photon: 0.15
       photon: 0.22
@@ -76,9 +92,11 @@ dbu_rates_per_hour:
       no_photon: 0.20
       photon: 0.30
 
-  # Serverless Compute
+  # Serverless Compute (managed, pay-per-second)
+  # PR 1 fix (2026-05-28): valor era $0.95 (fictício), real é $0.35/DBU pra Jobs Serverless.
+  # PR 2 vai sub-tipar: dlt_serverless $0.35, sql_serverless $0.70, all_purpose_serverless $0.75.
   serverless_compute:
-    base_per_dbu: 0.95
+    base_per_dbu: 0.35
 
   # Delta Live Tables
   delta_live_tables:
