@@ -391,3 +391,238 @@ lakeflow_connect:
     per_gb_promo: 0.050                  # com promo
     per_gb_list: 0.100                   # sem promo (2x)
   source_url: "https://www.databricks.com/product/pricing/lakeflow-connect"
+
+# =============================================================================
+# Model Serving (PR 3, 2026-05-28)
+# =============================================================================
+# CPU Serving: per concurrent request. GPU Serving: per GPU instance/hour.
+# Mesma rate $/DBU = $0.07; diferença está no DBU/h consumido por instance.
+# Fonte: https://www.databricks.com/product/pricing/model-serving
+# Bills: "Serverless Real-time Inference" SKU.
+model_serving:
+  cost_unit: dbu_h
+  cpu_per_dbu: 0.070                   # includes cloud instance
+  gpu_per_dbu: 0.070                   # includes cloud instance
+  source_url: "https://www.databricks.com/product/pricing/model-serving"
+
+  # GPU Serving DBU rates por instance size (DBU/h)
+  gpu_instances:
+    small:       { gpu: "T4 ou equivalente",    dbu_per_hour: 10.48 }
+    medium:      { gpu: "A10G x 1 GPU",         dbu_per_hour: 20.00 }
+    medium_4x:   { gpu: "A10G x 4 GPUs",        dbu_per_hour: 112.00 }
+    medium_8x:   { gpu: "A10G x 8 GPUs",        dbu_per_hour: 290.80 }
+    large_8x_40: { gpu: "A100 40GB x 8 GPUs",   dbu_per_hour: 538.40 }
+    large_8x_80: { gpu: "A100 80GB x 8 GPUs",   dbu_per_hour: 628.00 }
+
+# =============================================================================
+# Foundation Model Serving — open + open-source LLMs (PR 3, 2026-05-28)
+# =============================================================================
+# 3 modos: pay_per_token / provisioned_throughput / batch_inference.
+# Rates aggregate: $/M input tok, $/M output tok, $/hour PT/Batch.
+# Per-model DBU rates abaixo (12 modelos confirmados).
+# Fonte: https://www.databricks.com/product/pricing/foundation-model-serving
+foundation_model_serving:
+  cost_unit: m_tokens                  # primary unit; PT/Batch usam $/h
+  pay_per_token:
+    input_per_m_tokens_usd: 0.50       # context ≤ 128K
+    output_per_m_tokens_usd: 1.50
+  provisioned_throughput:
+    cost_unit: hour
+    per_hour_per_pt_unit_usd: 6.00     # per-minute increments
+    # Entry capacity: só Azure+AWS em US/Canada/Brasil para base models
+    # Scaling capacity: standard PT increment
+  batch_inference:
+    cost_unit: hour
+    per_hour_per_throughput_band_usd: 6.00
+
+  # Per-model DBU rates (Pay-Per-Token + Provisioned Throughput)
+  # DBU / M tokens (input/output) + DBU/h (entry/scaling PT capacity)
+  per_model_dbu_rates:
+    llama_4_maverick:    { input_dbu_per_m: 7.143,  output_dbu_per_m: 21.429, entry_pt_dbu_h: 85.714,  scaling_pt_dbu_h: 85.714 }
+    llama_3_3_70b:       { input_dbu_per_m: 7.143,  output_dbu_per_m: 21.429, entry_pt_dbu_h: 85.714,  scaling_pt_dbu_h: 342.857 }
+    qwen_3_next_80b:     { input_dbu_per_m: 2.143,  output_dbu_per_m: 17.143, entry_pt_dbu_h: 78.571,  scaling_pt_dbu_h: 78.571 }
+    gpt_oss_120b:        { input_dbu_per_m: 2.143,  output_dbu_per_m: 8.571,  entry_pt_dbu_h: 71.429,  scaling_pt_dbu_h: 71.429 }
+    gemma_3_12b:         { input_dbu_per_m: 2.143,  output_dbu_per_m: 7.143,  entry_pt_dbu_h: 71.429,  scaling_pt_dbu_h: 71.429 }
+    llama_3_1_8b:        { input_dbu_per_m: 2.143,  output_dbu_per_m: 6.429,  entry_pt_dbu_h: 53.571,  scaling_pt_dbu_h: 106.000 }
+    gpt_oss_20b:         { input_dbu_per_m: 1.000,  output_dbu_per_m: 4.286,  entry_pt_dbu_h: 53.571,  scaling_pt_dbu_h: 53.571 }
+    llama_3_2_3b:        { input_dbu_per_m: null,   output_dbu_per_m: null,   entry_pt_dbu_h: 46.429,  scaling_pt_dbu_h: 92.857 }
+    llama_3_2_1b:        { input_dbu_per_m: null,   output_dbu_per_m: null,   entry_pt_dbu_h: 42.857,  scaling_pt_dbu_h: 85.714 }
+    qwen_3_06b_embed:    { input_dbu_per_m: 0.286,  output_dbu_per_m: null,   entry_pt_dbu_h: 25.000,  scaling_pt_dbu_h: 25.000 }
+    gte:                 { input_dbu_per_m: 1.857,  output_dbu_per_m: null,   entry_pt_dbu_h: 20.000,  scaling_pt_dbu_h: 20.000 }
+    bge_large:           { input_dbu_per_m: 1.429,  output_dbu_per_m: null,   entry_pt_dbu_h: 24.000,  scaling_pt_dbu_h: 24.000 }
+
+  source_url: "https://www.databricks.com/product/pricing/foundation-model-serving"
+
+# =============================================================================
+# Proprietary Foundation Model Serving (PR 3, 2026-05-28)
+# =============================================================================
+# OpenAI + Anthropic + Gemini. Mesmo $0.07/DBU base; per-model DBU rates.
+# Bills: AWS/GCP → "<Vendor> Model Serving" SKU. Azure → ADI Service (requires sales).
+# Captura inicial: OpenAI GPT 5.x family. Anthropic/Gemini estrutura idêntica — TODO PR 4.
+# Fonte: https://www.databricks.com/product/pricing/proprietary-foundation-model-serving
+proprietary_foundation_model_serving:
+  cost_unit: dbu_h
+  base_per_dbu_pay_per_token: 0.07
+  base_per_dbu_batch: 0.07
+  source_url: "https://www.databricks.com/product/pricing/proprietary-foundation-model-serving"
+
+  vendors:
+    openai:
+      models:
+        # DBU / M tokens — Global Short context. In-geo = ~10% uplift, Long = 2x.
+        gpt_5_5:           { input_dbu_per_m: 71.429,  output_dbu_per_m: 428.571,   cache_write_dbu_per_m: 71.429,  cache_read_dbu_per_m: 7.143,  batch_dbu_per_h: 214.286 }
+        gpt_5_4_pro:       { input_dbu_per_m: 428.571, output_dbu_per_m: 2571.429,  cache_write_dbu_per_m: 428.571, cache_read_dbu_per_m: 42.857, batch_dbu_per_h: 1142.857 }
+        gpt_5_4:           { input_dbu_per_m: 35.714,  output_dbu_per_m: 214.286,   cache_write_dbu_per_m: 35.714,  cache_read_dbu_per_m: 3.571,  batch_dbu_per_h: 192.857 }
+        gpt_5_4_mini:      { input_dbu_per_m: 10.714,  output_dbu_per_m: 64.286,    cache_write_dbu_per_m: 10.714,  cache_read_dbu_per_m: 1.071,  batch_dbu_per_h: 107.143 }
+        gpt_5_4_nano:      { input_dbu_per_m: 2.857,   output_dbu_per_m: 17.857,    cache_write_dbu_per_m: 2.857,   cache_read_dbu_per_m: 0.286,  batch_dbu_per_h: 71.429 }
+        gpt_5:             { input_dbu_per_m: 17.857,  output_dbu_per_m: 142.857,   cache_write_dbu_per_m: 17.857,  cache_read_dbu_per_m: 1.786,  batch_dbu_per_h: 131.429 }
+        gpt_5_mini:        { input_dbu_per_m: 3.571,   output_dbu_per_m: 28.571,    cache_write_dbu_per_m: 3.571,   cache_read_dbu_per_m: 0.357,  batch_dbu_per_h: 71.429 }
+        gpt_5_nano:        { input_dbu_per_m: 0.714,   output_dbu_per_m: 5.714,     cache_write_dbu_per_m: 0.714,   cache_read_dbu_per_m: 0.071,  batch_dbu_per_h: 53.571 }
+        gpt_5_2_codex:     { input_dbu_per_m: 25.000,  output_dbu_per_m: 200.000,   cache_write_dbu_per_m: 25.000,  cache_read_dbu_per_m: 2.500,  batch_dbu_per_h: null }
+        gpt_5_1_codex_max: { input_dbu_per_m: 17.857,  output_dbu_per_m: 142.857,   cache_write_dbu_per_m: 17.857,  cache_read_dbu_per_m: 1.786,  batch_dbu_per_h: null }
+    anthropic:
+      # Estrutura idêntica ao OpenAI. Per-model rates: TODO capturar via Chrome MCP em PR 4.
+      _todo: "Tabela completa em https://www.databricks.com/product/pricing/proprietary-foundation-model-serving (select Anthropic)"
+    gemini:
+      # Mesma estrutura. TODO PR 4.
+      _todo: "Tabela completa em https://www.databricks.com/product/pricing/proprietary-foundation-model-serving (select Gemini)"
+
+# =============================================================================
+# Vector Search v2 (PR 3, 2026-05-28)
+# =============================================================================
+# Refactor do vector_search legacy. Oficial: 2 tiers (Standard 2M / Storage Optimized 64M).
+# Bills: "Serverless Real-time Inference" SKU. Effective $/DBU US East = $0.07.
+# Fonte: https://www.databricks.com/product/pricing/vector-search
+vector_search_v2:
+  cost_unit: hour_per_unit
+  effective_dollar_per_dbu_us_east: 0.07
+  effective_dollar_per_dbu_ap_regions: 0.088  # ~25% uplift
+  source_url: "https://www.databricks.com/product/pricing/vector-search"
+
+  tiers:
+    standard:
+      compute_per_hour_usd: 0.28
+      storage_per_gb_month_usd: 0.230   # first 30 GB free
+      storage_free_gb: 30
+      vector_capacity_per_unit: 2000000  # 2M vectors per unit
+      dbu_per_hour: 4.00
+    storage_optimized:
+      compute_per_hour_usd: 1.28
+      storage_per_gb_month_usd: 0.046
+      storage_free_gb: 0
+      vector_capacity_per_unit: 64000000  # 64M vectors per unit
+      dbu_per_hour: 18.286
+
+# =============================================================================
+# AI Functions (PR 3, 2026-05-28)
+# =============================================================================
+# Parse + Extract + Classify de unstructured data. Bills: "Serverless Real-time Inference".
+# Promo 50% off até 2026-06-30.
+# Fonte: https://www.databricks.com/product/pricing/ai-functions
+ai_functions:
+  cost_unit: dbu_h
+  promo_until: "2026-06-30"
+  ai_parse_document:
+    per_dbu_promo: 0.070
+    per_dbu_list: 0.140
+    note: "Parse PDFs/docs → Delta tables; DBU/1k pages varia: 10-90 conforme complexity"
+  ai_extract:
+    per_dbu_promo: 0.070
+    per_dbu_list: 0.140
+    note: "Extract estruturado de spark binary; requer ai_parse_document antes"
+  ai_classify:
+    per_dbu_promo: 0.070
+    per_dbu_list: 0.140
+    note: "Classify spark binary; requer ai_parse_document antes"
+  source_url: "https://www.databricks.com/product/pricing/ai-functions"
+
+# =============================================================================
+# AI Gateway (PR 3, 2026-05-28)
+# =============================================================================
+# Guardrails + Inference Tables + Usage Tracking. Novas unidades: $/M tok + $/GB.
+# Inference Tables e Usage Tracking cobrados em incrementos de 1KB.
+# Fonte: https://www.databricks.com/product/pricing/ai-gateway
+ai_gateway:
+  ai_guardrails:
+    cost_unit: m_tokens
+    per_m_tokens_usd: 1.50
+    note: "Filter input/output para prevenir PII e unsafe data"
+  inference_tables:
+    cost_unit: gb
+    per_gb_usd: 0.50
+    increment: "1KB"
+    note: "Track input/output dos modelos para audit"
+  usage_tracking:
+    cost_unit: gb
+    per_gb_usd: 0.100
+    increment: "1KB"
+    note: "Monitor quem chama as APIs e usage associado"
+  source_url: "https://www.databricks.com/product/pricing/ai-gateway"
+
+# =============================================================================
+# Agent Bricks (PR 3, 2026-05-28)
+# =============================================================================
+# Knowledge Assistant ($/Answer) + Supervisor Agent ($/DBU). Promo 50% off até 2026-06-30.
+# Fonte: https://www.databricks.com/product/pricing/agent-bricks
+agent_bricks:
+  promo_until: "2026-06-30"
+  knowledge_assistant:
+    cost_unit: answer
+    per_answer_promo_usd: 0.150
+    per_answer_list_usd: 0.300
+    note: "Apenas answers que acessam knowledge base; setup/storage cobrado em SKUs subjacentes (Vector Search, FM Serving para embedding)"
+  supervisor_agent:
+    cost_unit: dbu_h
+    per_dbu_promo: 0.070
+    per_dbu_list: 0.140
+    note: "+ cobranças de sub-agents nos preços nativos"
+  source_url: "https://www.databricks.com/product/pricing/agent-bricks"
+
+# =============================================================================
+# Agent Evaluation / MLflow (PR 3, 2026-05-28)
+# =============================================================================
+# Auto-assessment labels + synthetic data generation.
+# Fonte: https://www.databricks.com/product/pricing/agent-evaluation
+agent_evaluation:
+  input_per_m_tokens_usd: 0.15
+  output_per_m_tokens_usd: 0.60
+  synthetic_data:
+    cost_unit: question
+    per_question_usd: 0.35
+  source_url: "https://www.databricks.com/product/pricing/agent-evaluation"
+
+# =============================================================================
+# Foundation Model Training (PR 3, 2026-05-28)
+# =============================================================================
+# Status: PREVIEW. Fine-tuning + forecasting.
+# DBU count varia com model + training data size.
+# Fonte: https://www.databricks.com/product/pricing/foundation-model-training
+model_training:
+  cost_unit: dbu_h
+  status: "PREVIEW"
+  fine_tuning_per_dbu_usd: 0.65
+  forecasting_per_dbu_usd: 0.65
+  source_url: "https://www.databricks.com/product/pricing/foundation-model-training"
+
+  # DBU consumption estimates por modelo (fine-tuning)
+  fine_tuning_dbu_estimates:
+    llama_3_3_70b: { dbu_10m_words: 225, dbu_500m_words: 11000 }
+    llama_3_1_70b: { dbu_10m_words: 225, dbu_500m_words: 11000 }
+    llama_3_1_8b:  { dbu_10m_words: 100, dbu_500m_words: 4400 }
+    llama_3_2_3b:  { dbu_10m_words: 75,  dbu_500m_words: 2750 }
+    llama_3_2_1b:  { dbu_10m_words: 25,  dbu_500m_words: 1100 }
+
+# =============================================================================
+# AI Runtime (PR 3, 2026-05-28)
+# =============================================================================
+# Status: PREVIEW. Train/fine-tune em GPUs on-demand.
+# Disponível só AWS + Azure (sem GCP).
+# Bills: "Model Training" SKU.
+# Fonte: https://www.databricks.com/product/pricing/ai-runtime
+ai_runtime:
+  cost_unit: dbu_h
+  status: "PREVIEW"
+  available_clouds: ["azure", "aws"]
+  a10_on_demand_per_dbu_usd: 2.50
+  h100_on_demand_per_dbu_usd: 7.00
+  source_url: "https://www.databricks.com/product/pricing/ai-runtime"

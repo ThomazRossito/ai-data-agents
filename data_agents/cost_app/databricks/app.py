@@ -1708,6 +1708,284 @@ def render_tab_catalogo() -> None:
                 "Engine ainda não modela ingest jobs — usar como referência."
             )
 
+        # ─── PR 3 (2026-05-28): AI/ML SKUs completo ────────────────────────
+        # 10 novos blocos: Model Serving (CPU+GPU), Foundation Model Serving,
+        # Proprietary FM (OpenAI/Anthropic/Gemini), Vector Search v2, AI Functions,
+        # AI Gateway, Agent Bricks, Agent Evaluation, Model Training, AI Runtime.
+        # Display-only — engine ainda não modela. PR 4 vai adicionar scenario types.
+
+        # Model Serving
+        ms = catalog_dbu.get("model_serving")
+        if ms and isinstance(ms.get("gpu_instances"), dict):
+            st.markdown("---")
+            st.markdown("##### 🤖 Model Serving (CPU + GPU)")
+            st.caption(
+                f"Real-time inference. Bills: Serverless Real-time Inference SKU. "
+                f"Fonte: {ms.get('source_url', 'databricks.com')}"
+            )
+            st.markdown(
+                f"**CPU Serving**: `${ms.get('cpu_per_dbu', 0):.3f}/DBU` · "
+                f"**GPU Serving**: `${ms.get('gpu_per_dbu', 0):.3f}/DBU` (rates iguais; "
+                f"diferenciação por DBU/h da instance)"
+            )
+            ms_rows = [
+                {"Size": k, "GPU config": v.get("gpu", "—"), "DBU/h": v.get("dbu_per_hour", 0)}
+                for k, v in ms["gpu_instances"].items()
+            ]
+            st.dataframe(pd.DataFrame(ms_rows), use_container_width=True, hide_index=True)
+
+        # Foundation Model Serving
+        fms = catalog_dbu.get("foundation_model_serving")
+        if fms:
+            st.markdown("---")
+            st.markdown("##### 🧠 Foundation Model Serving")
+            st.caption(
+                f"3 modos: Pay-Per-Token (${fms['pay_per_token']['input_per_m_tokens_usd']}/M in + "
+                f"${fms['pay_per_token']['output_per_m_tokens_usd']}/M out), "
+                f"Provisioned Throughput (${fms['provisioned_throughput']['per_hour_per_pt_unit_usd']}/h/unit), "
+                f"Batch Inference (${fms['batch_inference']['per_hour_per_throughput_band_usd']}/h/band). "
+                f"Fonte: {fms.get('source_url', 'databricks.com')}"
+            )
+            models = fms.get("per_model_dbu_rates", {})
+            if models:
+                fms_rows = [
+                    {
+                        "Model": k.replace("_", " ").title(),
+                        "DBU/M Input": v.get("input_dbu_per_m") or "—",
+                        "DBU/M Output": v.get("output_dbu_per_m") or "—",
+                        "DBU/h (Entry PT)": v.get("entry_pt_dbu_h") or "—",
+                        "DBU/h (Scaling PT)": v.get("scaling_pt_dbu_h") or "—",
+                    }
+                    for k, v in models.items()
+                ]
+                st.dataframe(pd.DataFrame(fms_rows), use_container_width=True, hide_index=True)
+
+        # Proprietary Foundation Model Serving
+        pfms = catalog_dbu.get("proprietary_foundation_model_serving")
+        if pfms:
+            st.markdown("---")
+            st.markdown(
+                "##### 🔒 Proprietary Foundation Model Serving (OpenAI / Anthropic / Gemini)"
+            )
+            st.caption(
+                f"Pay-Per-Token + Batch: `${pfms.get('base_per_dbu_pay_per_token', 0):.3f}/DBU`. "
+                f"Bills: AWS/GCP → '<Vendor> Model Serving' SKU. Azure → ADI Service. "
+                f"Fonte: {pfms.get('source_url', 'databricks.com')}"
+            )
+            openai_models = pfms.get("vendors", {}).get("openai", {}).get("models", {})
+            if openai_models:
+                st.markdown(
+                    "**OpenAI — Global Short context (in-geo +~10% uplift, long context ~2x):**"
+                )
+                pfms_rows = [
+                    {
+                        "Model": k.replace("_", " ").upper(),
+                        "DBU/M In": v.get("input_dbu_per_m") or "—",
+                        "DBU/M Out": v.get("output_dbu_per_m") or "—",
+                        "DBU/M Cache W": v.get("cache_write_dbu_per_m") or "—",
+                        "DBU/M Cache R": v.get("cache_read_dbu_per_m") or "—",
+                        "Batch DBU/h": v.get("batch_dbu_per_h") or "—",
+                    }
+                    for k, v in openai_models.items()
+                ]
+                st.dataframe(pd.DataFrame(pfms_rows), use_container_width=True, hide_index=True)
+            st.caption(
+                "⚠️ Anthropic e Gemini têm mesma estrutura ($0.07/DBU base) com tabelas DBU "
+                "per-model próprias. Captura completa via Chrome MCP — TODO PR 4."
+            )
+
+        # Vector Search v2
+        vsv2 = catalog_dbu.get("vector_search_v2")
+        if vsv2:
+            st.markdown("---")
+            st.markdown("##### 🔍 Vector Search (Standard 2M + Storage Optimized 64M)")
+            st.caption(
+                f"Effective $/DBU US East = `${vsv2.get('effective_dollar_per_dbu_us_east', 0):.3f}`. "
+                f"Bills: Serverless Real-time Inference. "
+                f"Fonte: {vsv2.get('source_url', 'databricks.com')}"
+            )
+            tiers = vsv2.get("tiers", {})
+            vs_rows = [
+                {
+                    "Tier": tier_name.replace("_", " ").title(),
+                    "Compute $/h": tier_data.get("compute_per_hour_usd", 0),
+                    "Storage $/GB·mo": tier_data.get("storage_per_gb_month_usd", 0),
+                    "Free GB": tier_data.get("storage_free_gb", 0),
+                    "Vector cap/unit": f"{tier_data.get('vector_capacity_per_unit', 0):,}",
+                    "DBU/h": tier_data.get("dbu_per_hour", 0),
+                }
+                for tier_name, tier_data in tiers.items()
+            ]
+            st.dataframe(pd.DataFrame(vs_rows), use_container_width=True, hide_index=True)
+
+        # AI Functions
+        aif = catalog_dbu.get("ai_functions")
+        if aif:
+            st.markdown("---")
+            st.markdown("##### 📄 AI Functions (Parse / Extract / Classify)")
+            promo = aif.get("promo_until")
+            if promo:
+                st.info(
+                    f"🎁 **Promoção 50% off** até **{promo}** — preços promo abaixo refletem desconto."
+                )
+            aif_rows = [
+                {
+                    "Function": fn.replace("_", " ").title(),
+                    "$/DBU (promo)": data.get("per_dbu_promo", 0),
+                    "$/DBU (list)": data.get("per_dbu_list", 0),
+                    "Notes": data.get("note", ""),
+                }
+                for fn, data in aif.items()
+                if isinstance(data, dict) and "per_dbu_promo" in data
+            ]
+            st.dataframe(pd.DataFrame(aif_rows), use_container_width=True, hide_index=True)
+            st.caption(
+                f"Fonte: {aif.get('source_url', 'databricks.com')}. Bills: Serverless Real-time Inference SKU."
+            )
+
+        # AI Gateway
+        aig = catalog_dbu.get("ai_gateway")
+        if aig:
+            st.markdown("---")
+            st.markdown("##### 🚪 AI Gateway (Guardrails / Inference Tables / Usage Tracking)")
+            aig_rows = []
+            if "ai_guardrails" in aig:
+                aig_rows.append(
+                    {
+                        "Feature": "AI Guardrails",
+                        "Preço": f"${aig['ai_guardrails']['per_m_tokens_usd']:.2f}/M tok",
+                        "Unit": "M tokens",
+                    }
+                )
+            if "inference_tables" in aig:
+                aig_rows.append(
+                    {
+                        "Feature": "Inference Tables",
+                        "Preço": f"${aig['inference_tables']['per_gb_usd']:.3f}/GB",
+                        "Unit": f"GB (incr {aig['inference_tables'].get('increment', '1KB')})",
+                    }
+                )
+            if "usage_tracking" in aig:
+                aig_rows.append(
+                    {
+                        "Feature": "Usage Tracking",
+                        "Preço": f"${aig['usage_tracking']['per_gb_usd']:.3f}/GB",
+                        "Unit": f"GB (incr {aig['usage_tracking'].get('increment', '1KB')})",
+                    }
+                )
+            st.dataframe(pd.DataFrame(aig_rows), use_container_width=True, hide_index=True)
+            st.caption(f"Fonte: {aig.get('source_url', 'databricks.com')}")
+
+        # Agent Bricks
+        ab = catalog_dbu.get("agent_bricks")
+        if ab:
+            st.markdown("---")
+            st.markdown("##### 🧱 Agent Bricks (Knowledge Assistant / Supervisor Agent)")
+            promo = ab.get("promo_until")
+            if promo:
+                st.info(
+                    f"🎁 **Promoção 50% off** até **{promo}** — preços promo abaixo refletem desconto."
+                )
+            ka = ab.get("knowledge_assistant", {})
+            sa = ab.get("supervisor_agent", {})
+            ab_rows = [
+                {
+                    "Feature": "Knowledge Assistant",
+                    "Promo": f"${ka.get('per_answer_promo_usd', 0):.3f}/answer",
+                    "List": f"${ka.get('per_answer_list_usd', 0):.3f}/answer",
+                    "Unit": "answer",
+                },
+                {
+                    "Feature": "Supervisor Agent",
+                    "Promo": f"${sa.get('per_dbu_promo', 0):.3f}/DBU",
+                    "List": f"${sa.get('per_dbu_list', 0):.3f}/DBU",
+                    "Unit": "DBU·h",
+                },
+            ]
+            st.dataframe(pd.DataFrame(ab_rows), use_container_width=True, hide_index=True)
+            st.caption(
+                f"Fonte: {ab.get('source_url', 'databricks.com')}. Setup/storage cobrado em SKUs subjacentes (Vector Search, FM Serving)."
+            )
+
+        # Agent Evaluation
+        ae = catalog_dbu.get("agent_evaluation")
+        if ae:
+            st.markdown("---")
+            st.markdown("##### ✅ Agent Evaluation (MLflow)")
+            ae_rows = [
+                {
+                    "Item": "Input tokens",
+                    "Preço": f"${ae.get('input_per_m_tokens_usd', 0):.2f}/M tok",
+                },
+                {
+                    "Item": "Output tokens",
+                    "Preço": f"${ae.get('output_per_m_tokens_usd', 0):.2f}/M tok",
+                },
+                {
+                    "Item": "Synthetic Data",
+                    "Preço": f"${ae.get('synthetic_data', {}).get('per_question_usd', 0):.2f}/question",
+                },
+            ]
+            st.dataframe(pd.DataFrame(ae_rows), use_container_width=True, hide_index=True)
+            st.caption(f"Fonte: {ae.get('source_url', 'databricks.com')}")
+
+        # Model Training (Foundation Model Training)
+        mt = catalog_dbu.get("model_training")
+        if mt:
+            st.markdown("---")
+            st.markdown(
+                f"##### 🎓 Foundation Model Training {'(' + mt.get('status', '') + ')' if mt.get('status') else ''}"
+            )
+            st.markdown(
+                f"**Fine-tuning**: `${mt.get('fine_tuning_per_dbu_usd', 0):.2f}/DBU` · "
+                f"**Forecasting**: `${mt.get('forecasting_per_dbu_usd', 0):.2f}/DBU`"
+            )
+            estimates = mt.get("fine_tuning_dbu_estimates", {})
+            if estimates:
+                est_rows = [
+                    {
+                        "Model": k.replace("_", " ").title(),
+                        "DBU (10M words)": v.get("dbu_10m_words", 0),
+                        "DBU (500M words)": v.get("dbu_500m_words", 0),
+                        "Cost (10M words)": f"${v.get('dbu_10m_words', 0) * mt.get('fine_tuning_per_dbu_usd', 0):.2f}",
+                        "Cost (500M words)": f"${v.get('dbu_500m_words', 0) * mt.get('fine_tuning_per_dbu_usd', 0):.2f}",
+                    }
+                    for k, v in estimates.items()
+                ]
+                st.markdown("**DBU estimates por modelo (fine-tuning):**")
+                st.dataframe(pd.DataFrame(est_rows), use_container_width=True, hide_index=True)
+            st.caption(f"Fonte: {mt.get('source_url', 'databricks.com')}")
+
+        # AI Runtime
+        ait = catalog_dbu.get("ai_runtime")
+        if ait:
+            available = ait.get("available_clouds", [])
+            st.markdown("---")
+            st.markdown(
+                f"##### ⚡ AI Runtime {'(' + ait.get('status', '') + ')' if ait.get('status') else ''}"
+            )
+            if catalog_dbu.get("cloud") not in available:
+                st.warning(
+                    f"⚠️ AI Runtime **não disponível em {catalog_dbu.get('cloud', '?').upper()}** "
+                    f"oficialmente. Disponível em: {', '.join(available)}."
+                )
+            ait_rows = [
+                {
+                    "GPU": "A10 On Demand",
+                    "Preço": f"${ait.get('a10_on_demand_per_dbu_usd', 0):.2f}/DBU",
+                    "Use case": "Train/fine-tune smaller models",
+                },
+                {
+                    "GPU": "H100 On Demand",
+                    "Preço": f"${ait.get('h100_on_demand_per_dbu_usd', 0):.2f}/DBU",
+                    "Use case": "Train/fine-tune large models",
+                },
+            ]
+            st.dataframe(pd.DataFrame(ait_rows), use_container_width=True, hide_index=True)
+            st.caption(
+                f"Fonte: {ait.get('source_url', 'databricks.com')}. Bills: Model Training SKU."
+            )
+
     # ─── Sub-tab 2: Azure VM prices ─────────────────────────────────────────
     with sub2:
         st.markdown("##### Azure VM Prices (Linux on-demand)")
