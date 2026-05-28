@@ -398,3 +398,167 @@ class TestValidation:
         )
         with pytest.raises(ValueError, match="Catalog é da cloud"):
             calculate_databricks_cost(scenario_aws, catalog_azure)
+
+
+# ─── Regression: Serverless não deve cobrar instance_cost (reportado 2026-05-28) ──
+
+
+class TestServerlessNoInstanceCost:
+    """Bug reportado: cenário Serverless estava somando instance_cost de driver+workers,
+    o que está errado conforme catalog YAML explicita 'Inclui infra Databricks-managed'.
+
+    Fix em data_agents/cost_engine/databricks.py: zerar instance_cost quando
+    compute_type ∈ {serverless_compute, sql_serverless}.
+    """
+
+    def test_serverless_compute_ignores_instance_cost(self):
+        catalog = load_databricks_catalog("azure")
+        # Cenário exato do bug report do user (Tab 1 → Serverless + DS12_v2)
+        scenario = DatabricksScenario(
+            cloud="azure",
+            compute_type="serverless_compute",
+            tier="premium",
+            photon=False,
+            driver_instance="Standard_DS12_v2",
+            worker_instance="Standard_DS12_v2",
+            num_workers=4,
+            hours_per_day=2.5,
+            days_per_month=22,
+            region="brazilsouth",
+            instance_pricing_model="on_demand",
+            driver_instance_cost_per_hour_usd=0.464,
+            worker_instance_cost_per_hour_usd=0.464,
+        )
+        result = calculate_databricks_cost(scenario, catalog)
+
+        # Instance cost deve ser ZERO em serverless
+        assert result["breakdown_hourly_usd"]["instance_total"] == 0.0
+        assert result["breakdown_hourly_usd"]["instance_driver"] == 0.0
+        assert result["breakdown_hourly_usd"]["instance_workers"] == 0.0
+
+        # Cluster total deve ser apenas DBU cost
+        assert (
+            result["breakdown_hourly_usd"]["cluster_total"]
+            == result["breakdown_hourly_usd"]["dbu_total"]
+        )
+
+        # Warning explicativo deve estar presente
+        assert any("serverless" in w.lower() for w in result["warnings"])
+
+    def test_serverless_monthly_matches_dbu_only(self):
+        """Serverless mensal = DBU_total/h × hours/dia × dias/mês (sem instance)."""
+        catalog = load_databricks_catalog("azure")
+        scenario = DatabricksScenario(
+            cloud="azure",
+            compute_type="serverless_compute",
+            tier="premium",
+            photon=False,
+            driver_instance="Standard_DS12_v2",
+            worker_instance="Standard_DS12_v2",
+            num_workers=4,
+            hours_per_day=2.5,
+            days_per_month=22,
+            region="brazilsouth",
+            instance_pricing_model="on_demand",
+            driver_instance_cost_per_hour_usd=0.464,
+            worker_instance_cost_per_hour_usd=0.464,
+        )
+        result = calculate_databricks_cost(scenario, catalog)
+
+        # DBU rate serverless azure premium = $0.95/DBU·h
+        # Driver DS12_v2 = 1.5 DBU/h, 4 workers × 1.5 = 6.0 DBU/h
+        # Total DBU/h = 7.5 × $0.95 = $7.125/h
+        # Mensal = $7.125 × 2.5h × 22d = $391.875
+        assert result["totals"]["monthly"] == pytest.approx(391.87, abs=0.5)
+
+    def test_non_serverless_keeps_instance_cost(self):
+        """Cenário Jobs Premium (não-serverless) DEVE manter instance_cost (regression check)."""
+        catalog = load_databricks_catalog("azure")
+        scenario = DatabricksScenario(
+            cloud="azure",
+            compute_type="jobs_compute",
+            tier="premium",
+            photon=False,
+            driver_instance="Standard_DS4_v2",
+            worker_instance="Standard_DS4_v2",
+            num_workers=4,
+            hours_per_day=8.0,
+            days_per_month=22,
+            region="brazilsouth",
+            instance_pricing_model="on_demand",
+            driver_instance_cost_per_hour_usd=0.526,
+            worker_instance_cost_per_hour_usd=0.526,
+        )
+        result = calculate_databricks_cost(scenario, catalog)
+
+        # Canonical $726.88 deve ser preservado
+        assert result["totals"]["monthly"] == pytest.approx(726.88, abs=0.5)
+        assert result["breakdown_hourly_usd"]["instance_total"] > 0.0
+
+    def test_serverless_with_zero_instance_cost_inputs_no_warning(self):
+        """Quando user passa instance_cost=0.0 explicitamente, não deve gerar warning duplo."""
+        catalog = load_databricks_catalog("azure")
+        scenario = DatabricksScenario(
+            cloud="azure",
+            compute_type="serverless_compute",
+            tier="premium",
+            photon=False,
+            driver_instance="Standard_DS4_v2",
+            worker_instance="Standard_DS4_v2",
+            num_workers=4,
+            hours_per_day=8.0,
+            days_per_month=22,
+            region="brazilsouth",
+            instance_pricing_model="on_demand",
+            driver_instance_cost_per_hour_usd=0.0,
+            worker_instance_cost_per_hour_usd=0.0,
+        )
+        result = calculate_databricks_cost(scenario, catalog)
+        # Não gera warning de instance_cost zerado se o user já passou 0
+        assert not any("instance_cost zerado" in w for w in result["warnings"])
+        assert result["breakdown_hourly_usd"]["instance_total"] == 0.0
+
+    def test_sql_with_tier_serverless_also_zeros_instance_cost(self):
+        """SQL Warehouse com tier=serverless é Databricks-managed (no catalog atual,
+        a opção 'SQL Warehouse Serverless' é compute_type=sql + tier=serverless)."""
+        catalog = load_databricks_catalog("azure")
+        scenario = DatabricksScenario(
+            cloud="azure",
+            compute_type="sql",
+            tier="serverless",
+            photon=False,
+            driver_instance="Standard_DS4_v2",
+            worker_instance="Standard_DS4_v2",
+            num_workers=2,
+            hours_per_day=4.0,
+            days_per_month=22,
+            region="brazilsouth",
+            instance_pricing_model="on_demand",
+            driver_instance_cost_per_hour_usd=0.526,
+            worker_instance_cost_per_hour_usd=0.526,
+        )
+        result = calculate_databricks_cost(scenario, catalog)
+        assert result["breakdown_hourly_usd"]["instance_total"] == 0.0
+        assert any("serverless" in w.lower() for w in result["warnings"])
+
+    def test_sql_with_tier_pro_keeps_instance_cost(self):
+        """Regression: SQL Warehouse Pro (não-serverless) NÃO deve zerar instance_cost."""
+        catalog = load_databricks_catalog("azure")
+        scenario = DatabricksScenario(
+            cloud="azure",
+            compute_type="sql",
+            tier="pro",
+            photon=False,
+            driver_instance="Standard_DS4_v2",
+            worker_instance="Standard_DS4_v2",
+            num_workers=2,
+            hours_per_day=4.0,
+            days_per_month=22,
+            region="brazilsouth",
+            instance_pricing_model="on_demand",
+            driver_instance_cost_per_hour_usd=0.526,
+            worker_instance_cost_per_hour_usd=0.526,
+        )
+        result = calculate_databricks_cost(scenario, catalog)
+        # SQL Pro tem instance (não é managed)
+        assert result["breakdown_hourly_usd"]["instance_total"] > 0.0

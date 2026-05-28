@@ -351,8 +351,31 @@ def calculate_databricks_cost(
     dbu_total_hourly = dbu_driver_hourly + dbu_workers_hourly
 
     # 6. Instance cost (hourly, antes do desconto pricing model)
-    inst_driver_base = scenario.driver_instance_cost_per_hour_usd
-    inst_workers_base = effective_workers * scenario.worker_instance_cost_per_hour_usd
+    # IMPORTANTE: Serverless é Databricks-managed — o user paga só DBU,
+    # sem instance cost separado (confirmado no catalog YAML "Inclui infra
+    # Databricks-managed"). Cobre 3 cases:
+    #   - compute_type == "serverless_compute"
+    #   - compute_type == "sql_serverless" (variante futura)
+    #   - compute_type == "sql" AND tier == "serverless" (caso atual do catalog)
+    # Bug reportado em 2026-05-28 (cobrança dupla pra Serverless).
+    _is_serverless = scenario.compute_type in ("serverless_compute", "sql_serverless") or (
+        scenario.compute_type == "sql" and scenario.tier == "serverless"
+    )
+    if _is_serverless:
+        inst_driver_base = 0.0
+        inst_workers_base = 0.0
+        if (
+            scenario.driver_instance_cost_per_hour_usd > 0
+            or scenario.worker_instance_cost_per_hour_usd > 0
+        ):
+            tier_label = f"+tier={scenario.tier}" if scenario.compute_type == "sql" else ""
+            warnings.append(
+                f"compute_type={scenario.compute_type!r}{tier_label}: instance_cost zerado "
+                "(serverless inclui infra Databricks-managed)"
+            )
+    else:
+        inst_driver_base = scenario.driver_instance_cost_per_hour_usd
+        inst_workers_base = effective_workers * scenario.worker_instance_cost_per_hour_usd
     inst_total_base = inst_driver_base + inst_workers_base
 
     # 7. Aplica desconto de pricing model (spot/reserved) só no instance

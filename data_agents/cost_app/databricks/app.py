@@ -315,6 +315,12 @@ def render_tab_cenario_cluster() -> None:
                     help="Photon dobra DBU mas reduz wall-clock. Break-even: 2x speedup.",
                 )
 
+        # Serverless: Databricks-managed (sem instances declaradas pelo user)
+        # Cobre 3 cases: serverless_compute, sql_serverless, e sql+tier=serverless
+        is_serverless = compute_type in ("serverless_compute", "sql_serverless") or (
+            compute_type == "sql" and tier == "serverless"
+        )
+
         with st.container(border=True):
             st.markdown("#### 🖥️ Instances")
 
@@ -337,23 +343,55 @@ def render_tab_cenario_cluster() -> None:
                 else valid_skus[0]
             )
 
-            driver_instance = st.selectbox(
-                "Driver Instance",
-                options=valid_skus,
-                index=valid_skus.index(default_driver),
-            )
-            worker_instance = st.selectbox(
-                "Worker Instance",
-                options=valid_skus,
-                index=valid_skus.index(default_worker),
-            )
-            num_workers = st.number_input(
-                "Número de Workers",
-                min_value=0,
-                max_value=200,
-                value=loaded.num_workers if loaded else 4,
-                help="0 = single-node. Não inclui o driver.",
-            )
+            if is_serverless:
+                st.info(
+                    "ℹ️ **Serverless é Databricks-managed.** "
+                    "O user paga apenas DBU consumido — sem instance cost separado. "
+                    "Driver/Workers/Num Workers são ignorados no cálculo. "
+                    "Selecione apenas pra metadados de auditoria do cenário."
+                )
+                # Mantém os selectboxes pra preservar metadados do scenario,
+                # mas avisa visualmente que não afetam custo.
+                driver_instance = st.selectbox(
+                    "Driver Instance (metadados, não usado no custo)",
+                    options=valid_skus,
+                    index=valid_skus.index(default_driver),
+                    disabled=False,  # mantém habilitado pra audit trail
+                )
+                worker_instance = st.selectbox(
+                    "Worker Instance (metadados, não usado no custo)",
+                    options=valid_skus,
+                    index=valid_skus.index(default_worker),
+                )
+                num_workers = st.number_input(
+                    "Workers paralelos (referência — não afeta custo serverless)",
+                    min_value=0,
+                    max_value=200,
+                    value=loaded.num_workers if loaded else 4,
+                    help=(
+                        "Em Serverless, o custo escala com DBU consumido — "
+                        "Databricks gerencia o número de workers automaticamente. "
+                        "Este campo serve apenas pra documentar o perfil esperado."
+                    ),
+                )
+            else:
+                driver_instance = st.selectbox(
+                    "Driver Instance",
+                    options=valid_skus,
+                    index=valid_skus.index(default_driver),
+                )
+                worker_instance = st.selectbox(
+                    "Worker Instance",
+                    options=valid_skus,
+                    index=valid_skus.index(default_worker),
+                )
+                num_workers = st.number_input(
+                    "Número de Workers",
+                    min_value=0,
+                    max_value=200,
+                    value=loaded.num_workers if loaded else 4,
+                    help="0 = single-node. Não inclui o driver.",
+                )
 
         with st.container(border=True):
             st.markdown("#### 📅 Schedule")
@@ -1450,6 +1488,265 @@ def render_tab_finops_realizado() -> None:
 # ─── Tab 7: Otimização Proativa (Fase 4) ────────────────────────────────────
 
 
+# ─── Tab 8: Catálogo de Preços (transparência) ────────────────────────────────
+
+
+def render_tab_catalogo() -> None:
+    """Tab 8: lista todos os preços usados pelo App (DBU rates + Instance prices).
+
+    Transparência total pra audit: source URLs, last_updated, modo (mock vs real).
+    User valida cada número antes de tomar decisão de negócio.
+    """
+    from data_agents.cost_app.databricks.instance_prices_real import (
+        fetch_aws_ec2_price,
+        fetch_azure_vm_price,
+        get_pricing_metadata,
+        is_real_mode_enabled,
+    )
+
+    st.markdown("#### 📋 Catálogo de Preços — Transparência")
+    st.caption(
+        "Todos os preços usados pelo App neste momento. Compare com fontes oficiais "
+        "antes de decisão de negócio."
+    )
+
+    pricing_meta = get_pricing_metadata()
+    real_active = is_real_mode_enabled()
+
+    if real_active:
+        st.success(
+            f"🔗 **Modo REAL ativo** — Azure Retail API + AWS Pricing API. "
+            f"Fallback transparente pro mock se API falhar. "
+            f"Cache TTL: {pricing_meta['cache_ttl_seconds']}s · "
+            f"Entries cacheados: {pricing_meta['cache_entries']}"
+        )
+    else:
+        st.warning(
+            "📦 **Modo MOCK ativo** — valores estáticos hardcoded no projeto. "
+            "Para usar APIs reais (Azure Retail + AWS Pricing), set "
+            "`DATABRICKS_INSTANCE_PRICES_MODE=real` no `.env`."
+        )
+        if not pricing_meta["boto3_available"]:
+            st.caption(
+                "ℹ️ `boto3` não instalado — AWS Pricing API requer "
+                "`pip install boto3` + AWS credentials."
+            )
+
+    sub1, sub2, sub3 = st.tabs(
+        ["💰 DBU Rates (Databricks)", "☁️ Azure VM Prices", "☁️ AWS EC2 Prices"]
+    )
+
+    # ─── Sub-tab 1: DBU rates do YAML ────────────────────────────────────────
+    with sub1:
+        st.markdown("##### Databricks DBU Rates")
+        st.caption(
+            "Preço cobrado pela Databricks por **DBU·h** consumido. "
+            "Multiplicado por DBU/h da instance pra cobrar consumo Databricks."
+        )
+
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            dbu_cloud = st.selectbox(
+                "Cloud",
+                options=["azure", "aws"],
+                key="catalogo_dbu_cloud",
+                format_func=lambda c: c.upper(),
+            )
+        with col_d2:
+            st.caption(
+                f"🔗 Source: `data/databricks_pricing/{dbu_cloud}.yaml`  \n"
+                "Origem oficial: https://www.databricks.com/product/pricing"
+            )
+
+        catalog_dbu = _cached_catalog(dbu_cloud)
+        st.caption(
+            f"**Catalog version:** {catalog_dbu.get('version', '?')} · "
+            f"**Last updated:** {catalog_dbu.get('last_updated', '?')} · "
+            f"⚠️ Hardcoded manual no projeto"
+        )
+
+        # Tabela DBU rates: compute_type × tier × photon
+        import pandas as pd
+
+        dbu_rows = []
+        compute_types = catalog_dbu.get("compute_types", {})
+        for ct_name, ct_data in compute_types.items():
+            if isinstance(ct_data, dict) and "base_per_dbu" in ct_data:
+                dbu_rows.append(
+                    {
+                        "compute_type": ct_name,
+                        "tier": "—",
+                        "photon": "—",
+                        "USD/DBU·h": ct_data["base_per_dbu"],
+                    }
+                )
+            elif isinstance(ct_data, dict):
+                for tier_name, tier_data in ct_data.items():
+                    if isinstance(tier_data, dict):
+                        for photon_key, rate in tier_data.items():
+                            dbu_rows.append(
+                                {
+                                    "compute_type": ct_name,
+                                    "tier": tier_name,
+                                    "photon": "ON" if photon_key == "photon" else "OFF",
+                                    "USD/DBU·h": rate,
+                                }
+                            )
+                    elif isinstance(tier_data, (int, float)):
+                        dbu_rows.append(
+                            {
+                                "compute_type": ct_name,
+                                "tier": tier_name,
+                                "photon": "—",
+                                "USD/DBU·h": tier_data,
+                            }
+                        )
+
+        if dbu_rows:
+            dbu_df = pd.DataFrame(dbu_rows)
+            st.dataframe(
+                dbu_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "USD/DBU·h": st.column_config.NumberColumn("USD/DBU·h", format="$%.4f"),
+                },
+            )
+        else:
+            st.warning("Catalog YAML sem entries DBU — verifique estrutura.")
+
+    # ─── Sub-tab 2: Azure VM prices ─────────────────────────────────────────
+    with sub2:
+        st.markdown("##### Azure VM Prices (Linux on-demand)")
+
+        col_a1, col_a2 = st.columns(2)
+        with col_a1:
+            azure_region = st.selectbox(
+                "Region",
+                options=list_regions_for_cloud("azure"),
+                key="catalogo_azure_region",
+            )
+        with col_a2:
+            if real_active:
+                st.caption(
+                    "🔗 Source: Azure Retail Prices API  \n"
+                    "https://prices.azure.com/api/retail/prices  \n"
+                    "_Cache TTL 1h. Fallback pro mock se API falhar._"
+                )
+            else:
+                st.caption(
+                    "📦 Source: `data_agents/cost_app/databricks/instance_prices.py` (mock)  \n"
+                    "_Última atualização manual. Ative real mode pra valores ao vivo._"
+                )
+
+        skus = list_instances_for_region("azure", azure_region)
+        if not skus:
+            st.info("Nenhum SKU mapeado nesta region.")
+        else:
+            rows = []
+            for sku in skus:
+                mock_price = _get_mock_price_safe("azure", azure_region, sku)
+                row = {"SKU": sku, "Mock USD/h": mock_price}
+
+                if real_active:
+                    try:
+                        real = fetch_azure_vm_price(azure_region, sku)
+                        row["Real API USD/h"] = real if real is not None else "—"
+                        if real is not None and mock_price is not None:
+                            delta_pct = (real - mock_price) / mock_price * 100
+                            row["Δ% (real-mock)"] = round(delta_pct, 1)
+                        else:
+                            row["Δ% (real-mock)"] = "—"
+                    except Exception as exc:
+                        row["Real API USD/h"] = f"err: {str(exc)[:30]}"
+                        row["Δ% (real-mock)"] = "—"
+
+                rows.append(row)
+
+            df = pd.DataFrame(rows)
+            st.dataframe(
+                df,
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            if real_active:
+                st.caption(
+                    "💡 **Δ% (real-mock)**: positivo = mock está SUBESTIMANDO custo real. "
+                    "Negativo = mock está SUPERESTIMANDO. Se Δ% > 20%, considere atualizar mock."
+                )
+
+    # ─── Sub-tab 3: AWS EC2 prices ──────────────────────────────────────────
+    with sub3:
+        st.markdown("##### AWS EC2 Prices (Linux on-demand, Shared tenancy)")
+
+        col_w1, col_w2 = st.columns(2)
+        with col_w1:
+            aws_region = st.selectbox(
+                "Region",
+                options=list_regions_for_cloud("aws"),
+                key="catalogo_aws_region",
+            )
+        with col_w2:
+            if real_active and pricing_meta["boto3_available"]:
+                st.caption(
+                    "🔗 Source: AWS Pricing API (boto3)  \n"
+                    "Requer AWS credentials no .env  \n"
+                    "_Cache TTL 1h. Fallback pro mock se sem credenciais._"
+                )
+            elif real_active and not pricing_meta["boto3_available"]:
+                st.warning(
+                    "⚠️ `boto3` não instalado — AWS Pricing API indisponível. "
+                    "Instale com: `pip install boto3`"
+                )
+            else:
+                st.caption(
+                    "📦 Source: `instance_prices.py` (mock)  \n"
+                    "_Ative real mode pra valores ao vivo (requer AWS creds)._"
+                )
+
+        skus_aws = list_instances_for_region("aws", aws_region)
+        if not skus_aws:
+            st.info("Nenhum SKU mapeado nesta region.")
+        else:
+            rows_aws = []
+            for sku in skus_aws:
+                mock_price = _get_mock_price_safe("aws", aws_region, sku)
+                row = {"SKU": sku, "Mock USD/h": mock_price}
+
+                if real_active and pricing_meta["boto3_available"]:
+                    try:
+                        real = fetch_aws_ec2_price(aws_region, sku)
+                        row["Real API USD/h"] = real if real is not None else "—"
+                        if real is not None and mock_price is not None:
+                            delta_pct = (real - mock_price) / mock_price * 100
+                            row["Δ% (real-mock)"] = round(delta_pct, 1)
+                        else:
+                            row["Δ% (real-mock)"] = "—"
+                    except Exception as exc:
+                        row["Real API USD/h"] = f"err: {str(exc)[:30]}"
+                        row["Δ% (real-mock)"] = "—"
+
+                rows_aws.append(row)
+
+            df_aws = pd.DataFrame(rows_aws)
+            st.dataframe(
+                df_aws,
+                use_container_width=True,
+                hide_index=True,
+            )
+
+
+def _get_mock_price_safe(cloud: str, region: str, sku: str) -> float | None:
+    """Wrapper que retorna None em vez de KeyError pra não quebrar Tab Catálogo."""
+    try:
+        from data_agents.cost_app.databricks.instance_prices import _get_mock_price
+
+        return _get_mock_price(cloud, region, sku)
+    except (KeyError, ValueError):
+        return None
+
+
 def render_tab_otimizacao() -> None:
     """Tab 7: análises proativas de otimização (rightsizing + idle + Photon ROI)."""
     from data_agents.cost_engine.billing import BillingPeriod
@@ -1907,7 +2204,7 @@ def main() -> None:
     if agent_count > 0:
         historico_label = f"📋 Histórico 🤖×{agent_count}"
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
         [
             "🖥️ Cenário Cluster",
             "⚖️ Compare PAYG vs DBCU",
@@ -1916,6 +2213,7 @@ def main() -> None:
             historico_label,
             "📊 FinOps Realizado",
             "🔧 Otimização",
+            "📋 Catálogo",
         ]
     )
 
@@ -1933,6 +2231,8 @@ def main() -> None:
         render_tab_finops_realizado()
     with tab7:
         render_tab_otimizacao()
+    with tab8:
+        render_tab_catalogo()
 
 
 if __name__ == "__main__":
