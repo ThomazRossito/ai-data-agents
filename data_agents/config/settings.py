@@ -175,6 +175,19 @@ class Settings(BaseSettings):
     # Horas/mês padrão (Azure Pricing Calculator usa 730 = 365.25/12*24)
     azure_pricing_hours_per_month: float = 730.0
 
+    # --- Databricks Pricing MCP (custom — cost_engine wrapper) ---
+    # Sem credenciais (catalog estático local + APIs públicas opcionais).
+    # Defaults configuráveis via .env (opcionais). Espelha o pattern do azure_pricing.
+    databricks_pricing_command: str = "databricks-pricing-mcp"
+    # Cloud default (azure | aws)
+    databricks_pricing_default_cloud: str = "azure"
+    # Region default (alinha com Brazil foco)
+    databricks_pricing_default_region: str = "brazilsouth"
+    # Currency default (USD | BRL)
+    databricks_pricing_default_currency: str = "USD"
+    # Cotação USD→BRL pra conversão (default 5.0)
+    databricks_pricing_fx_usd_brl: float = 5.0
+
     # --- Permissões dos Agentes ---
     # "bypassPermissions" (padrão): agentes executam sem pedir confirmação — ideal para automação.
     # "acceptEdits": agentes pedem confirmação antes de operações write/execute — recomendado

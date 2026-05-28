@@ -44,7 +44,7 @@
 
 ## O que é o AI Data Agents?
 
-**AI Data Agents** é um sistema multi-agente construído sobre o **Claude Agent SDK** da Anthropic com integração nativa via **Model Context Protocol (MCP)** ao **Databricks** e **Microsoft Fabric**. Em vez de um único assistente genérico, o sistema orquestra **<!-- INVENTORY:agents_total -->15<!-- /INVENTORY:agents_total --> agentes especialistas** que operam diretamente nas suas plataformas de dados, cada um com seu domínio de conhecimento, ferramentas e regras corporativas declarativas.
+**AI Data Agents** é um sistema multi-agente construído sobre o **Claude Agent SDK** da Anthropic com integração nativa via **Model Context Protocol (MCP)** ao **Databricks** e **Microsoft Fabric**. Em vez de um único assistente genérico, o sistema orquestra **<!-- INVENTORY:agents_total -->16<!-- /INVENTORY:agents_total --> agentes especialistas** que operam diretamente nas suas plataformas de dados, cada um com seu domínio de conhecimento, ferramentas e regras corporativas declarativas.
 
 ---
 
@@ -573,7 +573,7 @@ make health-fabric
 Com 8+ anos em Engenharia e Arquitetura de Dados, atua na intersecção entre Big Data, Arquitetura Lakehouse e Agentic AI — aplicando agentes autônomos e GenAI no ciclo completo de dados: pipelines, discovery, migrações, governança e orquestração autônoma. Certificado 10x (Databricks 5x · Azure 4x · AWS 1x).
 
 **Projetos open-source:**
-- 🤖 **AI Data Agents** — framework de orquestração multi-agente para dados corporativos com <!-- INVENTORY:agents_total -->15<!-- /INVENTORY:agents_total --> agentes especialistas, integrações nativas Databricks + Fabric via MCP e protocolo DOMA
+- 🤖 **AI Data Agents** — framework de orquestração multi-agente para dados corporativos com <!-- INVENTORY:agents_total -->16<!-- /INVENTORY:agents_total --> agentes especialistas, integrações nativas Databricks + Fabric via MCP e protocolo DOMA
 - 🧭 **SifTools** — engenharia de contexto via pruning semântico de tools por embeddings: entrega exatamente os MCPs que cada agente precisa, sem custo extra de inferência → [github.com/ThomazRossito/siftools](https://github.com/ThomazRossito/siftools)
 
 > *"Dados sem estratégia são apenas ruído. Agentes sem governança são apenas caos."*

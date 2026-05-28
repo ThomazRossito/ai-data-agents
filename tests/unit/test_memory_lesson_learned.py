@@ -58,9 +58,19 @@ def test_settings_has_s4_fields() -> None:
     assert s.s4_auto_approval_max_cost_usd == 0.10
 
 
-def test_decay_get_decay_days_lesson_learned() -> None:
+def test_decay_get_decay_days_lesson_learned(monkeypatch) -> None:
+    """Valida o default 30.0 isolando do .env do dev.
+
+    `_get_decay_days` lê de `settings` (singleton carregado na importação do módulo).
+    Se o dev tiver `MEMORY_DECAY_LESSON_LEARNED_DAYS=90` no .env (config legítima
+    pra restaurar lições expiradas na página "Lições Aprendidas"), o teste falha.
+    Patch direto no atributo do singleton garante isolamento.
+    """
+    from data_agents.config import settings as settings_module
     from data_agents.memory.decay import _get_decay_days
     from data_agents.memory.types import MemoryType
+
+    monkeypatch.setattr(settings_module.settings, "memory_decay_lesson_learned_days", 30.0)
 
     days = _get_decay_days(MemoryType.LESSON_LEARNED)
     assert days == 30.0
