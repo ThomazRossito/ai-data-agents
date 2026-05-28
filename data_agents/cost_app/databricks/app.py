@@ -23,6 +23,12 @@ from __future__ import annotations
 import plotly.graph_objects as go
 import streamlit as st
 
+from data_agents.cost_app.databricks.billing_app_helpers import (
+    format_compare_dataframe,
+    interpret_verdict,
+    load_billing_data,
+)
+from data_agents.cost_app.databricks.billing_mock import get_mock_metadata as get_billing_mock_meta
 from data_agents.cost_app.databricks.comparisons import (
     compute_comparison,
     get_summary_table as get_comparison_table,
@@ -46,6 +52,13 @@ from data_agents.cost_app.databricks.scenarios import (
 from data_agents.cost_app.databricks.workloads import (
     aggregate_workloads,
     get_summary_table as get_workloads_table,
+)
+from data_agents.cost_engine.billing import (
+    BillingPeriod,
+    aggregate_dbu_daily,
+    compare_estimate_vs_actual,
+    cost_by_compute_type,
+    top_cost_clusters,
 )
 from data_agents.cost_engine.databricks import (
     DatabricksScenario,
@@ -1107,6 +1120,318 @@ def render_tab_historico() -> None:
                             st.rerun()
 
 
+# ─── Tab 6: FinOps Realizado (Chunk 3.3 — análise actual via system.billing) ──
+
+
+def render_tab_finops_realizado() -> None:
+    """Tab 6: análise FinOps de consumo real via system.billing.usage.
+
+    No Chunk 3.1 só mock mode está implementado — toggle 'Real data' fica
+    desabilitado com aviso. Quando integração SDK ficar pronta, habilita.
+    """
+    st.markdown("#### 📊 FinOps Realizado — Análise de Consumo")
+    st.caption(
+        "Análise de workloads Databricks em produção via `system.billing.usage` "
+        "(Fase 3). Distinto da Tab 'Cenário Cluster' (estimate determinístico)."
+    )
+
+    cloud = st.session_state.cloud.upper()
+
+    # ─── Inputs ─────────────────────────────────────────────────────────────
+    col_form1, col_form2, col_form3 = st.columns([2, 2, 1])
+
+    with col_form1:
+        period_days = st.selectbox(
+            "Janela",
+            options=[7, 14, 30, 60],
+            index=2,  # default 30 dias
+            format_func=lambda d: f"Últimos {d} dias",
+            help="Janelas curtas amplificam ruído na extrapolação. Recomendado: ≥14 dias.",
+        )
+    with col_form2:
+        workspace_id_str = st.text_input(
+            "Workspace ID (opcional)",
+            placeholder="vazio = todos os workspaces",
+            help="Filtra por workspace específico em contas multi-workspace.",
+        )
+    with col_form3:
+        mode = st.radio(
+            "Modo dos dados",
+            options=["Mock", "Real (não disponível)"],
+            index=0,
+            help="Real mode requer DATABRICKS_BILLING_MOCK_MODE=false + warehouse_id (não implementado no Chunk 3.1).",
+        )
+
+    workspace_id: int | None = None
+    if workspace_id_str.strip():
+        try:
+            workspace_id = int(workspace_id_str.strip())
+        except ValueError:
+            st.error("workspace_id deve ser numérico.")
+            return
+
+    if mode.startswith("Real"):
+        st.warning(
+            "⚠️ Real mode ainda não suportado neste chunk. "
+            "Integração SDK + warehouse virá em chunk posterior. "
+            "Continue com Mock pra demonstrar a análise."
+        )
+        return
+
+    # ─── Carrega dados ──────────────────────────────────────────────────────
+    from datetime import datetime, timedelta, timezone
+
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=period_days - 1)
+    period = BillingPeriod(start_date=start_date, end_date=end_date, workspace_id=workspace_id)
+
+    try:
+        usage_df, prices_df = load_billing_data(period=period, cloud=cloud, mock=True)
+    except RuntimeError as exc:
+        st.error(f"Erro ao carregar dados: {exc}")
+        return
+
+    if usage_df.empty:
+        st.info("📭 Sem registros de consumo na janela selecionada.")
+        return
+
+    # Mock metadata banner
+    mock_meta = get_billing_mock_meta()
+    st.caption(
+        f"📦 **Mock mode** · {mock_meta['num_clusters']} clusters fictícios "
+        f"({', '.join(mock_meta['cluster_names'])}) · {mock_meta['num_skus_per_cloud']} SKUs · "
+        f"seed={mock_meta['seed_default']}"
+    )
+
+    # ─── Métricas top ───────────────────────────────────────────────────────
+    daily = aggregate_dbu_daily(usage_df, period)
+    breakdown = cost_by_compute_type(usage_df, prices_df, period)
+    top_clusters = top_cost_clusters(usage_df, prices_df, period, limit=10)
+
+    total_dbus = float(daily["total_dbus"].sum())
+    total_cost_usd = float(breakdown["estimated_cost_usd"].sum()) if not breakdown.empty else 0.0
+
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    with col_m1:
+        st.metric("Total DBU", f"{total_dbus:,.1f}")
+    with col_m2:
+        st.metric("Custo estimado", _format_money_plain(total_cost_usd, "USD"))
+    with col_m3:
+        if st.session_state.currency_label == "BRL":
+            total_brl = total_cost_usd * st.session_state.currency_rate
+            st.metric("Em BRL", _format_money_plain(total_brl, "BRL"))
+        else:
+            st.metric("Período", f"{period.days} dias")
+    with col_m4:
+        clusters_ativos = top_clusters["cluster_name"].nunique() if not top_clusters.empty else 0
+        st.metric("Clusters ativos", clusters_ativos)
+
+    st.divider()
+
+    # ─── Chart 1: Daily DBU trend ───────────────────────────────────────────
+    st.markdown("##### 📈 Consumo diário (DBU)")
+
+    # Agrega total por dia (sem quebrar por SKU pra trend simples)
+    daily_total = daily.groupby("usage_date", as_index=False)["total_dbus"].sum()
+    daily_total["usage_date"] = daily_total["usage_date"].astype(str)
+
+    # Moving average 7d (só se janela >= 7d)
+    if len(daily_total) >= 7:
+        daily_total["ma_7d"] = daily_total["total_dbus"].rolling(window=7, min_periods=1).mean()
+
+    fig_trend = go.Figure()
+    fig_trend.add_trace(
+        go.Scatter(
+            x=daily_total["usage_date"],
+            y=daily_total["total_dbus"],
+            mode="lines+markers",
+            name="DBU diário",
+            line={"color": "#FF6B6B", "width": 2},
+            marker={"size": 6},
+        )
+    )
+    if "ma_7d" in daily_total.columns:
+        fig_trend.add_trace(
+            go.Scatter(
+                x=daily_total["usage_date"],
+                y=daily_total["ma_7d"],
+                mode="lines",
+                name="Média móvel 7d",
+                line={"color": "#4ECDC4", "width": 2, "dash": "dash"},
+            )
+        )
+    fig_trend.update_layout(
+        height=320,
+        margin={"l": 20, "r": 20, "t": 30, "b": 40},
+        xaxis_title="Data",
+        yaxis_title="DBU",
+        showlegend=True,
+        legend={"orientation": "h", "y": -0.2},
+    )
+    st.plotly_chart(fig_trend, use_container_width=True)
+
+    st.divider()
+
+    # ─── Chart 2 + 3 lado a lado: Donut + Top Clusters ──────────────────────
+    col_chart1, col_chart2 = st.columns(2)
+
+    with col_chart1:
+        st.markdown("##### 🍩 Breakdown por Compute Type")
+        if breakdown.empty:
+            st.caption("Sem dados na janela.")
+        else:
+            fig_donut = go.Figure(
+                go.Pie(
+                    labels=breakdown["compute_type"],
+                    values=breakdown["estimated_cost_usd"],
+                    hole=0.5,
+                    marker={"colors": ["#FF6B6B", "#4ECDC4", "#FFE66D", "#A0E7E5", "#B4F8C8"]},
+                    textinfo="label+percent",
+                    hovertemplate="<b>%{label}</b><br>$%{value:.2f}<br>%{percent}<extra></extra>",
+                )
+            )
+            fig_donut.update_layout(
+                height=320,
+                margin={"l": 20, "r": 20, "t": 20, "b": 20},
+                showlegend=False,
+            )
+            st.plotly_chart(fig_donut, use_container_width=True)
+
+    with col_chart2:
+        st.markdown("##### 🏆 Top 10 Clusters por Custo")
+        if top_clusters.empty:
+            st.caption("Sem clusters identificados na janela.")
+        else:
+            fig_bar = go.Figure(
+                go.Bar(
+                    x=top_clusters["estimated_cost_usd"],
+                    y=top_clusters["cluster_name"],
+                    orientation="h",
+                    marker={"color": "#FF6B6B"},
+                    text=top_clusters["estimated_cost_usd"].apply(lambda v: f"${v:.2f}"),
+                    textposition="outside",
+                )
+            )
+            fig_bar.update_layout(
+                height=320,
+                margin={"l": 20, "r": 60, "t": 20, "b": 20},
+                xaxis_title="Custo (USD)",
+                yaxis={"autorange": "reversed"},  # maior em cima
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+    st.divider()
+
+    # ─── Bridge: Compare estimate vs actual ────────────────────────────────
+    st.markdown("##### 🔗 Comparar com Cenário Estimado (Bridge Fase 2 ↔ Fase 3)")
+    st.caption(
+        "Selecione um cenário salvo (Fase 2) pra calcular variance vs consumo real. "
+        "Veja `kb/databricks-pricing/concepts/estimate-vs-actual.md` para semantics."
+    )
+
+    saved_scenarios = list_saved_scenarios()
+    if not saved_scenarios:
+        st.info(
+            "📋 Nenhum cenário salvo. Crie um na Tab 'Cenário Cluster' ou peça ao agent: "
+            "`/cost-databricks ... salva no app`."
+        )
+        return
+
+    col_compare1, col_compare2 = st.columns([3, 2])
+
+    with col_compare1:
+        scenario_options = [
+            f"{e['name'][:40]} · {e['cloud']} · {e['source']}" for e in saved_scenarios
+        ]
+        scenario_idx = st.selectbox(
+            "Cenário",
+            options=range(len(scenario_options)),
+            format_func=lambda i: scenario_options[i],
+            key="finops_compare_scenario_idx",
+        )
+
+    with col_compare2:
+        # Cluster_name filter (opcional) — populado com os clusters do mock
+        cluster_options = ["(todos os clusters)"] + sorted(
+            usage_df["cluster_name"].dropna().unique().tolist()
+        )
+        cluster_filter = st.selectbox(
+            "Filtrar cluster",
+            options=cluster_options,
+            index=0,
+            help="Filtra system.billing pelo cluster_name específico do cenário (recomendado).",
+        )
+
+    if st.button("📊 Comparar estimate vs actual", use_container_width=True):
+        scenario_meta = saved_scenarios[scenario_idx]
+        try:
+            envelope_dict = {
+                "uuid": scenario_meta["uuid"],
+                "name": scenario_meta["name"],
+            }
+
+            # Carrega scenario completo via load_scenario (Fase 2)
+            scenario = load_scenario(scenario_meta["uuid"])
+            catalog = _cached_catalog(scenario.cloud)
+            result = calculate_databricks_cost(scenario, catalog)
+            estimated_monthly = float(result["totals"]["monthly"])
+
+            # Filtra usage por cluster se aplicável
+            usage_filtered = usage_df
+            if cluster_filter != "(todos os clusters)":
+                usage_filtered = usage_df[usage_df["cluster_name"] == cluster_filter].copy()
+
+            # Calcula actual_total via cost_by_compute_type filtrado
+            actual_breakdown = cost_by_compute_type(usage_filtered, prices_df, period)
+            actual_total = (
+                float(actual_breakdown["estimated_cost_usd"].sum())
+                if not actual_breakdown.empty
+                else 0.0
+            )
+
+            # Bridge engine
+            comparison = compare_estimate_vs_actual(
+                scenario_envelope=envelope_dict,
+                estimated_monthly_usd=estimated_monthly,
+                actual_total_usd_in_period=actual_total,
+                period=period,
+            )
+
+            # Display
+            compare_df = format_compare_dataframe(
+                scenario_name=comparison.scenario_name,
+                estimated_monthly_usd=comparison.estimated_monthly_usd,
+                actual_monthly_usd=comparison.actual_monthly_usd,
+                variance_pct=comparison.variance_pct,
+                verdict=comparison.verdict,
+                actual_period_days=comparison.actual_period_days,
+            )
+            st.dataframe(compare_df, use_container_width=True, hide_index=True)
+
+            # Interpretação textual
+            msg = interpret_verdict(comparison.verdict, comparison.variance_pct)
+            if comparison.verdict == "on_budget":
+                st.success(msg)
+            elif comparison.verdict == "over_budget":
+                st.warning(msg)
+            else:
+                st.info(msg)
+
+            # Caveats automáticos
+            if period.days < 14:
+                st.caption(
+                    f"⚠️ Período de {period.days} dias é curto — extrapolação pode amplificar ruído. "
+                    "Recomendado ≥14 dias."
+                )
+            if cluster_filter == "(todos os clusters)":
+                st.caption(
+                    "ℹ️ Sem filtro de cluster — actual inclui workloads não cobertos pelo cenário. "
+                    "Pode inflar variance falsamente. Recomenda-se selecionar o cluster específico."
+                )
+        except (FileNotFoundError, ValueError) as exc:
+            st.error(f"Erro no compare: {exc}")
+
+
 def render_tab_export() -> None:
     """Tab 4: Export XLSX (single scenario ou multi com aggregate)."""
     st.markdown("#### 📤 Export XLSX")
@@ -1252,13 +1577,14 @@ def main() -> None:
     if agent_count > 0:
         historico_label = f"📋 Histórico 🤖×{agent_count}"
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
         [
             "🖥️ Cenário Cluster",
             "⚖️ Compare PAYG vs DBCU",
             "🔗 Workloads Múltiplos",
             "📤 Export XLSX",
             historico_label,
+            "📊 FinOps Realizado",
         ]
     )
 
@@ -1272,6 +1598,8 @@ def main() -> None:
         render_tab_export()
     with tab5:
         render_tab_historico()
+    with tab6:
+        render_tab_finops_realizado()
 
 
 if __name__ == "__main__":

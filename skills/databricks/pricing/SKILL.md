@@ -29,6 +29,7 @@ Exemplos de inputs naturais que o agent processa:
 
 ## Quando Acionar Esta Skill
 
+**Modo ESTIMATE (Fase 2 — cotação determinística via catalog YAML):**
 - Usuário pede custo de workload Databricks (qualquer escala) em linguagem natural
 - Comparação Pay-as-you-go vs DBCU 1y vs DBCU 3y
 - Comparação Photon on vs off
@@ -36,6 +37,15 @@ Exemplos de inputs naturais que o agent processa:
 - TCO 12/24/36 meses
 - Comparação cross-cloud Azure vs AWS (mesmo workload em 2 catalogs)
 - Geração de relatório auditável pra comitê de FinOps / pré-venda
+
+**Modo ACTUAL (Fase 3 — análise de produção via system.billing):**
+- "Quanto gastei nos últimos 30 dias?"
+- "Quais clusters estão consumindo mais?"
+- "Breakdown por tipo de compute" / "Jobs vs SQL vs Serverless real"
+- "Compare meu cenário estimado com o consumo real" (bridge Fase 2 ↔ Fase 3)
+- Análise FinOps recorrente / retrospectiva de workload em produção
+
+**Não confunda os modos** — leia R10 do registry. Identifique o modo na 1ª resposta + cite no preâmbulo. Bridge `compare_estimate_vs_actual` une os dois, mas só com pedido explícito do user.
 
 ## Pré-flight (sempre antes de calcular)
 
@@ -282,6 +292,112 @@ Trigger keywords: "quais cenários eu tenho salvos?", "limpa os cenários de tes
    - Confirmar retorno deleted=true
 4. NUNCA deletar sem pedido + confirmação explícita
 ```
+
+### Padrão 8: FinOps actual mode (Fase 3 — system.billing)
+
+Trigger keywords: "quanto gastei", "quanto consumimos", "qual o consumo real", "quais clusters estão consumindo mais", "qual o gasto na conta", "billing real", "FinOps", "system.billing".
+
+**Pré-flight:**
+1. Identifica como modo ACTUAL (R10 do registry)
+2. Confirmation Block citando: workspace_id?, janela, cloud, mock_mode
+3. `databricks_billing_diagnostics()` na 1ª pergunta — cita `mock_mode: true|false`
+4. Se mock_mode=true e user esperava real, **STOP** + siga R11 (avise + peça confirmação)
+
+**Workflow padrão (intenção → tool):**
+
+```
+Intenção: "quanto consumimos nos últimos 30 dias?"
+→ databricks_billing_get_dbu_usage_daily(start, end, workspace_id?)
+  • Apresentar: total_dbus + custo estimado via JOIN list_prices
+  • Chart sugerido: line chart usage_date vs total_dbus
+
+Intenção: "quais clusters consomem mais?"
+→ databricks_billing_get_top_cost_clusters(start, end, limit=10, workspace_id?)
+  • Apresentar: tabela cluster_name × total_dbus × estimated_cost_usd
+  • Chart sugerido: bar horizontal
+
+Intenção: "quebra por tipo de compute"
+→ databricks_billing_get_cost_by_compute_type(start, end, workspace_id?)
+  • Apresentar: tabela compute_type × dbus_pct × cost_pct
+  • Chart sugerido: donut
+
+Intenção: "tudo isso ao mesmo tempo" (dashboard executivo)
+→ chamar as 3 tools em sequência + apresentar relatório agregado
+```
+
+**Output template (`cost_report.md`):**
+
+```markdown
+# Análise FinOps Realizado — <período>
+
+**Modo:** ACTUAL (system.billing — <mock|real>)
+**Janela:** <start> → <end> (<N> dias)
+**Workspace:** <id ou "todos">
+**Cloud:** <AZURE|AWS>
+
+## Consumo Total
+- Total DBU: <X>
+- Custo estimado: $<Y> USD
+
+## <breakdown específico — daily / clusters / compute_type>
+
+| ... |
+
+## Caveats
+- <mock_mode warning se aplicável>
+- <workspace filter se aplicado>
+- <período curto warning se < 14 dias>
+```
+
+**Regras invioláveis (do registry):**
+- R10: nunca misturar estimate + actual sem aviso explícito
+- R11: mock_mode=true → cite "(dados mock pra demonstração)" em cada seção que mostra valores
+- Não chute "deveria gastar X" — só relate o que `system.billing` retornou
+
+### Padrão 9: Compare estimate vs actual (bridge Fase 2 ↔ Fase 3)
+
+Trigger keywords: "compara o cenário X com o real", "como meu estimate bate com actual", "validar cotação", "variance estimate vs realizado".
+
+**Pré-flight:**
+1. Identificar `scenario_uuid` do cenário (Fase 2) que o user quer validar
+   - User falou UUID? → usa direto
+   - User falou nome ("cenário ETL Bronze")? → `databricks_pricing_search_scenarios(query)` → confirma com user qual UUID
+2. Identificar **janela actual** — default últimos 30 dias, mas confirme com user
+3. Identificar **cluster_name_filter** — sempre que possível:
+   > "O cenário descreve qual cluster específico? Eu posso filtrar o actual só por esse cluster pra ter precisão. Caso contrário, agrego o consumo da conta inteira (o que pode inflar variance falsamente)."
+
+**Workflow:**
+
+```
+1. Diagnostics (se 1ª pergunta da sessão)
+2. databricks_pricing_search_scenarios(query) [se nome em vez de UUID]
+3. databricks_billing_compare_estimate_vs_actual(
+       scenario_uuid=...,
+       start_date=...,
+       end_date=...,
+       cluster_name_filter=...,   # confirmado com user
+       workspace_id=...,           # se multi-workspace
+   )
+4. Apresentar verdict + interpretação:
+   - on_budget: "Cenário validado pelo realizado. Pode usar pra TCO."
+   - over_budget: investigar causas (sizing, photon, hours, SKU shift)
+   - under_budget: cenário pode estar superdimensionado, revisar
+5. Salvar 2 arquivos:
+   - output/cost-databricks/<YYYYMMDD>_compare_<scenario_slug>.md
+   - <name>_compare.json (snapshot do comparison)
+```
+
+**Output template:**
+
+Ver `kb/databricks-pricing/concepts/estimate-vs-actual.md` §"Workflow do agente — o que apresentar ao user".
+
+**Caveats a sempre citar (do KB):**
+- Período < 14 dias: extrapolação amplifica ruído
+- Workload bursty: distribuição não-uniforme quebra a premissa
+- cluster_name_filter ausente: actual pode incluir workloads não cobertos pelo cenário
+- workspace_id=None em multi-workspace: actual agrega TODOS os workspaces
+
+**Anti-pattern crítico:** **NÃO ajuste o cenário automaticamente** baseado no actual. Reporte verdict + sugira ação (ex: "atualizar num_workers de 4 → 8") e deixe o user decidir. O ajuste é feito no Tab Histórico do App (carregar → editar → re-salvar como `app-edited`).
 
 ## Anti-patterns
 
