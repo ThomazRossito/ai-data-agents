@@ -52,8 +52,10 @@ class TestInstancePrices:
         assert ds4_br < ds4_us * 1.5
 
     def test_unknown_cloud_raises(self):
+        # PR 2 (2026-05-28): "gcp" virou cloud suportada (gcp.yaml + _GCP_PRICES).
+        # Usa cloud realmente inexistente pra preservar regression check.
         with pytest.raises(ValueError, match="Cloud desconhecida"):
-            get_instance_price_usd_per_hour("gcp", "us-central1", "n2-standard-4")  # type: ignore[arg-type]
+            get_instance_price_usd_per_hour("alibabacloud", "cn-beijing", "ecs.g5.xlarge")  # type: ignore[arg-type]
 
     def test_unknown_region_raises(self):
         with pytest.raises(KeyError, match="Region"):

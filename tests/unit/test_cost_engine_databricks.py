@@ -674,3 +674,195 @@ class TestServerlessRateCorrection:
         catalog = load_databricks_catalog("aws")
         rate = catalog["dbu_rates_per_hour"]["serverless_compute"]["base_per_dbu"]
         assert rate == 0.35
+
+
+# ── PR 2 (2026-05-28): Serverless sub-types + GCP + Lakebase ────────────────
+
+
+class TestServerlessSubTypes:
+    """Audit 2026-05-28: Databricks publica 4 sub-types de Serverless oficial,
+    cada um com rate distinta. PR 2 adiciona como compute_type separados:
+        - jobs_serverless         → $0.35/DBU (lakeflow-jobs)
+        - dlt_serverless          → $0.35/DBU (lakeflow-spark-declarative-pipelines)
+        - sql_serverless          → $0.70/DBU (databricks-sql; existe como sql.serverless)
+        - all_purpose_serverless  → $0.75/DBU (datascience-ml)
+    """
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_jobs_serverless_rate_is_0_35(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        rate = catalog["dbu_rates_per_hour"]["jobs_serverless"]["base_per_dbu"]
+        assert rate == 0.35
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_dlt_serverless_rate_is_0_35(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        rate = catalog["dbu_rates_per_hour"]["dlt_serverless"]["base_per_dbu"]
+        assert rate == 0.35
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_all_purpose_serverless_rate_is_0_75(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        rate = catalog["dbu_rates_per_hour"]["all_purpose_serverless"]["base_per_dbu"]
+        assert rate == 0.75
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_serverless_compute_marked_deprecated(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        sc = catalog["dbu_rates_per_hour"]["serverless_compute"]
+        # PyYAML pode carregar `_deprecated: true` como bool ou str dependendo
+        # da versão/safe_load config. Aceita ambas — semântica é "marcado deprecated".
+        deprecated_val = sc.get("_deprecated")
+        assert deprecated_val in (True, "true", "True"), (
+            f"_deprecated esperado True/true, got {deprecated_val!r}"
+        )
+        assert sc.get("_deprecated_note")  # tem nota de migration
+
+    def test_jobs_serverless_zeroes_instance_cost(self):
+        """End-to-end: jobs_serverless deve zerar instance cost (Databricks-managed)."""
+        scenario = DatabricksScenario(
+            cloud="aws",
+            compute_type="jobs_serverless",
+            tier="premium",
+            photon=False,
+            driver_instance="m5.xlarge",
+            worker_instance="m5.xlarge",
+            num_workers=2,
+            hours_per_day=4,
+            days_per_month=22,
+            region="us-east-1",
+            instance_pricing_model="on_demand",
+            driver_instance_cost_per_hour_usd=0.192,
+            worker_instance_cost_per_hour_usd=0.192,
+        )
+        result = calculate_databricks_cost(scenario)
+        assert result["breakdown_hourly_usd"]["instance_total"] == 0.0
+        assert result["inputs_resolved"]["dbu_rate_per_hour_usd"] == 0.35
+
+    def test_all_purpose_serverless_zeroes_instance_cost(self):
+        """End-to-end: all_purpose_serverless também é Databricks-managed."""
+        scenario = DatabricksScenario(
+            cloud="aws",
+            compute_type="all_purpose_serverless",
+            tier="premium",
+            photon=False,
+            driver_instance="m5.xlarge",
+            worker_instance="m5.xlarge",
+            num_workers=2,
+            hours_per_day=8,
+            days_per_month=22,
+            region="us-east-1",
+            instance_pricing_model="on_demand",
+            driver_instance_cost_per_hour_usd=0.192,
+            worker_instance_cost_per_hour_usd=0.192,
+        )
+        result = calculate_databricks_cost(scenario)
+        assert result["breakdown_hourly_usd"]["instance_total"] == 0.0
+        assert result["inputs_resolved"]["dbu_rate_per_hour_usd"] == 0.75
+        # monthly = 0.75 × 3 DBU/h (1 driver + 2 workers × 1 DBU) × 8h × 22d
+        assert result["totals"]["monthly"] == pytest.approx(396.0, abs=1.0)
+
+
+class TestGcpCatalog:
+    """PR 2 (2026-05-28): gcp.yaml scaffold criado. Estrutura paralela a aws.yaml.
+    Pricing derivado via paridade /product/sku-groups + Google Cloud Calculator spot-checks.
+    """
+
+    def test_gcp_catalog_loads(self):
+        catalog = load_databricks_catalog("gcp")
+        assert catalog["cloud"] == "gcp"
+        assert catalog["schema_version"].startswith("1.")
+
+    def test_gcp_has_premium_and_enterprise_tiers(self):
+        """AWS/GCP têm Premium e Enterprise (Azure só Premium = AWS/GCP Enterprise)."""
+        catalog = load_databricks_catalog("gcp")
+        ap = catalog["dbu_rates_per_hour"]["all_purpose_compute"]
+        assert "premium" in ap
+        assert "enterprise" in ap
+
+    def test_gcp_has_brazil_region(self):
+        catalog = load_databricks_catalog("gcp")
+        regions = [r["id"] for r in catalog["regions"]]
+        assert "southamerica-east1" in regions
+
+    def test_gcp_does_not_have_lakebase(self):
+        """Lakebase oficialmente disponível só AWS + Azure (não GCP)."""
+        catalog = load_databricks_catalog("gcp")
+        assert "lakebase" not in catalog
+
+    def test_gcp_has_lakeflow_connect(self):
+        catalog = load_databricks_catalog("gcp")
+        assert "lakeflow_connect" in catalog
+
+    def test_gcp_scenario_resolves(self):
+        """Smoke: cenário GCP padrão calcula custo sem erros."""
+        scenario = DatabricksScenario(
+            cloud="gcp",
+            compute_type="jobs_compute",
+            tier="premium",
+            photon=False,
+            driver_instance="n2-standard-4",
+            worker_instance="n2-standard-4",
+            num_workers=2,
+            hours_per_day=8,
+            days_per_month=22,
+            region="us-central1",
+            instance_pricing_model="on_demand",
+            driver_instance_cost_per_hour_usd=0.1942,
+            worker_instance_cost_per_hour_usd=0.1942,
+        )
+        result = calculate_databricks_cost(scenario)
+        assert result["totals"]["monthly"] > 0
+        # GCP Premium Jobs = $0.15/DBU per aws.yaml-derived paridade
+        assert result["inputs_resolved"]["dbu_rate_per_hour_usd"] == 0.15
+
+
+class TestLakebaseSchema:
+    """PR 2 (2026-05-28): Lakebase block parses corretamente no YAML.
+    Engine ainda não calcula Lakebase (TODO PR 3) — só carrega a estrutura.
+    """
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws"])
+    def test_lakebase_block_present(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        assert "lakebase" in catalog
+        lb = catalog["lakebase"]
+        assert lb["cost_unit"] == "cu_h"
+        assert lb["promo_until"]  # tem data
+        assert lb["autoscaling_per_cu_h_promo"] == 0.092
+        assert lb["always_on_min_per_cu_h_promo"] == 0.069
+        assert lb["storage_per_gb_month"] == 0.345
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws"])
+    def test_lakebase_promo_below_list_price(self, cloud):
+        """Sanidade: preço promocional deve ser menor que list price."""
+        catalog = load_databricks_catalog(cloud)
+        lb = catalog["lakebase"]
+        assert lb["autoscaling_per_cu_h_promo"] < lb["autoscaling_per_cu_h_list"]
+        assert lb["always_on_min_per_cu_h_promo"] < lb["always_on_min_per_cu_h_list"]
+
+
+class TestLakeflowConnectSchema:
+    """PR 2 (2026-05-28): Lakeflow Connect block parses no YAML em todas 3 clouds."""
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_lakeflow_connect_block_present(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        assert "lakeflow_connect" in catalog
+        lfc = catalog["lakeflow_connect"]
+        assert "managed_connectors" in lfc
+        assert "zerobus_ingest" in lfc
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_managed_connectors_have_free_tier(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        mc = catalog["lakeflow_connect"]["managed_connectors"]
+        assert mc["base_per_dbu"] == 0.35
+        assert mc["free_tier_dbu_per_workspace_per_day"] == 100
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_zerobus_has_promo_period(self, cloud):
+        catalog = load_databricks_catalog(cloud)
+        zb = catalog["lakeflow_connect"]["zerobus_ingest"]
+        assert zb["promo_until"] == "2026-09-01"
+        assert zb["per_gb_promo"] < zb["per_gb_list"]

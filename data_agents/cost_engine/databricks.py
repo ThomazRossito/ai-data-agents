@@ -61,11 +61,15 @@ import yaml
 
 
 # Aliases pra clarity
-CloudName = Literal["azure", "aws"]
+# PR 2 (2026-05-28): + "gcp" cloud + 3 serverless sub-types.
+CloudName = Literal["azure", "aws", "gcp"]
 ComputeType = Literal[
     "all_purpose_compute",
     "jobs_compute",
-    "serverless_compute",
+    "serverless_compute",  # alias DEPRECATED — use sub-types abaixo
+    "jobs_serverless",  # PR 2: $0.35/DBU oficial Jobs Serverless
+    "dlt_serverless",  # PR 2: $0.35/DBU oficial DLT Serverless
+    "all_purpose_serverless",  # PR 2: $0.75/DBU oficial All-Purpose Serverless
     "delta_live_tables",
     "sql",
     "model_serving",
@@ -227,7 +231,14 @@ def _resolve_dbu_rate(catalog: dict[str, Any], scenario: DatabricksScenario) -> 
 
     # serverless_compute, delta_live_tables, sql, model_serving, vector_search
     # têm estruturas diferentes — tratamento especial:
-    if scenario.compute_type == "serverless_compute":
+    # PR 2 (2026-05-28): + jobs_serverless / dlt_serverless / all_purpose_serverless
+    # — todos seguem mesmo schema `base_per_dbu` do legacy `serverless_compute`.
+    if scenario.compute_type in (
+        "serverless_compute",
+        "jobs_serverless",
+        "dlt_serverless",
+        "all_purpose_serverless",
+    ):
         return float(compute["base_per_dbu"])
     if scenario.compute_type == "delta_live_tables":
         # tier maps to product line (core/pro/advanced)
@@ -407,12 +418,17 @@ def calculate_databricks_cost(
     # 6. Instance cost (hourly, antes do desconto pricing model)
     # IMPORTANTE: Serverless é Databricks-managed — o user paga só DBU,
     # sem instance cost separado (confirmado no catalog YAML "Inclui infra
-    # Databricks-managed"). Cobre 3 cases:
-    #   - compute_type == "serverless_compute"
-    #   - compute_type == "sql_serverless" (variante futura)
-    #   - compute_type == "sql" AND tier == "serverless" (caso atual do catalog)
-    # Bug reportado em 2026-05-28 (cobrança dupla pra Serverless).
-    _is_serverless = scenario.compute_type in ("serverless_compute", "sql_serverless") or (
+    # Databricks-managed").
+    # PR 2 (2026-05-28): expandido pra cobrir todos os sub-types serverless
+    # oficiais (Databricks publica 4: Jobs/DLT/SQL/All-Purpose Serverless).
+    _SERVERLESS_COMPUTE_TYPES = (
+        "serverless_compute",  # legacy alias (deprecated)
+        "sql_serverless",  # variante explícita
+        "jobs_serverless",  # PR 2
+        "dlt_serverless",  # PR 2
+        "all_purpose_serverless",  # PR 2
+    )
+    _is_serverless = scenario.compute_type in _SERVERLESS_COMPUTE_TYPES or (
         scenario.compute_type == "sql" and scenario.tier == "serverless"
     )
     if _is_serverless:
