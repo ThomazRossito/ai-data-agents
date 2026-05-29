@@ -232,9 +232,19 @@ Total entregue ao longo dos 4 PRs (PR 1-4):
   - TestIsPromoActive (6 testes), TestLLMFoundationPayPerToken (4), TestLLMFoundationProvisionedThroughput (1), TestLLMFoundationBatchInference (1), TestLLMProprietaryOpenAI (4 — gpt_5_5 + in_geo + long_context + batch), TestLLMProprietaryStubs (2 — anthropic/gemini warning), TestVectorSearch (3), TestLakebase (4 — autoscaling promo/list + always_on + gcp), TestAgentBricks (3 — promo/list + sub-agents).
   - **397 testes do escopo cost passam** (369 anteriores + 28 PR 5).
 
-### ⏳ Trabalho futuro (PR 6-8)
-- **PR 6** (~600 LOC): captura Anthropic + Gemini per-model DBU tables via Chrome MCP. Substitui stubs em `proprietary_foundation_model_serving.vendors.{anthropic,gemini}` por tabelas completas com input/output/cache rates per modelo. Habilita LLMScenario pra esses vendors.
-- **PR 7** (~800 LOC): nova Tab "🧠 AI/ML Cost Calculator" no app.py com sub-calculadoras interativas: LLM tokens calculator (vendor/model dropdown + sliders), Vector Search sizing (tier + units + storage), Lakebase CU·h estimator, Agent Bricks Q&A budget. Usa scenarios do PR 5.
+### ✅ PR 7 implementado (2026-05-28, antes do PR 6 — Chrome MCP indisponível)
+- **app.py**: nova função `render_tab_ai_ml_calculator()` (~330 LOC) com 4 sub-tabs:
+  - 🧠 LLM Tokens: vendor (Foundation/OpenAI/Anthropic/Gemini) + mode (PPT/PT/Batch) + model dropdown dinâmico + inputs M tokens + flags `in_geo`/`long_context` (OpenAI). Métricas mensal/anual + breakdown JSON + warnings (stub para Anthropic/Gemini até PR 6).
+  - 🔍 Vector Search: tier (Standard/Storage Optimized) + units + hours + storage_gb + AP region toggle. Mostra capacidade estimada em vectors.
+  - 🗄️ Lakebase: mode (autoscaling/always_on) + CU·hours + storage GB·months + promo toggle + `today_override` pra simulação pós-promo. Warning se cloud não suporta (GCP).
+  - 🧱 Agent Bricks: KA answers + Supervisor DBU·h + sub-agents passa-through + promo toggle. Knowledge Assistant $/answer + Supervisor $/DBU·h.
+- **st.tabs()** expandido de 8 → 9 tabs ("🧠 AI/ML Calc" adicionada).
+- **Imports**: app.py agora importa os 4 dataclasses + 4 funções calculate do PR 5 via `data_agents.cost_engine`.
+- **Tests**: smoke import OK (`render_tab_ai_ml_calculator` callable, todos scenarios + funções acessíveis no contexto do app). 375 testes do escopo cost passam.
+- **ruff format + check verdes**.
+
+### ⏳ Trabalho futuro (PR 6 + PR 8)
+- **PR 6** (~600 LOC, pausado por falta de Chrome MCP): captura Anthropic + Gemini per-model DBU tables via Chrome MCP. Substitui stubs em `proprietary_foundation_model_serving.vendors.{anthropic,gemini}` por tabelas completas. Quando o user reativar a extensão Claude for Chrome, sigo daqui.
 - **PR 8** (~400 LOC, depende de viabilidade): Real-mode Lakebase / Foundation Model Serving via Databricks Account API quando disponível publicly. Senão fica documentado como limitação.
 - **Excluído por escolha do user**: Real-mode GCP via Google Cloud Billing API.
 

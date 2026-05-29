@@ -49,6 +49,18 @@ from data_agents.cost_app.databricks.scenarios import (
     load_scenario,
     save_scenario,
 )
+
+# PR 7 (2026-05-28): AI/ML scenarios do PR 5 expostos no UI.
+from data_agents.cost_engine import (
+    AgentBricksScenario,
+    LakebaseScenario,
+    LLMScenario,
+    VectorSearchScenario,
+    calculate_agent_bricks_cost,
+    calculate_lakebase_cost,
+    calculate_llm_cost,
+    calculate_vector_search_cost,
+)
 from data_agents.cost_app.databricks.workloads import (
     aggregate_workloads,
     get_summary_table as get_workloads_table,
@@ -2710,6 +2722,395 @@ def render_tab_export() -> None:
     )
 
 
+# ─── Tab 9: AI/ML Cost Calculator (PR 7, 2026-05-28) ─────────────────────────
+
+
+def render_tab_ai_ml_calculator() -> None:
+    """Calculadora interativa pra scenarios AI/ML (LLM, Vector Search, Lakebase, Agent Bricks).
+
+    Usa os scenarios do PR 5 (databricks_ai_ml). 4 sub-tabs:
+        - 🧠 LLM Tokens (Foundation + Proprietary)
+        - 🔍 Vector Search Sizing
+        - 🗄️ Lakebase CU·h
+        - 🧱 Agent Bricks Q&A
+    """
+    st.markdown("#### 🧠 AI/ML Cost Calculator")
+    st.caption(
+        "Cenários para SKUs AI/ML (PR 5 engine). Promoção aplicada automaticamente "
+        "se hoje < `promo_until` no catalog. Engine determinístico — mesma entrada = mesma saída."
+    )
+
+    cloud = st.session_state.get("cloud", "azure")
+    try:
+        catalog = load_databricks_catalog(cloud)  # type: ignore[arg-type]
+    except Exception as exc:
+        st.error(f"Falha ao carregar catalog: {exc}")
+        return
+
+    sub_llm, sub_vs, sub_lb, sub_ab = st.tabs(
+        ["🧠 LLM Tokens", "🔍 Vector Search", "🗄️ Lakebase", "🧱 Agent Bricks"]
+    )
+
+    # ─── Sub-tab 1: LLM Tokens ──────────────────────────────────────────────
+    with sub_llm:
+        st.markdown("##### 🧠 LLM Token Cost Calculator")
+
+        col_v, col_m = st.columns(2)
+        with col_v:
+            vendor = st.selectbox(
+                "Vendor",
+                options=["foundation_open", "openai", "anthropic", "gemini"],
+                format_func=lambda v: {
+                    "foundation_open": "Foundation (open LLMs)",
+                    "openai": "OpenAI (proprietary)",
+                    "anthropic": "Anthropic (stub — PR 6)",
+                    "gemini": "Gemini (stub — PR 6)",
+                }[v],
+                key="aiml_llm_vendor",
+            )
+        with col_m:
+            mode = st.selectbox(
+                "Modo",
+                options=["pay_per_token", "provisioned_throughput", "batch_inference"],
+                format_func=lambda m: {
+                    "pay_per_token": "Pay-Per-Token",
+                    "provisioned_throughput": "Provisioned Throughput",
+                    "batch_inference": "Batch Inference",
+                }[m],
+                key="aiml_llm_mode",
+            )
+
+        # Model dropdown depende do vendor
+        model: str | None = None
+        if vendor == "foundation_open":
+            fms = catalog.get("foundation_model_serving", {})
+            models = list((fms.get("per_model_dbu_rates") or {}).keys())
+            if models:
+                model = st.selectbox(
+                    "Modelo (opcional — usado se quiser ver DBU rates do modelo no breakdown)",
+                    options=["(use rate base PPT)"] + models,
+                    key="aiml_llm_model_foundation",
+                )
+                if model == "(use rate base PPT)":
+                    model = None
+        elif vendor == "openai":
+            pfms = catalog.get("proprietary_foundation_model_serving", {})
+            openai_models = list(
+                (pfms.get("vendors", {}).get("openai", {}).get("models") or {}).keys()
+            )
+            if openai_models:
+                model = st.selectbox(
+                    "Modelo OpenAI", options=openai_models, key="aiml_llm_model_openai"
+                )
+        else:
+            st.warning(
+                f"⚠️ {vendor.title()} ainda é stub no catalog (PR 6 vai capturar Chrome MCP). "
+                f"Cálculo retorna $0 + warning."
+            )
+            model = "any_model"
+
+        st.markdown("---")
+
+        # Inputs dependem do mode
+        scenario_kwargs: dict = {
+            "cloud": cloud,
+            "mode": mode,
+            "vendor": vendor,
+            "model": model,
+        }
+        if mode == "pay_per_token":
+            col_i, col_o = st.columns(2)
+            with col_i:
+                scenario_kwargs["m_input_tokens"] = st.number_input(
+                    "M tokens input (milhões)", min_value=0.0, value=1.0, step=0.5, key="aiml_m_in"
+                )
+            with col_o:
+                scenario_kwargs["m_output_tokens"] = st.number_input(
+                    "M tokens output (milhões)",
+                    min_value=0.0,
+                    value=0.5,
+                    step=0.5,
+                    key="aiml_m_out",
+                )
+            if vendor == "openai":
+                col_cw, col_cr = st.columns(2)
+                with col_cw:
+                    scenario_kwargs["m_cache_write_tokens"] = st.number_input(
+                        "M cache write tokens", min_value=0.0, value=0.0, step=0.1, key="aiml_m_cw"
+                    )
+                with col_cr:
+                    scenario_kwargs["m_cache_read_tokens"] = st.number_input(
+                        "M cache read tokens", min_value=0.0, value=0.0, step=0.1, key="aiml_m_cr"
+                    )
+                col_g, col_l = st.columns(2)
+                with col_g:
+                    scenario_kwargs["in_geo"] = st.toggle(
+                        "📍 In-geo (+10%)",
+                        help="Regional in-geo endpoint, ~10% uplift sobre Global Short",
+                        key="aiml_in_geo",
+                    )
+                with col_l:
+                    scenario_kwargs["long_context"] = st.toggle(
+                        "📏 Long context (×2)",
+                        help="GPT 5.4/5.5 Pro / 5.4 long context: ~2x uplift",
+                        key="aiml_long_ctx",
+                    )
+        elif mode == "provisioned_throughput":
+            col_u, col_h = st.columns(2)
+            with col_u:
+                scenario_kwargs["pt_units"] = st.number_input(
+                    "PT Units", min_value=1, value=1, step=1, key="aiml_pt_units"
+                )
+            with col_h:
+                scenario_kwargs["pt_hours"] = st.number_input(
+                    "PT Hours (mensal)",
+                    min_value=0.0,
+                    value=720.0,
+                    step=24.0,
+                    key="aiml_pt_hours",
+                )
+        elif mode == "batch_inference":
+            col_b, col_bh = st.columns(2)
+            with col_b:
+                scenario_kwargs["batch_throughput_bands"] = st.number_input(
+                    "Batch throughput bands",
+                    min_value=1,
+                    value=1,
+                    step=1,
+                    key="aiml_batch_bands",
+                )
+            with col_bh:
+                scenario_kwargs["batch_hours"] = st.number_input(
+                    "Batch hours", min_value=0.0, value=10.0, step=1.0, key="aiml_batch_hours"
+                )
+
+        scenario = LLMScenario(**scenario_kwargs)
+        try:
+            result = calculate_llm_cost(scenario, catalog)
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                st.metric("💵 Custo Mensal", f"${result['totals']['monthly']:.4f}")
+            with col_t2:
+                st.metric("📅 Custo Anual", f"${result['totals']['annual']:.2f}")
+
+            with st.expander("📊 Breakdown completo", expanded=False):
+                st.json(result["breakdown"])
+            with st.expander("🔧 Inputs resolved (auditoria)", expanded=False):
+                st.json(result["inputs_resolved"])
+            for w in result["warnings"]:
+                st.warning(w)
+        except (KeyError, ValueError) as exc:
+            st.error(f"Erro no cálculo: {exc}")
+
+    # ─── Sub-tab 2: Vector Search ───────────────────────────────────────────
+    with sub_vs:
+        st.markdown("##### 🔍 Vector Search Sizing Calculator")
+        col_t, col_u = st.columns(2)
+        with col_t:
+            tier = st.selectbox(
+                "Tier",
+                options=["standard", "storage_optimized"],
+                format_func=lambda t: {
+                    "standard": "Standard (2M vectors/unit, 30 GB free storage)",
+                    "storage_optimized": "Storage Optimized (64M vectors/unit, sem free)",
+                }[t],
+                key="aiml_vs_tier",
+            )
+        with col_u:
+            num_units = st.number_input(
+                "Number of units", min_value=1, value=1, step=1, key="aiml_vs_units"
+            )
+        col_h, col_s, col_ap = st.columns(3)
+        with col_h:
+            hours = st.number_input(
+                "Hours/month", min_value=1.0, value=720.0, step=24.0, key="aiml_vs_hours"
+            )
+        with col_s:
+            storage_gb = st.number_input(
+                "Storage (GB)", min_value=0.0, value=50.0, step=10.0, key="aiml_vs_storage"
+            )
+        with col_ap:
+            is_ap = st.toggle("🌏 AP region (+25%)", key="aiml_vs_ap")
+
+        scenario = VectorSearchScenario(
+            cloud=cloud,  # type: ignore[arg-type]
+            tier=tier,
+            num_units=num_units,
+            hours_per_month=hours,
+            storage_gb=storage_gb,
+            is_ap_region=is_ap,
+        )
+        try:
+            result = calculate_vector_search_cost(scenario, catalog)
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                st.metric("💵 Custo Mensal", f"${result['totals']['monthly']:.2f}")
+            with col_t2:
+                st.metric("📅 Custo Anual", f"${result['totals']['annual']:.2f}")
+
+            # Capacity estimation
+            tiers_data = catalog.get("vector_search_v2", {}).get("tiers", {}).get(tier, {})
+            capacity = tiers_data.get("vector_capacity_per_unit", 0) * num_units
+            st.caption(f"📐 Capacidade estimada: **{capacity:,} vectors** com {num_units} unit(s)")
+
+            with st.expander("📊 Breakdown completo", expanded=True):
+                st.json(result["breakdown"])
+            with st.expander("🔧 Inputs resolved", expanded=False):
+                st.json(result["inputs_resolved"])
+        except (KeyError, ValueError) as exc:
+            st.error(f"Erro: {exc}")
+
+    # ─── Sub-tab 3: Lakebase ────────────────────────────────────────────────
+    with sub_lb:
+        st.markdown("##### 🗄️ Lakebase Cost Calculator")
+
+        lakebase_data = catalog.get("lakebase")
+        if lakebase_data is None:
+            st.warning(
+                f"⚠️ Lakebase não disponível em **{cloud.upper()}** oficialmente. "
+                "Disponível em: AWS + Azure. Cálculo retornará $0."
+            )
+
+        col_m, col_cu = st.columns(2)
+        with col_m:
+            mode = st.selectbox(
+                "Mode",
+                options=["autoscaling", "always_on"],
+                format_func=lambda m: {
+                    "autoscaling": "Autoscaling (escala com tráfego, scale-to-zero)",
+                    "always_on": "Always-On (minimum, no scale-to-zero)",
+                }[m],
+                key="aiml_lb_mode",
+            )
+        with col_cu:
+            cu_hours = st.number_input(
+                "CU·hours / month",
+                min_value=0.0,
+                value=720.0,
+                step=24.0,
+                key="aiml_lb_cu_hours",
+                help="Capacity Unit Hours. 720 = 1 CU sempre ligado por 1 mês.",
+            )
+        storage_gb_months = st.number_input(
+            "Storage GB·months",
+            min_value=0.0,
+            value=100.0,
+            step=10.0,
+            key="aiml_lb_storage",
+            help="GB armazenado × meses (ex: 100 GB durante 1 mês = 100)",
+        )
+
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            use_promo = st.toggle("🎁 Aplicar promo se ativa", value=True, key="aiml_lb_promo")
+        with col_p2:
+            today_override = st.text_input(
+                "Date override (YYYY-MM-DD, opcional)",
+                value="",
+                placeholder="ex: 2027-02-01 (pós-promo)",
+                key="aiml_lb_today",
+                help="Vazio = data atual. Use pra simular cenário pós-promo.",
+            )
+
+        scenario = LakebaseScenario(
+            cloud=cloud,  # type: ignore[arg-type]
+            mode=mode,
+            cu_hours=cu_hours,
+            storage_gb_months=storage_gb_months,
+            use_promo_if_active=use_promo,
+            today_override=today_override or None,
+        )
+        try:
+            result = calculate_lakebase_cost(scenario, catalog)
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                st.metric("💵 Custo Mensal", f"${result['totals']['monthly']:.2f}")
+            with col_t2:
+                promo_active = result["inputs_resolved"].get("promo_active", False)
+                st.metric("🎁 Promo ativa?", "Sim" if promo_active else "Não")
+
+            with st.expander("📊 Breakdown", expanded=True):
+                st.json(result["breakdown"])
+            with st.expander("🔧 Inputs resolved", expanded=False):
+                st.json(result["inputs_resolved"])
+            for w in result["warnings"]:
+                st.warning(w)
+        except (KeyError, ValueError) as exc:
+            st.error(f"Erro: {exc}")
+
+    # ─── Sub-tab 4: Agent Bricks ────────────────────────────────────────────
+    with sub_ab:
+        st.markdown("##### 🧱 Agent Bricks Cost Calculator")
+        st.caption(
+            "Knowledge Assistant cobra por **answer** (apenas answers que acessam KB). "
+            "Supervisor Agent cobra por **DBU·h** (sub-agents passa-through ao preço nativo)."
+        )
+
+        col_ka, col_sa, col_sub = st.columns(3)
+        with col_ka:
+            ka_answers = st.number_input(
+                "Knowledge Assistant: # answers/mês",
+                min_value=0,
+                value=1000,
+                step=100,
+                key="aiml_ab_ka",
+            )
+        with col_sa:
+            sa_dbu = st.number_input(
+                "Supervisor Agent: DBU·h/mês",
+                min_value=0.0,
+                value=50.0,
+                step=5.0,
+                key="aiml_ab_sa",
+            )
+        with col_sub:
+            sub_agent_usd = st.number_input(
+                "Sub-agents cost ($/mês)",
+                min_value=0.0,
+                value=0.0,
+                step=10.0,
+                key="aiml_ab_sub",
+                help="Soma do custo de sub-agents (cada um cobrado ao preço nativo)",
+            )
+
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            use_promo = st.toggle("🎁 Aplicar promo se ativa", value=True, key="aiml_ab_promo")
+        with col_p2:
+            today_override = st.text_input(
+                "Date override (YYYY-MM-DD, opcional)",
+                value="",
+                placeholder="ex: 2026-07-01 (pós-promo)",
+                key="aiml_ab_today",
+            )
+
+        scenario = AgentBricksScenario(
+            cloud=cloud,  # type: ignore[arg-type]
+            knowledge_assistant_answers=ka_answers,
+            supervisor_dbu_hours=sa_dbu,
+            sub_agent_costs_usd=sub_agent_usd,
+            use_promo_if_active=use_promo,
+            today_override=today_override or None,
+        )
+        try:
+            result = calculate_agent_bricks_cost(scenario, catalog)
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                st.metric("💵 Custo Mensal", f"${result['totals']['monthly']:.2f}")
+            with col_t2:
+                promo_active = result["inputs_resolved"].get("promo_active", False)
+                st.metric("🎁 Promo ativa?", "Sim" if promo_active else "Não")
+
+            with st.expander("📊 Breakdown", expanded=True):
+                st.json(result["breakdown"])
+            with st.expander("🔧 Inputs resolved", expanded=False):
+                st.json(result["inputs_resolved"])
+            for w in result["warnings"]:
+                st.warning(w)
+        except (KeyError, ValueError) as exc:
+            st.error(f"Erro: {exc}")
+
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 
@@ -2740,7 +3141,7 @@ def main() -> None:
     if agent_count > 0:
         historico_label = f"📋 Histórico 🤖×{agent_count}"
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(
         [
             "🖥️ Cenário Cluster",
             "⚖️ Compare PAYG vs DBCU",
@@ -2750,6 +3151,7 @@ def main() -> None:
             "📊 FinOps Realizado",
             "🔧 Otimização",
             "📋 Catálogo",
+            "🧠 AI/ML Calc",
         ]
     )
 
@@ -2769,6 +3171,8 @@ def main() -> None:
         render_tab_otimizacao()
     with tab8:
         render_tab_catalogo()
+    with tab9:
+        render_tab_ai_ml_calculator()
 
 
 if __name__ == "__main__":
