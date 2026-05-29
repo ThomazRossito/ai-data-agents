@@ -251,9 +251,37 @@ Total entregue ao longo dos 4 PRs (PR 1-4):
 - **Tests**: TestLLMProprietaryStubs (PR 5) → TestLLMProprietaryAnthropic + TestLLMProprietaryGemini + TestLLMProprietaryNoLongerStubs. **+15 testes** (43 total no AI/ML test file, era 28).
 - 390 testes do escopo cost passam.
 
-### ⏳ Trabalho futuro (PR 8)
-- **PR 8** (~400 LOC, depende de viabilidade): Real-mode Lakebase / Foundation Model Serving via Databricks Account API quando disponível publicly. Senão fica documentado como limitação.
-- **Excluído por escolha do user**: Real-mode GCP via Google Cloud Billing API.
+### ✅ PR 8 implementado (2026-05-28, fecha roadmap)
+- **NEW** `data_agents/cost_app/databricks/pricing_real.py` (~240 LOC): real-mode DBU rate loader via `system.billing.list_prices` (Unity Catalog system table, descoberta após research em https://docs.databricks.com/aws/en/admin/system-tables/pricing).
+- **API pública confirmada**: `system.billing.list_prices` retorna histórico de SKU pricing com `pricing.default`, `pricing.promotional.default`, e `pricing.effective_list.default` por SKU/cloud/usage_unit. Acessível via Databricks SQL warehouse com permissão SELECT em `system.billing`.
+- **Funções expostas**:
+  - `is_real_pricing_mode_enabled()`: env var `DATABRICKS_PRICING_MODE=real` (default: yaml).
+  - `fetch_dbu_rate_real(sku_name, cloud)`: query SQL contra `system.billing.list_prices`, cache TTL 1h, fallback transparente pra None se credenciais ausentes ou API falha.
+  - `get_dbu_rate_real_or_fallback(sku_name, cloud, fallback_fn)`: orquestrador — tenta real → fallback YAML → unavailable. Retorna `(price, source)` onde source ∈ {real_api, yaml, yaml_fallback, unavailable}.
+  - `get_pricing_real_metadata()`: introspecção pra UI.
+- **SQL injection defense**: `_build_list_prices_sql` valida sku_name (só alnum + _ -) e cloud (whitelist AWS/AZURE/GCP).
+- **Re-usa infraestrutura existente**: `RealModeConfig.from_env()` + `_execute_sql()` do `billing_real.py` — mesmas env vars (DATABRICKS_HOST + TOKEN + BILLING_WAREHOUSE_ID).
+- **NEW** `tests/unit/test_pricing_real.py` (~250 LOC): **25 testes** em 6 classes (TestRealPricingModeFlag, TestCache, TestBuildListPricesSql incluindo SQL injection defense, TestFetchDbuRateReal com mocks, TestGetDbuRateRealOrFallback, TestPricingRealMetadata). **437 testes do escopo cost passam** (zero regressão).
+- **Limitação parcial documentada**: Lakebase e Foundation Model Serving aparecem em `system.billing.list_prices` se o workspace tiver consumido esses SKUs (rates só populam após primeiro billing event). Workspaces sem uso desses produtos não terão rates retornados — fallback YAML cobre.
+
+### 🏁 ROADMAP COMPLETO ENTREGUE — STATUS FINAL (2026-05-28)
+
+**8 PRs entregues, ~5300 LOC totais:**
+
+| PR | Foco | LOC |
+|---|---|---|
+| 1 | Tier model fix + Serverless rate $0.95→$0.35 | +234 |
+| 2 | Serverless sub-typing + Lakebase + Lakeflow Connect + GCP scaffold | +909 |
+| 3 | 10 blocos AI/ML (Foundation Model + Vector Search + Model Serving + Agent Bricks + ...) | +1246 |
+| 4 | 7 blocos plataforma (Storage DSU + Data Transfer + Managed Services + ...) | +779 |
+| 5 | Engine refactor: LLMScenario + VectorSearchScenario + LakebaseScenario + AgentBricksScenario | +830 |
+| 7 | Tab "AI/ML Cost Calculator" no app.py (4 sub-calculadoras interativas) | +418 |
+| 6 | Anthropic + Gemini per-model DBU tables (capturado via Chrome MCP) | +212 |
+| 8 | Real-mode DBU rates via system.billing.list_prices | +490 |
+| **Total** | | **~5118 LOC** |
+
+### Excluído por escolha do user
+- Real-mode GCP via Google Cloud Billing API (instance prices). Mock estático em `instance_prices.py` continua sendo a fonte para GCE machine types.
 
 ### 🏁 Cobertura "total" + roadmap PR 5+ — STATUS FINAL (2026-05-28)
 
