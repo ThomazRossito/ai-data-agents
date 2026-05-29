@@ -243,10 +243,32 @@ Total entregue ao longo dos 4 PRs (PR 1-4):
 - **Tests**: smoke import OK (`render_tab_ai_ml_calculator` callable, todos scenarios + funções acessíveis no contexto do app). 375 testes do escopo cost passam.
 - **ruff format + check verdes**.
 
-### ⏳ Trabalho futuro (PR 6 + PR 8)
-- **PR 6** (~600 LOC, pausado por falta de Chrome MCP): captura Anthropic + Gemini per-model DBU tables via Chrome MCP. Substitui stubs em `proprietary_foundation_model_serving.vendors.{anthropic,gemini}` por tabelas completas. Quando o user reativar a extensão Claude for Chrome, sigo daqui.
+### ✅ PR 6 implementado (2026-05-28, após PR 7)
+- **Captura via Chrome MCP** da página `/proprietary-foundation-model-serving`:
+  - **Anthropic**: 6 modelos (Claude Opus 4.8, Opus 4.5/4.6/4.7, Opus 4/4.1, Sonnet 4.5/4.6, Sonnet 4, Haiku 4.5). Rates Global Short context. Claude Opus 4.8 batch = `null` ("Coming soon").
+  - **Gemini**: 7 modelos (3.5 Flash, 3.1 Flash Lite, 3.0/3.1 Pro, 3.0 Flash, 2.5 Pro, 2.5 Flash, 2.5 Flash Lite). **Promo 20% off até 2026-06-30** (preços no YAML são LIST). Gemini 2.5 Flash Lite batch = `null`.
+- **Catalogs (azure + aws + gcp)**: stubs `_todo` substituídos por `models{}` populados em todos os 3.
+- **Tests**: TestLLMProprietaryStubs (PR 5) → TestLLMProprietaryAnthropic + TestLLMProprietaryGemini + TestLLMProprietaryNoLongerStubs. **+15 testes** (43 total no AI/ML test file, era 28).
+- 390 testes do escopo cost passam.
+
+### ⏳ Trabalho futuro (PR 8)
 - **PR 8** (~400 LOC, depende de viabilidade): Real-mode Lakebase / Foundation Model Serving via Databricks Account API quando disponível publicly. Senão fica documentado como limitação.
 - **Excluído por escolha do user**: Real-mode GCP via Google Cloud Billing API.
+
+### 🏁 Cobertura "total" + roadmap PR 5+ — STATUS FINAL (2026-05-28)
+
+7 PRs entregues ao longo de 2026-05-28:
+
+| PR | Foco | LOC |
+|---|---|---|
+| 1 | Tier model fix + Serverless rate $0.95→$0.35 | +234 |
+| 2 | Serverless sub-typing + Lakebase + Lakeflow Connect + GCP scaffold | +909 |
+| 3 | 10 blocos AI/ML (Foundation Model + Vector Search + Model Serving + Agent Bricks + ...) | +1246 |
+| 4 | 7 blocos plataforma (Storage DSU + Data Transfer + Managed Services + ...) | +779 |
+| 5 | Engine refactor: LLMScenario + VectorSearchScenario + LakebaseScenario + AgentBricksScenario | +830 |
+| 7 | Tab "AI/ML Cost Calculator" no app.py (4 sub-calculadoras interativas) | +418 |
+| 6 | Anthropic + Gemini per-model DBU tables (capturado via Chrome MCP) | ~600 |
+| **Total** | | **~5000 LOC** |
 
 ---
 
