@@ -220,12 +220,23 @@ Total entregue ao longo dos 4 PRs (PR 1-4):
 - **+261 testes** no `test_cost_engine_databricks.py` (eram 0 antes do PR 1; 261 = 30 PR 1 + 30 PR 2 + 99 PR 3 + 60 PR 4 + 42 mantidos)
 - **3 docs auditoria** em `kb/databricks-pricing/` (parity-audit.md, extracted-prices-raw.md, implementation-strategy.md)
 
-### ⏳ Trabalho futuro (escopo PR 5+, opcional)
-- Engine refactor pra modelar scenarios AI/ML específicos (LLMScenario, VectorSearchScenario, LakebaseScenario, etc.) — atualmente só compute/DBU scenarios são calculáveis; novos SKUs aparecem como reference no Catálogo
-- Captura completa Anthropic + Gemini per-model DBU tables (atualmente stubs)
-- Real-mode GCP via Google Cloud Billing API (atualmente só mock estático em instance_prices.py)
-- Real-mode Lakebase / Foundation Model Serving via Databricks Account API (quando disponível)
-- Tab "💰 Cost Calculator AI/ML" com sub-calculators (LLM tokens, Vector Search sizing, Agent Bricks Q&A budget)
+### ✅ PR 5 implementado (2026-05-28, post-merge PR 4)
+- **NEW**: `data_agents/cost_engine/databricks_ai_ml.py` (~440 LOC) — engine pra scenarios AI/ML específicos:
+  - `LLMScenario` + `calculate_llm_cost()`: Foundation Model + Proprietary FM (OpenAI ativo; Anthropic/Gemini stubs com warning). 3 modos (Pay-Per-Token / Provisioned Throughput / Batch Inference). Suporta `in_geo` (~10% uplift) e `long_context` (~2x uplift) pra OpenAI.
+  - `VectorSearchScenario` + `calculate_vector_search_cost()`: tier Standard (2M vectors, 30 GB free storage) ou Storage Optimized (64M vectors). Compute + storage breakdown.
+  - `LakebaseScenario` + `calculate_lakebase_cost()`: modes Autoscaling/Always-On + storage. **Promo auto-aplicação via `today_override` ou `date.today()`** — se hoje < `promo_until`, usa preço promocional; senão list. GCP retorna 0 + warning (não disponível oficialmente).
+  - `AgentBricksScenario` + `calculate_agent_bricks_cost()`: Knowledge Assistant ($/answer) + Supervisor Agent ($/DBU) + passa-through de sub_agent_costs_usd. Promo auto idêntica a Lakebase.
+- **Helper `_is_promo_active(promo_until, today)`**: parsing YYYY-MM-DD seguro, retorna False em formato inválido ou None.
+- **Exports atualizados**: `cost_engine/__init__.py` expõe os 4 dataclasses + 4 funções calculate.
+- **Tests**: NEW `tests/unit/test_cost_engine_databricks_ai_ml.py` (~360 LOC) com **28 testes** organizados em 8 classes:
+  - TestIsPromoActive (6 testes), TestLLMFoundationPayPerToken (4), TestLLMFoundationProvisionedThroughput (1), TestLLMFoundationBatchInference (1), TestLLMProprietaryOpenAI (4 — gpt_5_5 + in_geo + long_context + batch), TestLLMProprietaryStubs (2 — anthropic/gemini warning), TestVectorSearch (3), TestLakebase (4 — autoscaling promo/list + always_on + gcp), TestAgentBricks (3 — promo/list + sub-agents).
+  - **397 testes do escopo cost passam** (369 anteriores + 28 PR 5).
+
+### ⏳ Trabalho futuro (PR 6-8)
+- **PR 6** (~600 LOC): captura Anthropic + Gemini per-model DBU tables via Chrome MCP. Substitui stubs em `proprietary_foundation_model_serving.vendors.{anthropic,gemini}` por tabelas completas com input/output/cache rates per modelo. Habilita LLMScenario pra esses vendors.
+- **PR 7** (~800 LOC): nova Tab "🧠 AI/ML Cost Calculator" no app.py com sub-calculadoras interativas: LLM tokens calculator (vendor/model dropdown + sliders), Vector Search sizing (tier + units + storage), Lakebase CU·h estimator, Agent Bricks Q&A budget. Usa scenarios do PR 5.
+- **PR 8** (~400 LOC, depende de viabilidade): Real-mode Lakebase / Foundation Model Serving via Databricks Account API quando disponível publicly. Senão fica documentado como limitação.
+- **Excluído por escolha do user**: Real-mode GCP via Google Cloud Billing API.
 
 ---
 
