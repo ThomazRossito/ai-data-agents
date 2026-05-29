@@ -185,22 +185,137 @@ class TestLLMProprietaryOpenAI:
         assert result["totals"]["monthly"] == pytest.approx(30.00, abs=0.01)
 
 
-class TestLLMProprietaryStubs:
-    """Anthropic + Gemini ainda são stubs (PR 6 vai capturar). Cost = 0 + warning."""
+class TestLLMProprietaryAnthropic:
+    """PR 6 (2026-05-28): Anthropic capturado via Chrome MCP. 6 modelos.
+    Rates Global Short context. Base $0.07/DBU.
+    """
 
-    @pytest.mark.parametrize("vendor", ["anthropic", "gemini"])
-    def test_stub_returns_zero(self, vendor):
+    def test_claude_opus_4_5_pay_per_token(self):
         cat = load_databricks_catalog("aws")
         scenario = LLMScenario(
             cloud="aws",
             mode="pay_per_token",
-            vendor=vendor,
-            model="any_model",
-            m_input_tokens=10.0,
+            vendor="anthropic",
+            model="claude_opus_4_5_to_4_7",
+            m_input_tokens=1.0,
+            m_output_tokens=0.1,
         )
         result = calculate_llm_cost(scenario, cat)
-        assert result["totals"]["monthly"] == 0.0
-        assert any("stub" in w.lower() for w in result["warnings"])
+        # (71.429 × 1.0 + 357.143 × 0.1) DBU × $0.07/DBU = (71.429 + 35.714) × 0.07 = 7.50
+        assert result["totals"]["monthly"] == pytest.approx(7.50, abs=0.01)
+
+    def test_claude_haiku_4_5_cheap(self):
+        """Haiku é o mais barato — Claude Haiku 4.5 input = 14.286 DBU/M."""
+        cat = load_databricks_catalog("aws")
+        scenario = LLMScenario(
+            cloud="aws",
+            mode="pay_per_token",
+            vendor="anthropic",
+            model="claude_haiku_4_5",
+            m_input_tokens=1.0,
+        )
+        result = calculate_llm_cost(scenario, cat)
+        # 14.286 × 1.0 × 0.07 = 1.00
+        assert result["totals"]["monthly"] == pytest.approx(1.00, abs=0.01)
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_anthropic_six_models_loaded(self, cloud):
+        cat = load_databricks_catalog(cloud)
+        models = cat["proprietary_foundation_model_serving"]["vendors"]["anthropic"]["models"]
+        assert len(models) == 6
+        # Modelos esperados
+        expected = {
+            "claude_opus_4_8",
+            "claude_opus_4_5_to_4_7",
+            "claude_opus_4_to_4_1",
+            "claude_sonnet_4_5_to_4_6",
+            "claude_sonnet_4",
+            "claude_haiku_4_5",
+        }
+        assert set(models.keys()) == expected
+
+    def test_claude_opus_4_8_batch_coming_soon(self):
+        """Claude Opus 4.8 batch_dbu_per_h é null (Coming soon)."""
+        cat = load_databricks_catalog("aws")
+        m = cat["proprietary_foundation_model_serving"]["vendors"]["anthropic"]["models"]
+        assert m["claude_opus_4_8"]["batch_dbu_per_h"] is None
+
+
+class TestLLMProprietaryGemini:
+    """PR 6 (2026-05-28): Gemini capturado via Chrome MCP. 7 modelos.
+    Gemini tem PROMO 20% OFF até 2026-06-30 — preços no YAML são LIST.
+    """
+
+    def test_gemini_3_5_flash_pay_per_token(self):
+        cat = load_databricks_catalog("aws")
+        scenario = LLMScenario(
+            cloud="aws",
+            mode="pay_per_token",
+            vendor="gemini",
+            model="gemini_3_5_flash",
+            m_input_tokens=10.0,
+            m_output_tokens=5.0,
+        )
+        result = calculate_llm_cost(scenario, cat)
+        # (26.786 × 10 + 160.714 × 5) × 0.07 = (267.86 + 803.57) × 0.07 = 75.00
+        assert result["totals"]["monthly"] == pytest.approx(75.00, abs=0.01)
+
+    def test_gemini_2_5_flash_lite_cheapest(self):
+        """Flash Lite tem o menor DBU rate da série Gemini."""
+        cat = load_databricks_catalog("aws")
+        scenario = LLMScenario(
+            cloud="aws",
+            mode="pay_per_token",
+            vendor="gemini",
+            model="gemini_2_5_flash_lite",
+            m_input_tokens=1.0,
+        )
+        result = calculate_llm_cost(scenario, cat)
+        # 1.786 × 1.0 × 0.07 = 0.125
+        assert result["totals"]["monthly"] == pytest.approx(0.125, abs=0.001)
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_gemini_seven_models_loaded(self, cloud):
+        cat = load_databricks_catalog(cloud)
+        models = cat["proprietary_foundation_model_serving"]["vendors"]["gemini"]["models"]
+        assert len(models) == 7
+
+    @pytest.mark.parametrize("cloud", ["azure", "aws", "gcp"])
+    def test_gemini_has_20pct_promo(self, cloud):
+        """Gemini tem promo 20% off (diferente de Anthropic e OpenAI)."""
+        cat = load_databricks_catalog(cloud)
+        gem = cat["proprietary_foundation_model_serving"]["vendors"]["gemini"]
+        assert gem["promo_until"] == "2026-06-30"
+        assert gem["promo_discount_pct"] == 20
+
+    def test_gemini_2_5_flash_lite_no_batch(self):
+        """Gemini 2.5 Flash Lite não tem batch (null)."""
+        cat = load_databricks_catalog("aws")
+        m = cat["proprietary_foundation_model_serving"]["vendors"]["gemini"]["models"]
+        assert m["gemini_2_5_flash_lite"]["batch_dbu_per_h"] is None
+
+
+class TestLLMProprietaryNoLongerStubs:
+    """PR 6 (2026-05-28): regressão — Anthropic + Gemini agora têm modelos populados.
+    Antes (PR 5) levantavam warning 'stub'; agora calculam custo real.
+    """
+
+    @pytest.mark.parametrize("vendor", ["anthropic", "gemini"])
+    def test_no_stub_warning_when_model_valid(self, vendor):
+        cat = load_databricks_catalog("aws")
+        model = "claude_haiku_4_5" if vendor == "anthropic" else "gemini_2_5_flash"
+        scenario = LLMScenario(
+            cloud="aws",
+            mode="pay_per_token",
+            vendor=vendor,
+            model=model,
+            m_input_tokens=1.0,
+        )
+        result = calculate_llm_cost(scenario, cat)
+        # Não deve haver warning de stub (modelos agora populados)
+        assert not any("stub" in w.lower() for w in result["warnings"])
+        # E o custo deve ser > 0 (PR 5 retornava 0)
+        assert result["totals"]["monthly"] > 0
 
 
 # ── VectorSearchScenario ────────────────────────────────────────────────────

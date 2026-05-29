@@ -481,11 +481,29 @@ proprietary_foundation_model_serving:
         gpt_5_2_codex:     { input_dbu_per_m: 25.000,  output_dbu_per_m: 200.000,   cache_write_dbu_per_m: 25.000,  cache_read_dbu_per_m: 2.500,  batch_dbu_per_h: null }
         gpt_5_1_codex_max: { input_dbu_per_m: 17.857,  output_dbu_per_m: 142.857,   cache_write_dbu_per_m: 17.857,  cache_read_dbu_per_m: 1.786,  batch_dbu_per_h: null }
     anthropic:
-      # Estrutura idêntica ao OpenAI. Per-model rates: TODO capturar via Chrome MCP em PR 4.
-      _todo: "Tabela completa em https://www.databricks.com/product/pricing/proprietary-foundation-model-serving (select Anthropic)"
+      # PR 6 (2026-05-28): captura via Chrome MCP da página /proprietary-foundation-model-serving
+      # (select Anthropic). Rates abaixo são Global Short context — In-geo = ~10% uplift,
+      # Long context (>200k tokens, Sonnet 4) = ~2x input/output.
+      models:
+        claude_opus_4_8:           { input_dbu_per_m: 71.429,  output_dbu_per_m: 357.143,   cache_write_dbu_per_m: 89.286,  cache_read_dbu_per_m: 7.143,  batch_dbu_per_h: null }   # Coming soon
+        claude_opus_4_5_to_4_7:    { input_dbu_per_m: 71.429,  output_dbu_per_m: 357.143,   cache_write_dbu_per_m: 89.286,  cache_read_dbu_per_m: 7.143,  batch_dbu_per_h: 178.571 }
+        claude_opus_4_to_4_1:      { input_dbu_per_m: 214.286, output_dbu_per_m: 1071.429,  cache_write_dbu_per_m: 267.857, cache_read_dbu_per_m: 21.429, batch_dbu_per_h: 514.286 }
+        claude_sonnet_4_5_to_4_6:  { input_dbu_per_m: 42.857,  output_dbu_per_m: 214.286,   cache_write_dbu_per_m: 53.571,  cache_read_dbu_per_m: 4.286,  batch_dbu_per_h: 214.286 }
+        claude_sonnet_4:           { input_dbu_per_m: 42.857,  output_dbu_per_m: 214.286,   cache_write_dbu_per_m: 53.571,  cache_read_dbu_per_m: 4.286,  batch_dbu_per_h: 214.286 }
+        claude_haiku_4_5:          { input_dbu_per_m: 14.286,  output_dbu_per_m: 71.429,    cache_write_dbu_per_m: 17.857,  cache_read_dbu_per_m: 1.429,  batch_dbu_per_h: 114.286 }
     gemini:
-      # Mesma estrutura. TODO PR 4.
-      _todo: "Tabela completa em https://www.databricks.com/product/pricing/proprietary-foundation-model-serving (select Gemini)"
+      # PR 6 (2026-05-28): captura via Chrome MCP. Rates Global Short context.
+      # IMPORTANTE: Gemini tem promo 20% OFF até 2026-06-30 (preços abaixo são LIST).
+      promo_until: "2026-06-30"
+      promo_discount_pct: 20
+      models:
+        gemini_3_5_flash:       { input_dbu_per_m: 26.786, output_dbu_per_m: 160.714, cache_write_dbu_per_m: 26.786, cache_read_dbu_per_m: 2.679, batch_dbu_per_h: 196.429 }
+        gemini_3_1_flash_lite:  { input_dbu_per_m: 4.464,  output_dbu_per_m: 26.786,  cache_write_dbu_per_m: 4.464,  cache_read_dbu_per_m: 0.446, batch_dbu_per_h: 89.286 }
+        gemini_3_0_to_3_1_pro:  { input_dbu_per_m: 35.714, output_dbu_per_m: 214.286, cache_write_dbu_per_m: 35.714, cache_read_dbu_per_m: 3.571, batch_dbu_per_h: 230.429 }
+        gemini_3_0_flash:       { input_dbu_per_m: 8.929,  output_dbu_per_m: 53.571,  cache_write_dbu_per_m: 8.929,  cache_read_dbu_per_m: 0.893, batch_dbu_per_h: 125.000 }
+        gemini_2_5_pro:         { input_dbu_per_m: 22.321, output_dbu_per_m: 178.571, cache_write_dbu_per_m: 22.321, cache_read_dbu_per_m: 2.232, batch_dbu_per_h: 164.286 }
+        gemini_2_5_flash:       { input_dbu_per_m: 5.357,  output_dbu_per_m: 44.643,  cache_write_dbu_per_m: 5.357,  cache_read_dbu_per_m: 0.536, batch_dbu_per_h: 107.143 }
+        gemini_2_5_flash_lite:  { input_dbu_per_m: 1.786,  output_dbu_per_m: 7.143,   cache_write_dbu_per_m: 1.786,  cache_read_dbu_per_m: 0.179, batch_dbu_per_h: null }
 
 # =============================================================================
 # Vector Search v2 (PR 3, 2026-05-28)
