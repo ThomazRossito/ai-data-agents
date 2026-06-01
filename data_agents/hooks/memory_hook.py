@@ -368,9 +368,7 @@ async def _maybe_capture_lesson(
     # context_snippet vem do buffer (já redigido na captura); redigir de novo é
     # idempotente e cobre defesa em profundidade. O error_text é cru aqui.
     error_text = _apply_redaction(tool_error or tool_output[:300])
-    context_snippet = (
-        _apply_redaction(get_session_buffer()[:400]) if trigger != "error" else ""
-    )
+    context_snippet = _apply_redaction(get_session_buffer()[:400]) if trigger != "error" else ""
 
     try:
         from data_agents.utils.summarizer import summarize_lesson
