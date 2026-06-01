@@ -173,12 +173,32 @@ async def capture_session_context(
     return {}
 
 
+def _apply_redaction(text: str) -> str:
+    """Redige PII/segredos quando ``memory_redaction_enabled`` (default True).
+
+    Choke-point único de privacidade: todo conteúdo derivado da conversa passa
+    por aqui antes de entrar no buffer ou no caminho de ``LESSON_LEARNED``. Como
+    extractor, summarizer e compiler consomem o buffer/memórias — e a
+    persistência em disco também deriva deles — redigir neste ponto cobre os
+    três envios externos e o disco de uma vez.
+    """
+    if not text:
+        return text
+    from data_agents.config.settings import settings  # local — evita circular import
+
+    if not getattr(settings, "memory_redaction_enabled", True):
+        return text
+    from data_agents.memory.redaction import redact_pii
+
+    return redact_pii(text)
+
+
 def _format_context_entry(
     tool_name: str,
     tool_input: dict[str, Any] | None,
     tool_output: str | None,
 ) -> str:
-    """Formata uma entrada de contexto para o buffer."""
+    """Formata uma entrada de contexto para o buffer (com redação de PII)."""
     parts: list[str] = []
 
     timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
@@ -189,23 +209,23 @@ def _format_context_entry(
         if tool_name == "Agent":
             # Para delegações, captura o agente e o prompt
             agent = tool_input.get("agent_name", tool_input.get("name", ""))
-            prompt = tool_input.get("prompt", "")[:200]
+            prompt = _apply_redaction(tool_input.get("prompt", "")[:200])
             if agent:
                 parts.append(f"  Delegado para: {agent}")
             if prompt:
                 parts.append(f"  Prompt: {prompt}")
 
         elif tool_name == "Write":
-            path = tool_input.get("file_path", "")
+            path = _apply_redaction(tool_input.get("file_path", ""))
             parts.append(f"  Arquivo: {path}")
 
         elif tool_name == "AskUserQuestion":
-            question = tool_input.get("question", "")
+            question = _apply_redaction(tool_input.get("question", ""))
             parts.append(f"  Pergunta: {question}")
 
     # Output truncado
     if tool_output and len(tool_output) > 0:
-        output_preview = tool_output[:300].replace("\n", " ")
+        output_preview = _apply_redaction(tool_output[:300].replace("\n", " "))
         parts.append(f"  Output: {output_preview}")
 
     return "\n".join(parts)
@@ -344,8 +364,13 @@ async def _maybe_capture_lesson(
         else:
             agent = "unknown"
 
-    error_text = tool_error or tool_output[:300]
-    context_snippet = get_session_buffer()[:400] if trigger != "error" else ""
+    # Redige PII/segredos antes de enviar ao summarizer (LLM externo). O
+    # context_snippet vem do buffer (já redigido na captura); redigir de novo é
+    # idempotente e cobre defesa em profundidade. O error_text é cru aqui.
+    error_text = _apply_redaction(tool_error or tool_output[:300])
+    context_snippet = (
+        _apply_redaction(get_session_buffer()[:400]) if trigger != "error" else ""
+    )
 
     try:
         from data_agents.utils.summarizer import summarize_lesson
@@ -448,7 +473,7 @@ def _check_instant_patterns(text: str) -> None:
             entry = (
                 f"[INSTANT_CAPTURE] type={mem_type}\n"
                 f"  pattern_matched: {pattern}\n"
-                f"  content: {match.strip()}"
+                f"  content: {_apply_redaction(match.strip())}"
             )
             if _short_term is not None:
                 _short_term.append(entry, session_id=_hook_session_id, tool_name="instant_capture")

@@ -291,6 +291,12 @@ class Settings(BaseSettings):
     memory_retrieval_enabled: bool = True
     # Se True, captura automaticamente contexto da sessão via hook PostToolUse.
     memory_capture_enabled: bool = True
+    # Se True, redige PII/segredos (CPF, CNPJ, e-mail, telefone, cartão, tokens)
+    # na captura do hook — ANTES do conteúdo entrar no buffer ou no caminho de
+    # LESSON_LEARNED. Cobre os três envios externos (extractor, summarizer,
+    # compiler) e a persistência em disco de uma vez. Mantenha True ao operar
+    # sobre dados de cliente. Override via .env: MEMORY_REDACTION_ENABLED=false
+    memory_redaction_enabled: bool = True
 
     # --- Memory Decay (dias para atingir confidence 0.1) ---
     # Controla a velocidade de obsolescência de cada tipo de memória.
