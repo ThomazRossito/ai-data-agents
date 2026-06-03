@@ -147,6 +147,17 @@ commands:
     prompt_template: |-
       [DOMA EXPRESS] Delegue IMEDIATAMENTE para governance-auditor. Não crie PRD, não peça aprovação. Instrua o agente a ler `kb/governance/index.md` antes de executar. Tarefa: {task}
     display_template: '[bold yellow]🔐 [DOMA Express] Direcionando para: {agent}[/bold yellow]'
+  azure-spec:
+    agent: azure-analytics-auditor
+    doma_mode: express
+    description: |-
+      Audita arquivos (PDF, DOCX, XLSX, PPTX, etc.) contra o checklist da Analytics on Microsoft Azure Specialization (Módulo B, V2.8.1) e gera coverage matrix com evidência citada e orientação de lacunas.
+    skills:
+    - kb/analytics-azure-spec/index.md
+    - skills/analytics-azure-spec/azure-spec-audit/SKILL.md
+    prompt_template: |-
+      [DOMA EXPRESS] Delegue IMEDIATAMENTE para azure-analytics-auditor. Não crie PRD, não peça aprovação. Instrua o agente a ler `kb/analytics-azure-spec/index.md` e o playbook `skills/analytics-azure-spec/azure-spec-audit/SKILL.md` antes de auditar. O agente deve extrair cada arquivo com rastreabilidade (página/aba/slide), auditar contra os 7 controles do Módulo B, citar evidência em sucesso e orientar de forma amigável em lacunas, e salvar audit_report.md + findings.json em output/azure-spec-audit/<slug>/. Tarefa: {task}
+    display_template: '[bold yellow]🧾 [DOMA Express] Direcionando para: {agent}[/bold yellow]'
   semantic:
     agent: fabric-engineer
     doma_mode: express

@@ -214,6 +214,16 @@ routes:
     tier: T2
     keywords: [domínio, domain, ownership, "data product"]
 
+  # Auditoria de especialização Azure (Analytics on Azure — Módulo B)
+  - situation: "Auditar documentos para a Analytics on Microsoft Azure Specialization (Módulo B)"
+    agent: azure-analytics-auditor
+    tier: T2
+    keywords: [especialização, specialization, "analytics on azure", audit, auditoria, checklist, evidência, evidence, issi, "módulo b", "module b"]
+  - situation: "Gap analysis de evidências / prontidão para audit ISSI"
+    agent: azure-analytics-auditor
+    tier: T2
+    keywords: ["gap analysis", prontidão, readiness, "coverage matrix", "audit checklist", "solution design", "well-architected review", poc, pilot, deployment, "sign-off"]
+
   # Conceitual
   - situation: "Pergunta conceitual sem MCP"
     agent: geral
