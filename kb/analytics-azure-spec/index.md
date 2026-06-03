@@ -53,18 +53,49 @@ Regras de evidência, glossário e contagem de clientes: `kb/analytics-azure-spe
 5. **PowerPoint** é aceito como visão geral, mas **excertos não são evidência** — documentos-fonte precisam existir.
 6. **Timeframe é medido a partir da data do audit** (ex: "últimos 24 meses").
 
-## 4. Rubrica de Veredito por Controle (usada no relatório)
+## 4. Rubrica de Veredito — DOIS EIXOS (determinística)
 
-| Veredito | Critério |
+> **Regra de ouro:** separe **cobertura de evidência** (qualidade do que existe) de **contagem de
+> clientes** (requisito ISSI de 3). O nº de clientes NUNCA rebaixa a cobertura — são reportados
+> separadamente. Isso permite auditar 1 cliente hoje sem que tudo vire "não atendido".
+
+**Eixo A — Cobertura de evidência** (avaliada APENAS sobre o(s) cliente(s) em escopo, ignorando contagem):
+
+O veredito é **computado por subitem**, não por impressão geral (garante determinismo):
+1. Liste os subitens obrigatórios do controle (ver `concepts/module-b-controls.md`).
+2. Para cada subitem: `covered` = existe evidência **localizável** que o **demonstra** (não apenas menciona o tópico).
+3. Aplique a fórmula fixa:
+
+| Cobertura | Critério EXATO |
 |---|---|
-| ✅ **Met** | Evidência localizada nos documentos cobre TODOS os subitens do controle, com cliente identificável, dentro da janela, com sign-off quando exigido. Cita doc + página/local + trecho. |
-| 🟡 **Partially Met** | Evidência existe mas falta subitem, nº de clientes insuficiente, fora da janela, ou sign-off ausente. Listar exatamente o que falta. |
-| ❌ **Not Found** | Nenhuma evidência do controle nos documentos fornecidos. Trazer orientação amigável do que é preciso. |
-| ⚠️ **Needs Review** | Evidência ambígua / ilegível / formato não extraível — pedir esclarecimento, nunca assumir. |
+| ✅ **Completa** | `covered == total` de subitens obrigatórios **E** formalização exigida presente (ex.: sign-off no 4.1, SOW no 3.1). |
+| 🟡 **Parcial** | `0 < covered < total` **OU** subitens cobertos mas falta formalização (sign-off/SOW/export). Liste cobertos vs faltantes. |
+| ❌ **Ausente** | `covered == 0` — **ZERO** evidência rastreável do controle. Use SÓ quando nada toca o tema. |
+| ⚠️ **Needs Review** | Evidência existe mas ilegível/ambígua/não extraível mesmo após OCR. Nunca assumir. |
+
+> **Fronteira 🟡 vs ❌ (anti-oscilação):** se QUALQUER subitem tem evidência → no mínimo 🟡. ❌ é
+> reservado para "nenhuma menção rastreável". Tema tocado de forma informal/incompleta = **🟡, nunca ❌**.
+
+**Eixo B — Clientes únicos:** conte clientes nominais distintos com evidência. Reporte `x/3`
+(ISSI exige 3, salvo controle com nº próprio). É um **gate separado**, informativo.
+
+**Status ISSI (audit-ready) por controle** = ✅ apenas se Cobertura ✅ Completa **E** clientes ≥ exigido.
+Caso contrário, indique o que falta em cada eixo (cobertura e/ou +N clientes).
+
+## 4.1 Modo de escopo de cliente
+
+- **Default (multi-cliente / ISSI):** reporte os dois eixos; Status ISSI exige 3 clientes.
+- **Modo cliente único** (usuário diz "só o cliente X", "estamos com 1 cliente", ou só há 1 cliente
+  nos insumos): o **foco do veredito é o Eixo A** (cobertura para aquele cliente). O Eixo B é mostrado
+  como lacuna conhecida e esperada (`Clientes: 1/3 — faltam 2 para o ISSI`), **sem rebaixar** a cobertura.
+  Assim o usuário enxerga o quão completo está o dossiê do cliente atual.
+
+Mapa de inferência **recurso (screenshot) → subitem de controle**: `concepts/resource-control-map.md`.
+Rubrica detalhada e exemplos: `concepts/verdict-rubric.md`.
 
 ## 5. Regras do Agente (resumo — detalhe no prompt)
 
 - **Grounding absoluto:** só marque ✅ se a evidência estiver de fato localizada num documento. Cite `arquivo › página/aba/slide › trecho`. Nunca presuma.
 - **Falha amigável:** em ❌/🟡 explique em linguagem clara o que falta, qual documentação é aceita, quantos clientes e qual janela — sempre orientando o próximo passo.
-- **Multi-formato:** PDF, DOCX, XLSX, PPTX, CSV, TXT/MD. Extrair com rastreabilidade de localização (página/aba/slide).
+- **Multi-formato:** PDF, DOCX, XLSX, PPTX, CSV, TXT/MD **e imagens PNG/JPG (via OCR, incluindo PDFs escaneados)**. Screenshots do Azure Portal são evidência de primeira classe — OCR é padrão. Extrair com rastreabilidade de localização (página/aba/slide), marcando texto de OCR com `(OCR)`.
 - **Idioma:** seguir o idioma do usuário (PT-BR/EN). Nomes oficiais de controles e produtos permanecem em inglês.
