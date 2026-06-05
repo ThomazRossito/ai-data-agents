@@ -221,7 +221,9 @@ class Settings(BaseSettings):
     # 10 MB cobre praticamente todos os casos práticos.
     # Override via .env: MAX_BUFFER_SIZE=20971520 (20 MB) se Discovery seu for
     # ainda maior. Ref: anthropics/claude-agent-sdk-python#98
-    max_buffer_size: int = 10 * 1024 * 1024  # 10 MB
+    max_buffer_size: int = (
+        64 * 1024 * 1024
+    )  # 64 MB (rede de segurança p/ tool outputs grandes; era 10 MB)
     log_level: str = "INFO"
     # Nível de log para o console (o que o usuário vê no terminal).
     # "WARNING" esconde logs operacionais (OUTPUT COMPRIMIDO, custo, etc).

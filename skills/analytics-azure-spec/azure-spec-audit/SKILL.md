@@ -35,7 +35,36 @@ find "<INPUT_DIR>" -type f \( -iname '*.pdf' -o -iname '*.docx' -o -iname '*.xls
 
 ## Passo 1 — Extração por formato (com localização)
 
-Instale dependências uma vez por sessão (sandbox): `pip install pdfplumber python-docx openpyxl python-pptx --break-system-packages -q`
+> ⚠️ **Buffer-safe (crítico):** NUNCA use a tool `Read` em documento-fonte (PDF/PPTX/DOCX/XLSX/imagem)
+> nem em qualquer arquivo > 512 KB — uma mensagem de tool > ~10 MB derruba o SDK
+> (`max_buffer_size`). Extraia **sempre via Bash/Python**, escrevendo o resultado em `_work/` e
+> imprimindo só resumos curtos no stdout (`{arquivo, chars, status}`). Trunque o texto por unidade
+> (~3.000 chars) no índice. PDFs grandes: processe **página a página** (dpi 120–150), gravando
+> incremental. Se algo falhar, PARE e reporte (não entre em loop). Veja R17/R18 do agente.
+
+### Forma PADRÃO: use o extrator versionado (NÃO reescreva script de extração)
+
+Há um extrator pronto, testado e rápido — **use-o sempre** em vez de gerar um script novo a cada run
+(reinventar o script foi o que travou execuções anteriores):
+
+```bash
+pip install pdfplumber python-docx openpyxl python-pptx pymupdf pytesseract pillow --break-system-packages -q
+python skills/analytics-azure-spec/azure-spec-audit/extract.py "<INPUT_DIR>" "<OUTPUT_DIR>/_work" --workers 8
+#   opcional: --lang por+eng (mais fiel ao PT, ~2x mais lento) | --max-pages 60
+```
+
+O extrator faz tudo de forma robusta: **dedup por hash** (pula arquivos idênticos), **OCR em paralelo
+por arquivo** (abre cada PDF uma vez), **escrita incremental** em `<OUTPUT_DIR>/_work/parts/` +
+`flat_index.json` (pequeno) + `manifest.json`, **dpi adaptativo** e **buffer-safe** (nada grande no
+stdout). Acompanhe o progresso pelo stdout (`OCR k/N :: arquivo`).
+
+Depois: trabalhe sobre `<OUTPUT_DIR>/_work/flat_index.json` (costuma ser dezenas de KB — pode `Read`),
+ou faça `grep`/Bash nele. Veja `manifest.json` para status por arquivo (ok/duplicado/erro).
+
+> O detalhe por formato abaixo é **referência/fallback** caso precise extrair um arquivo isolado — a
+> rota normal é o `extract.py`.
+
+Instalação manual de deps (fallback): `pip install pdfplumber python-docx openpyxl python-pptx pymupdf rapidocr-onnxruntime pillow --break-system-packages -q`
 
 **PDF (texto por página):**
 ```python
@@ -222,6 +251,11 @@ Gere em `output/azure-spec-audit/<slug>/` (slug = nome do cliente/lote em snake_
 
 Depois de salvar os 2 arquivos, rode a limpeza do `_work/` (comando acima) e confirme via `ls` que a
 pasta de saída contém **somente** `audit_report.md` e `findings.json`.
+
+> ⚠️ **Relatório conciso (R19):** o `audit_report.md` cita excertos curtos (~120 chars), **nunca**
+> embute o texto extraído completo / `flat_index.json` / base64. Write com conteúdo gigante trava a
+> sessão. Gere o report **uma vez** a partir do índice (não incremental) e logo após a extração —
+> não pare em `_work`. Tamanho típico < 50 KB.
 
 ### Esqueleto do audit_report.md
 
