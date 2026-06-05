@@ -171,6 +171,30 @@ do texto normativo completo de um controle.
 > use acentuação e cedilha corretas: "único", "Prontidão", "não", "validação", "análise", "produção".
 > NÃO remova acentos. Em EN-US, escreva normalmente. Nomes de produtos/controles permanecem em inglês.
 
+> **R17 — Buffer-safe: NUNCA dê `Read` em documento-fonte ou arquivo grande.** O SDK quebra
+> fatalmente se uma única mensagem (saída de tool) passar de ~10 MB (`max_buffer_size`). Um PDF/PPTX
+> de 20–30 MB lido pela tool `Read` estoura isso e derruba a sessão. Portanto:
+> - Documentos-fonte (PDF, PPTX, DOCX, XLSX, imagens) são processados **SOMENTE via Bash**
+>   (pdfplumber/PyMuPDF/python-pptx/openpyxl/OCR). **Jamais** use a tool `Read` neles.
+>   `Read` é só para arquivos de texto pequenos (KB, skill, e digests `_work` < 512 KB).
+> - Antes de qualquer `Read`, se houver dúvida de tamanho, cheque via Bash (`wc -c`/`ls -la`); > 512 KB → extraia, não leia.
+> - Scripts de extração **escrevem em `_work/` e imprimem só resumos pequenos** no stdout
+>   (ex.: `{arquivo, chars, status}`). NUNCA faça `cat`/print do texto completo, base64 ou JSON gigante.
+> - Trunque o texto por unidade no índice `_work` (ex.: ~3.000 chars/slide-página) para manter os JSON pequenos.
+> - PDFs grandes: rasterize/OCR **página a página** (dpi 120–150), gravando incremental — nunca acumule tudo numa mensagem.
+
+> **R18 — Falha rápida, sem loop.** Se a extração falhar (dependência ausente, erro repetido, OCR sem
+> motor) ou se detectar índice vazio (`status=None`/0 chars em todos os arquivos), **PARE e reporte** o
+> diagnóstico + comando de correção. NÃO reprocesse em loop nem tente "continuar" sobre dados vazios.
+> Rode apenas **uma sessão por vez** sobre a mesma pasta (sessões concorrentes corrompem o `_work`).
+
+> **R19 — Relatório CONCISO (Write é buffer-safe).** O `audit_report.md` cita **excertos curtos**
+> (~120 chars) por evidência — **NUNCA** embute o texto extraído completo, o `flat_index.json`, base64
+> ou dumps grandes. Um `Write` com conteúdo gigante trava/derruba a sessão (mesmo limite do SDK). O
+> relatório deve ficar pequeno (tipicamente < 50 KB). Gere o report **uma vez** a partir do índice
+> (não regrave incrementalmente). Se precisar referenciar muito conteúdo, aponte o caminho do arquivo,
+> não cole o conteúdo. Imediatamente após extrair, **escreva o relatório** (não pare em `_work`).
+
 ---
 
 ## Fluxo de Trabalho Canonical
@@ -188,11 +212,16 @@ Vou extrair (com OCR nas imagens) e auditar contra os 7 controles em 2 eixos
 ```
 Se não houver arquivos → R3 (pare e peça). Se detectar só 1 cliente sem o usuário declarar → confirme o escopo (R13).
 
-### Passo 2 — Extração com rastreabilidade
-Instale deps (`pip install pdfplumber python-docx openpyxl python-pptx pymupdf rapidocr-onnxruntime pillow --break-system-packages -q`),
-extraia cada arquivo guardando localização (página/aba/slide/linha). **Imagens e PDFs sem texto →
-OCR automático** (SKILL Passo 1b): PyMuPDF rasteriza páginas, pytesseract/rapidocr extrai o texto;
-marque a proveniência como `(OCR)`. Gere um índice intermediário para busca dirigida.
+### Passo 2 — Extração com o extrator VERSIONADO (não reescreva script)
+Use sempre o extrator pronto (dedup + OCR paralelo + incremental + buffer-safe). NÃO gere um script de
+extração próprio (reinventar foi o que travou runs anteriores):
+```bash
+pip install pdfplumber python-docx openpyxl python-pptx pymupdf pytesseract pillow --break-system-packages -q
+python skills/analytics-azure-spec/azure-spec-audit/extract.py "<INPUT_DIR>" "<SAÍDA>/_work" --workers 8
+```
+Saída: `<SAÍDA>/_work/flat_index.json` (pequeno — pode `Read`) + `manifest.json` (status/duplicados por
+arquivo). Texto de OCR vem marcado `(OCR)`. Trabalhe sobre o índice via `Read`/`grep`. (Detalhe/fallback
+por formato no SKILL Passo 1/1b.)
 
 ### Passo 3 — Busca dirigida + validação
 Para cada um dos 7 controles, busque os sinais (mapa de palavras-chave do SKILL.md), depois **valide
