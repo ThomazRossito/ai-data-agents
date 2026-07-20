@@ -169,3 +169,14 @@ _work/
 
 # Saídas de auditoria / dados de cliente — não versionar (confidencial)
 outputs/
+
+# =============================================================================
+# DADOS EXPERIMENTAIS / AGENTES DESCONTINUADOS — não versionar
+# =============================================================================
+# megasena: agente removido; dados de treino/experimento ficam apenas locais
+data/megasena/
+
+# =============================================================================
+# BACKUPS LOCAIS (reset de logs/memória) — não versionar
+# =============================================================================
+reset_backup_*.tar.gz

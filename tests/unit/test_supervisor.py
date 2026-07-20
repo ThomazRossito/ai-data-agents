@@ -62,8 +62,11 @@ class TestBuildSupervisorOptions:
                 build_supervisor_options()
                 mock_mcp.assert_called_once_with(None)
 
-    def test_build_thinking_disabled_by_default(self):
-        """Verifica que thinking está desabilitado por padrão."""
+    def test_build_thinking_disabled_by_default(self, monkeypatch):
+        """Verifica que thinking está desabilitado por padrão (flag MOONSHOT_ALLOW_THINKING off)."""
+        from data_agents.config.settings import settings
+
+        monkeypatch.setattr(settings, "moonshot_allow_thinking", False)
         mock_class, _ = self._make_mock_options_class()
         captured_kwargs = {}
 
@@ -118,6 +121,7 @@ class TestBuildSupervisorOptions:
         from data_agents.config.settings import settings
 
         monkeypatch.setattr(settings, "anthropic_base_url", "https://api.moonshot.ai/anthropic")
+        monkeypatch.setattr(settings, "moonshot_allow_thinking", False)
         mock_class, _ = self._make_mock_options_class()
         captured_kwargs = {}
 
@@ -131,8 +135,30 @@ class TestBuildSupervisorOptions:
                 from data_agents.agents.supervisor import build_supervisor_options
 
                 build_supervisor_options(enable_thinking=True)
-                # Moonshot override vence o enable_thinking=True
+                # Moonshot override vence o enable_thinking=True (flag off)
                 assert captured_kwargs.get("thinking") == {"type": "disabled"}
+
+    def test_build_thinking_adaptive_when_moonshot_flag_on(self, monkeypatch):
+        """Com MOONSHOT_ALLOW_THINKING=true, thinking vira adaptive mesmo no Moonshot
+        (modo de teste de modelos com thinking obrigatório — K3, K2.7-Code)."""
+        from data_agents.config.settings import settings
+
+        monkeypatch.setattr(settings, "anthropic_base_url", "https://api.moonshot.ai/anthropic")
+        monkeypatch.setattr(settings, "moonshot_allow_thinking", True)
+        mock_class, _ = self._make_mock_options_class()
+        captured_kwargs = {}
+
+        def capture(**kwargs):
+            captured_kwargs.update(kwargs)
+            return MagicMock()
+
+        mock_class.side_effect = capture
+        with patch("data_agents.agents.supervisor.ClaudeAgentOptions", mock_class):
+            with patch("data_agents.agents.supervisor.build_mcp_registry", return_value={}):
+                from data_agents.agents.supervisor import build_supervisor_options
+
+                build_supervisor_options(enable_thinking=False)
+                assert captured_kwargs.get("thinking") == {"type": "adaptive", "effort": "high"}
 
     def test_build_uses_bypass_permissions(self):
         """Verifica que permission_mode é bypassPermissions."""

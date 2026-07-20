@@ -18,8 +18,14 @@ from data_agents.hooks.checkpoint import _redact_secrets
 
 logger = logging.getLogger("data_agents.session_logger")
 
-# Caminho derivado do mesmo diretório de logs do audit_hook
-SESSIONS_LOG_PATH: Path = Path(settings.audit_log_path).parent / "sessions.jsonl"
+# Caminho derivado do mesmo diretório de logs do audit_hook.
+# ABSOLUTO, ancorado no root do projeto (data_agents/hooks/ → parents[2]): evita que
+# um processo com CWD diferente (ex.: Chainlit) grave os logs noutro diretório.
+_PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
+_configured_log: Path = Path(settings.audit_log_path)
+if not _configured_log.is_absolute():
+    _configured_log = _PROJECT_ROOT / _configured_log
+SESSIONS_LOG_PATH: Path = _configured_log.parent / "sessions.jsonl"
 
 
 def log_session_result(

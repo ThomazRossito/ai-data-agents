@@ -193,7 +193,14 @@ def extract_memories_from_conversation(
         with urllib.request.urlopen(req, timeout=60) as resp:  # nosec B310
             data = json.loads(resp.read().decode("utf-8"))
 
-        text = data["content"][0]["text"] if data.get("content") else "[]"
+        # Extrai o texto do PRIMEIRO bloco que tenha "text". A resposta pode trazer
+        # blocos "thinking"/"tool_use" antes do texto (modelos com thinking sempre-ligado
+        # como o K3), então nunca assumir content[0]. Fallback "[]" se não houver texto.
+        text = "[]"
+        for _block in data.get("content") or []:
+            if isinstance(_block, dict) and isinstance(_block.get("text"), str):
+                text = _block["text"]
+                break
 
         # Log de custo — Kimi K2.6 (Moonshot): $0.55/M input + $2.65/M output
         usage = data.get("usage", {})

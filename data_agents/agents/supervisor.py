@@ -137,30 +137,34 @@ def build_supervisor_options(
     Returns:
         ClaudeAgentOptions configurado e pronto para uso com query() ou ClaudeSDKClient.
     """
-    # Thinking no Kimi K2.6 (Moonshot):
-    #   ⚠️ Verificado em produção: o endpoint Anthropic-compat da Moonshot ACEITA
-    #   o parâmetro thinking={"type":"adaptive"} mas NÃO emite events streaming
-    #   durante o raciocínio (pode travar 5+ min sem qualquer feedback ou jamais
-    #   completar). Diferente do Claude Sonnet que streama text_delta em tempo real.
+    # Thinking contra Moonshot:
+    #   ⚠️ Histórico (K2.6): o endpoint Anthropic-compat da Moonshot ACEITA
+    #   thinking={"type":"adaptive"} mas NÃO emitia events streaming durante o
+    #   raciocínio (podia travar 5+ min sem feedback). Por isso, por padrão, forçamos
+    #   thinking=disabled no Moonshot.
     #
-    #   Por isso, quando rodando contra Moonshot (anthropic_base_url contém
-    #   "moonshot"), forçamos thinking=disabled mesmo com enable_thinking=True.
-    #   O /plan continua funcionando — só sem o reasoning estendido extra.
-    #
-    #   Se a Moonshot habilitar streaming de thinking no futuro, basta remover
-    #   essa detecção e voltar ao comportamento Claude-style.
+    #   Modelos novos (Kimi K3, K2.7-Code) EXIGEM thinking sempre-ligado — desligar
+    #   retorna erro de API. Para testá-los, ligue MOONSHOT_ALLOW_THINKING=true: o
+    #   thinking vira adaptive em TODAS as chamadas do Supervisor (não só /plan) e a
+    #   trava de segurança do Moonshot é ignorada. Se a Moonshot ainda não streamar
+    #   thinking, a UI pode travar — é exatamente o que esse teste verifica.
     is_moonshot = "moonshot" in (settings.anthropic_base_url or "").lower()
+    allow_moonshot_thinking = settings.moonshot_allow_thinking
 
-    if enable_thinking and is_moonshot:
+    # want_thinking: pedido explícito (/plan) OU modo de teste (modelo exige thinking).
+    want_thinking = enable_thinking or allow_moonshot_thinking
+
+    if want_thinking and is_moonshot and not allow_moonshot_thinking:
         import logging as _log
 
         _log.getLogger("data_agents.supervisor").warning(
             "thinking adaptive solicitado (/plan) mas endpoint é Moonshot — "
-            "thinking não streama lá. Usando thinking=disabled para evitar travada."
+            "thinking não streama lá. Usando thinking=disabled para evitar travada. "
+            "(Para forçar thinking real — ex.: testar K3 — ligue MOONSHOT_ALLOW_THINKING=true.)"
         )
         thinking_config: Any = {"type": "disabled"}
-    elif enable_thinking:
-        # Endpoint Anthropic original (ou outro compat. com streaming): usa adaptive
+    elif want_thinking:
+        # Anthropic original OU Moonshot com MOONSHOT_ALLOW_THINKING=true (teste K3/K2.7).
         thinking_config = {"type": "adaptive", "effort": "high"}
     else:
         thinking_config = {"type": "disabled"}
