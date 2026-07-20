@@ -200,7 +200,7 @@ def _real_model(message: Any, model: str | None = None) -> str:
     if m and "claude" not in m.lower():  # ignora rótulos Anthropic do SDK
         return m
     try:
-        from config.settings import settings
+        from data_agents.config.settings import settings
 
         return str(settings.default_model)
     except Exception:
@@ -237,7 +237,10 @@ def recompute_cost_from_message(message: Any, model: str | None = None) -> CostB
         cost_in, cost_out, cost_ca = sdk_cost * ratio, 0.0, 0.0
         logger.debug(
             "recompute_cost: sem tokens; custo SDK %.6f × %.3f (%s) = %.6f",
-            sdk_cost, ratio, real_model, cost_in,
+            sdk_cost,
+            ratio,
+            real_model,
+            cost_in,
         )
     else:
         cost_in = cost_out = cost_ca = 0.0
