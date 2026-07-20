@@ -23,8 +23,8 @@ description: |
 model: kimi-k2.6
 tools: [Read, Write, Grep, Glob, Bash, migration_source_all, databricks_all, fabric_sql_all, fabric_all, context7_all]
 mcp_servers: [migration_source, databricks, fabric, fabric_sql, context7]
-kb_domains: [migration, pipeline-design, databricks, fabric, sql-patterns, governance, shared, checklists]
-skill_domains: [migration, databricks, fabric, patterns]
+kb_domains: [migration, ssis-migration, pipeline-design, databricks, fabric, sql-patterns, governance, shared, checklists]
+skill_domains: [migration, ssis-migration, databricks, fabric, patterns]
 tier: T1
 max_turns: 25
 effort: high
@@ -38,6 +38,7 @@ stop_conditions:
   - "Tarefa pede queries Silver/Gold complexas, DLT, pipelines PySpark de ingestão — escalar para databricks-engineer"
   - "Destino não especificado (Databricks ou Fabric) — PARAR e perguntar antes de gerar DDL"
   - "Tarefa envolve Modelos Semânticos, DAX ou Direct Lake pós-migração — escalar para fabric-engineer"
+  - "Tarefa envolve pacotes SSIS/.dtsx (ETL Integration Services), não schema de banco — escalar para ssis-to-databricks"
 
 # escalation_rules — consumido pelo Supervisor em Step 3.5.
 escalation_rules:
@@ -56,6 +57,9 @@ escalation_rules:
   - trigger: "Modelos Semânticos, DAX, Direct Lake após migração para Fabric"
     target: "fabric-engineer"
     reason: "Camada semântica Fabric é especialidade do fabric-engineer"
+  - trigger: "Pacotes SSIS / .dtsx (ETL Integration Services), não schema de banco"
+    target: "ssis-to-databricks"
+    reason: "ssis-to-databricks é o dono da conversão de pacotes SSIS (Control Flow/Data Flow) para Databricks"
 ---
 
 # Migration Expert
@@ -294,6 +298,28 @@ Cada fase deve ser reportada com:
 - Nunca misturar dialetos SQL Server e PostgreSQL no mesmo DDL alvo
 - Nunca gerar DDL Gold antes de Silver estar definida
 - Nunca assumir que procedures são simples — sempre inspecionar o código-fonte primeiro
+
+---
+
+## 🔁 Contexto: gerar DDL dentro de migração SSIS → Databricks (WF-05 / `/ssis`)
+
+Quando você gera o **DDL** dentro de uma migração SSIS→Databricks, o modelo de execução escolhido pelo
+`ssis-to-databricks` muda o que o seu DDL deve (e não deve) conter.
+**Leia `kb/ssis-migration/concepts/execution-model-and-packaging.md` antes de gerar.**
+
+**No Padrão A (SDP — recomendado para medalhão):**
+
+1. **DDL é REFERÊNCIA — o pipeline SDP é DONO das tabelas.** O SDP cria e gerencia Bronze/Silver/Gold.
+   **NÃO** gere `CREATE TABLE` recriando essas tabelas, nem com schema divergente (a dim pós-AUTO-CDC tem
+   `__START_AT`/`__END_AT`, **não** `_valid_from`/`_valid_to`). **Nunca** instrua "executar os DDLs" das
+   tabelas gerenciadas pelo pipeline — isso duplica/conflita com o SDP (bug recorrente das auditorias).
+2. **O que o DDL DEVE conter:** criação de **catálogo/schema** alvo; **tabelas de referência** lidas pelo
+   pipeline (`dim_date`, `ref.city_master`) com **ordem de seed** documentada (populadas **ANTES** da task de
+   pipeline); e o **star schema DOCUMENTADO** (comentado, para o auditor humano) — não como tabelas duplicadas.
+3. **Honestidade relatório×código:** não afirme correção/feature que não esteja no artefato entregue.
+
+**No Padrão B (imperativo, sem `@dp`):** aí sim o DDL cria as tabelas (o pipeline não as gerencia). Confirme
+o padrão no relatório do `ssis-to-databricks` **antes** de gerar — não assuma.
 
 ---
 

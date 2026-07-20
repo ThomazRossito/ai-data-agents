@@ -189,6 +189,17 @@ commands:
     prompt_template: |-
       [DOMA MIGRATE] Delegue IMEDIATAMENTE para migration-expert. Não gere SQL diretamente. O agente deve: (1) Ler `kb/migration/index.md` para regras de mapeamento de tipos e anti-padrões. (2) Conectar ao banco de origem via migration_source MCP para extrair DDL e estatísticas. (3) Gerar assessment de complexidade (LOW/MEDIUM/HIGH) por objeto. (4) Propor arquitetura Medallion Bronze→Silver→Gold no destino. (5) Salvar o plano de migração em `output/migration/migration_plan_<nome>.md`. (6) Apresentar resumo e aguardar aprovação antes de gerar scripts. Tarefa: {task}
     display_template: '[bold yellow]🚚 [DOMA Migrate] Iniciando assessment com: {agent}[/bold yellow]'
+  ssis:
+    agent: ssis-to-databricks
+    doma_mode: express
+    description: |-
+      Converte pacotes SSIS (.dtsx) para Databricks: Control Flow → Workflows/Jobs, Data Flow → PySpark/DLT, SCD → MERGE/APPLY CHANGES, expressões SSIS → Spark, com reconciliação. Ex.: /ssis converter os pacotes em inputs/ssis/
+    skills:
+    - kb/ssis-migration/index.md
+    - skills/ssis-migration/ssis-to-databricks/SKILL.md
+    prompt_template: |-
+      [DOMA EXPRESS] Delegue IMEDIATAMENTE para ssis-to-databricks. Não gere código antes de ler a KB. O agente deve: (1) Ler `kb/ssis-migration/index.md` e o playbook `skills/ssis-migration/ssis-to-databricks/SKILL.md`. (2) PARSE dos .dtsx via Python (buffer-safe, índice em _work/). (3) INVENTORY + CLASSIFY por complexidade. (4) MAP Control Flow→Workflows e Data Flow→PySpark/DLT usando os concepts da KB. (5) GENERATE notebooks/Jobs + conversion_report em output/ssis-migration/<slug>/. (6) RECONCILE origem×destino. Marcar itens sem equivalente (Script C#/Fuzzy/DQS) como revisão manual. Tarefa: {task}
+    display_template: '[bold yellow]🔄 [DOMA Express] Direcionando para: {agent}[/bold yellow]'
   genie:
     agent: databricks-engineer
     doma_mode: express

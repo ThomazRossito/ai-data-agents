@@ -160,6 +160,9 @@ scripts/add_workspace_admin.py
 scripts/diagnose_workspace.py
 scripts/pipeline_status.py
 scripts/test_azure_openai_embedding.py
+# Geradores de relatório de auditoria Databricks — one-off, path absoluto hardcoded
+scripts/generate_audit_v2.py
+scripts/generate_audit_report_v2.py
 
 # =============================================================================
 # Artefatos intermediários de auditoria (azure-analytics-auditor)
@@ -169,3 +172,14 @@ _work/
 
 # Saídas de auditoria / dados de cliente — não versionar (confidencial)
 outputs/
+
+# =============================================================================
+# DADOS EXPERIMENTAIS / AGENTES DESCONTINUADOS — não versionar
+# =============================================================================
+# megasena: agente removido; dados de treino/experimento ficam apenas locais
+data/megasena/
+
+# =============================================================================
+# BACKUPS LOCAIS (reset de logs/memória) — não versionar
+# =============================================================================
+reset_backup_*.tar.gz

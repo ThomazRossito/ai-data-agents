@@ -96,6 +96,22 @@ from data_agents.ui.ui_config import (  # noqa: E402
 
 logger = logging.getLogger("data_agents.ui.chainlit")
 
+# ── Logging estruturado para a UI (paridade com o CLI) ───────────────────────
+# A UI não chamava setup_logging() → não gerava logs/app.jsonl (só o CLI gerava).
+# Path ABSOLUTO ancorado no root do projeto: o Chainlit pode rodar com CWD ≠ raiz.
+# enable_console=False: o stderr da UI já é capturado em logs/chainlit.log (start.sh).
+try:
+    from data_agents.config.logging_config import setup_logging as _ui_setup_logging
+    from data_agents.config.settings import settings as _ui_settings
+
+    _ui_setup_logging(
+        log_level=_ui_settings.log_level,
+        enable_console=False,
+        log_file=str(Path(__file__).resolve().parents[2] / "logs" / "app.jsonl"),
+    )
+except Exception:  # nunca deixar o logging derrubar a UI
+    logger.debug("setup_logging da UI falhou (ignorado)", exc_info=True)
+
 # ── Tier lookup para labels de delegação ─────────────────────────────────────
 _AGENT_TIERS: dict[str, str] = {
     name: meta.tier for name, meta in preload_registry().items() if meta.tier
@@ -779,6 +795,15 @@ async def _handle_supervisor(user_input: str) -> None:
                 # Rodapé com métricas
                 metrics_str = f"\n\n---\n*💰 `${_result_cost:.5f}` · 🔄 `{_result_turns} turns` · ⏱️ `{duration:.1f}s`*"
                 await response_msg.stream_token(metrics_str)
+
+                # Persiste a sessão em logs/sessions.jsonl — paridade com o CLI e com
+                # o modo dev-assistant (que já logam). Sem isso, o uso normal da UI
+                # (modo Supervisor) não aparecia no painel de monitoramento.
+                from data_agents.hooks.session_logger import log_session_result
+
+                log_session_result(
+                    message, prompt_preview=user_input[:100], session_type="supervisor"
+                )
 
                 # --- Compactação autônoma: reconecta se o hook atingiu 80% ---
                 from data_agents.hooks.context_budget_hook import check_and_consume_compaction

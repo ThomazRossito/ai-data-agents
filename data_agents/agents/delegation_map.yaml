@@ -26,6 +26,16 @@ routes:
     tier: T1
     keywords: [ddl, medallion, assessment]
 
+  # Migração SSIS (pacotes ETL .dtsx)
+  - situation: "Migrar SSIS / pacotes .dtsx / Integration Services para Databricks"
+    agent: ssis-to-databricks
+    tier: T1
+    keywords: [ssis, dtsx, "integration services", ssisdb, "control flow", "data flow", pacote, ".dtsx", ispac]
+  - situation: "Converter Data Flow / Control Flow / SCD Wizard do SSIS para PySpark/DLT"
+    agent: ssis-to-databricks
+    tier: T1
+    keywords: ["data flow", "control flow", "scd wizard", "derived column", lookup, "ole db", "execute sql task", "script task"]
+
   # Intake de requisitos
   - situation: "Transcript / briefing / notas brutas"
     agent: business-analyst

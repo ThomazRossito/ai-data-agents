@@ -234,13 +234,26 @@ jobs:
         # CONDIÇÃO DE INVALIDAÇÃO: se alguém adicionar fastapi[standard] em
         # pyproject.toml ou em qualquer pip install futuro, RE-AVALIAR. Linter
         # de proteção pode ser adicionado (grep -r fastapi\[standard\] na CI).
+        #
+        # PYSEC-2026-3447 (setuptools < 83.0.0, "MANIFEST.in NFD/NFC glob bypass"):
+        # Ignorado com base em NÃO-APLICABILIDADE, não em conveniência:
+        #   1. Build backend é hatchling (pyproject.toml: build-backend =
+        #      "hatchling.build") — a rotina FileList/MANIFEST.in vulnerável do
+        #      setuptools NÃO é usada para empacotar este projeto.
+        #   2. A falha é específica de macOS (APFS/HFS+, nomes de arquivo NFD);
+        #      o CI roda em ubuntu-latest (Linux).
+        #   3. setuptools não é dependência declarada — vem no ambiente base do
+        #      runner, não do nosso pyproject.
+        # CONDIÇÃO DE INVALIDAÇÃO: se o projeto migrar para setuptools como build
+        # backend OU passar a gerar sdist em macOS, RE-AVALIAR (bump setuptools>=83.0.0).
         run: |
           pip-audit \
             --skip-editable \
             --vulnerability-service pypi \
             --desc on \
             --format columns \
-            --ignore-vuln MAL-2026-4750
+            --ignore-vuln MAL-2026-4750 \
+            --ignore-vuln PYSEC-2026-3447
 
   # ─────────────────────────────────────────────────────────────────────────
   # Job 4: Bandit (Python security linter)

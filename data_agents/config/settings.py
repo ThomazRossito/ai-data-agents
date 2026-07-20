@@ -211,6 +211,13 @@ class Settings(BaseSettings):
     # em 25/05/2026. Thinking é ligado/desligado via parâmetro `thinking` (igual ao
     # Claude Sonnet — protocolo idêntico), não via modelo dedicado.
     default_model: str = "kimi-k2.6"
+    # Habilita thinking REAL contra o endpoint Moonshot. Default False = comportamento
+    # seguro atual (thinking=disabled no Moonshot, pois o endpoint não streamava o
+    # raciocínio no K2.6 e a UI travava). Ligue (=true) para TESTAR modelos que EXIGEM
+    # thinking sempre-ligado (Kimi K3, K2.7-Code): aí o thinking vira adaptive em TODAS
+    # as chamadas do Supervisor. Se a Moonshot ainda não streamar thinking, a UI pode
+    # travar — é justamente o que esse teste verifica. Override: MOONSHOT_ALLOW_THINKING=true
+    moonshot_allow_thinking: bool = False
     max_budget_usd: float = 5.0
     max_turns: int = 50
     # Buffer máximo (bytes) para mensagens JSON entre Python e subprocess do

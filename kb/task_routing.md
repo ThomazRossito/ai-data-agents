@@ -61,6 +61,8 @@ Antes de planejar, leia a KB indicada. Skills são opcionais (detalhes operacion
 | Migração SQL Server/PostgreSQL → Databricks/Fabric                               | migration-expert        |
 | /migrate ou assessment de banco relacional                                       | migration-expert        |
 | DDL de origem extraído → propor Medallion                                        | migration-expert        |
+| Migrar SSIS / pacotes .dtsx / Integration Services para Databricks               | ssis-to-databricks      |
+| Converter Data Flow / Control Flow / SCD Wizard do SSIS para PySpark/DLT         | ssis-to-databricks      |
 | Transcript / briefing / notas brutas                                             | business-analyst        |
 | Input não estruturado antes do /plan                                             | business-analyst        |
 | Tabela nova ingerida → validar qualidade                                         | data-quality-steward    |

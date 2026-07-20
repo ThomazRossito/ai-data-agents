@@ -27,8 +27,8 @@ description: |
 model: kimi-k2.6
 tools: [Read, Write, Grep, Glob, Bash, databricks_all, databricks_genie_all, context7_all, migration_source_all, postgres_all, memory_mcp_all, github_readonly, tavily_all]
 mcp_servers: [databricks, databricks_genie, context7, migration_source, postgres, memory_mcp, github, tavily]
-kb_domains: [databricks, spark-patterns, sql-patterns, pipeline-design, migration, shared, checklists]
-skill_domains: [databricks, patterns]
+kb_domains: [databricks, spark-patterns, sql-patterns, pipeline-design, migration, ssis-migration, shared, checklists]
+skill_domains: [databricks, patterns, ssis-migration]
 tier: T1
 max_turns: 25
 output_budget: "200-600 linhas"
@@ -239,6 +239,47 @@ KB: kb/<domínio>/<arquivo>.md | Confiança: ALTA (0.92) | MCP: confirmado
 3. NUNCA recomendar `outputMode("complete")` para streams de alta cardinalidade
 4. Watermarks e janelas temporais DEVEM ser declarados explicitamente em queries de streaming
 5. Sempre validar ingestão com amostra antes de considerar pipeline concluído
+
+---
+
+## 🔁 Contexto: implementar migração SSIS → Databricks (WF-05 / `/ssis`)
+
+Quando você **implementar o pipeline/bundle de uma migração SSIS→Databricks** (você recebe o relatório
+de conversão do `ssis-to-databricks` e é quem gera o código), estas invariantes são **obrigatórias**.
+**Leia `kb/ssis-migration/concepts/execution-model-and-packaging.md` antes de gerar** — elas corrigem os
+bugs recorrentes das auditorias:
+
+1. **Modelo de execução ÚNICO** — não misture `@dp.*` (SDP) com `notebook_task` na mesma orquestração.
+   Padrão A: Bronze→Silver→Gold num **pipeline SDP** (1 recurso) + passos imperativos (auditoria) como
+   task de **Lakeflow Job** dependente (`pipeline_task` + `notebook_task`). Nunca `@dp` rodando como notebook-task.
+2. **Surrogate key é GERADA — AUTO CDC / `create_auto_cdc_flow` NÃO cria SK de negócio.** Gere via coluna
+   `IDENTITY` na dim-alvo **ou** `sha2(concat_ws('||', <chaves_naturais>), 256)` materializada no `*_clean`
+   **ANTES** do AUTO CDC. O fato só pode ler `*_sk` que **existe** na dim pós-AUTO-CDC. `sequence_by` = coluna
+   **temporal** (`updated_at`/`order_ts`), **nunca** `_batch_id`/run_id.
+3. **Grão do fato** carrega as **chaves naturais** (`order_id`, `product_id`) — sem elas o grão atômico colide.
+4. **Orquestração completa** — toda camada representada (sem Bronze/Silver órfão); **uma dimensão = uma
+   unidade** (nunca N tasks apontando ao mesmo notebook que carrega tudo → duplica).
+5. **Entrega em DAB** — `databricks.yml` + `resources/*.yml` (jobs + pipelines) + targets dev/staging/prod.
+   Segredos via `dbutils.secrets` (**NUNCA** `${workspace.secrets}`); em SDP `target:` é o **schema** de
+   publicação; `max_retries`/retry são **por task**, não no topo do job.
+6. **Armadilhas de RUNTIME (passam no `py_compile`, quebram na execução — ver KB §10):**
+   `createDataFrame` recebe VALORES Python, **nunca** `Column` (para datas: `spark.range(1)` + `sequence`);
+   `Window`/`row_number` **não** roda em DataFrame streaming → fuzzy match em **batch** (`spark.read`), e se a
+   dim precisar de batch e for SCD1, use **`@dp.materialized_view`** (snapshot) em vez de `create_auto_cdc_flow`;
+   join **stream-stream** exige watermark → quarentena/orphans em **batch**; `crossJoin` duplica colunas → **alias**
+   na tabela de lookup antes do join; **watermark NÃO chega via `taskValues`** → o SDP lê de tabela de controle
+   (`ref.etl_watermark`), não de `spark.conf` vazio; `dim_date` cobre a data **mais antiga real**; PII
+   (`cpf`/`email`/`birth_date`) mascarada **no código** (cpf com **salt**) antes de Silver/Gold; SK estável =
+   hash **só da chave natural**.
+7. **Honestidade relatório×código** — não afirme SK estável, `replaceWhere`, e-mail enviado ou PII mascarada
+   se não estiver no código. MV é full-recompute → diga **MV**, não `replaceWhere`.
+
+**Antes de reportar "concluído"**, rode a auto-revisão de sanidade (§9–§10 da KB acima / Passo 5c da skill
+`ssis-to-databricks`): toda coluna lida existe no passo que a produz; zero `SyntaxError` (`py_compile`) **e**
+zero armadilha de runtime (§10); DDL **não** duplica as tabelas do SDP; refs seedadas antes de quem as lê.
+**Honestidade com `grep`:** para cada feature que o relatório alega (`replaceWhere`, MERGE, salt, notificação,
+incremental), faça `grep` no código — se não achar, **apague a alegação**; a lista de artefatos tem que bater
+com `find <saída> -type f`.
 
 ---
 
