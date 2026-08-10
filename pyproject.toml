@@ -74,6 +74,11 @@ dependencies = [
     # já aceitam starlette 1.x (verificado via pip install --dry-run em 2026-05-26).
     # Sem esse pin, pip resolveria pra versões transitivas antigas (ex: 0.50.0).
     "starlette>=1.0.1",
+
+    # Cryptography — pin defensivo pra mitigar PYSEC-2026-3552 (oráculo
+    # Bleichenbacher/timing em PKCS7 decrypt; afeta cryptography 44.0.0–49.x).
+    # Fix em 50.0.0. Dep transitiva (azure-identity/mcp/etc.) — pin força o floor.
+    "cryptography>=50.0.0",
 ]
 
 [project.optional-dependencies]
