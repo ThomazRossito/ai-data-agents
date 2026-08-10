@@ -1098,3 +1098,48 @@ class TestMigrationExpert:
         assert "Bash" in (agent.tools or []), (
             "migration-expert deve ter Bash para invocar ferramentas de transpilação"
         )
+
+
+class TestSsasToDatabricks:
+    """Testes específicos para o ssas-to-databricks (T1 — modelo tabular SSAS → Databricks)."""
+
+    def test_ssas_to_databricks_is_loaded(self):
+        agents = load_all_agents()
+        assert "ssas-to-databricks" in agents, "ssas-to-databricks não encontrado no registry"
+
+    def test_ssas_to_databricks_tier_is_t1(self):
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+
+        path = AGENTS_REGISTRY_DIR / "ssas-to-databricks.md"
+        content = path.read_text(encoding="utf-8")
+        meta, _ = _parse_frontmatter(content)
+        assert meta.get("tier") == "T1", "ssas-to-databricks deve ter tier: T1"
+
+    def test_ssas_to_databricks_model_is_kimi_k2_6(self):
+        agents = load_all_agents()
+        agent = agents["ssas-to-databricks"]
+        assert agent.model == "kimi-k2.6"
+
+    def test_ssas_to_databricks_has_databricks_tools(self):
+        agents = load_all_agents()
+        agent = agents["ssas-to-databricks"]
+        db_tools = [t for t in (agent.tools or []) if "databricks" in t]
+        assert len(db_tools) > 0, "ssas-to-databricks deve ter tools do Databricks (alvo)"
+
+    def test_ssas_to_databricks_has_bash(self):
+        agents = load_all_agents()
+        agent = agents["ssas-to-databricks"]
+        assert "Bash" in (agent.tools or []), (
+            "ssas-to-databricks deve ter Bash para parsear .bim/.vpax de forma buffer-safe"
+        )
+
+    def test_ssas_to_databricks_has_ssas_migration_kb_domain(self):
+        from data_agents.agents.loader import _parse_frontmatter, AGENTS_REGISTRY_DIR
+
+        path = AGENTS_REGISTRY_DIR / "ssas-to-databricks.md"
+        content = path.read_text(encoding="utf-8")
+        meta, _ = _parse_frontmatter(content)
+        kb_domains = meta.get("kb_domains", [])
+        assert "ssas-migration" in kb_domains, (
+            "ssas-to-databricks deve ter 'ssas-migration' em kb_domains"
+        )

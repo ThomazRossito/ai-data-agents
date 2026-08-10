@@ -1,0 +1,65 @@
+# WF-01 — Pipeline End-to-End Bronze→Gold (definição declarativa).
+# Port fiel de data_agents/commands/workflow.py :: build_wf01_pipeline_end_to_end.
+# Cada item de `steps` mapeia 1:1 a dataclass WorkflowStep. {context} é preenchido
+# pelo WorkflowRunner em runtime; {params} são interpolados na carga.
+wf_id: WF-01
+description: Pipeline End-to-End Bronze→Gold
+params:
+  target_platform: databricks
+steps:
+  - agent: databricks-engineer
+    phase: Bronze Ingestion
+    task: |
+      Crie a camada Bronze do pipeline Medallion para o seguinte projeto:
+
+      {context}
+
+      Gere o código PySpark/DLT para ingestão incremental com Auto Loader. Salve os artefatos em output/wf01/bronze/.
+
+  - agent: databricks-engineer
+    phase: Silver Transformation
+    task: |
+      Com base na camada Bronze já criada, crie a camada Silver:
+
+      {context}
+
+      Aplique limpeza, tipagem, deduplicação e particionamento adequado. Salve em output/wf01/silver/.
+
+  - agent: databricks-engineer
+    phase: Gold Layer
+    require_human_approval: true
+    task: |
+      Com base nas camadas Bronze e Silver, crie a camada Gold:
+
+      {context}
+
+      Aplique agregações, Star Schema se necessário. Salve em output/wf01/gold/.
+
+  - agent: data-quality-steward
+    phase: Data Quality
+    parallel_with: [Governance Audit]
+    task: |
+      Valide a qualidade dos dados do pipeline gerado:
+
+      {context}
+
+      Crie expectations para todas as camadas. Foco em Bronze→Silver→Gold.
+
+  - agent: governance-auditor
+    phase: Governance Audit
+    parallel_with: [Data Quality]
+    task: |
+      Audite o pipeline gerado para conformidade LGPD/GDPR e governança:
+
+      {context}
+
+      Verifique PII, linhagem e permissões de acesso.
+
+  - agent: fabric-engineer
+    phase: Semantic Layer
+    task: |
+      Com base na camada Gold criada, crie o modelo semântico:
+
+      {context}
+
+      Plataforma alvo: {target_platform}. Crie medidas DAX ou Metric Views conforme a plataforma.

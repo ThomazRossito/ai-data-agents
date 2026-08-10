@@ -28,6 +28,10 @@ from typing import Any, Literal, cast
 
 from claude_agent_sdk import AgentDefinition
 
+from data_agents.mcp_servers.azure_devops.server_config import (
+    AZURE_DEVOPS_MCP_READONLY_TOOLS,
+    AZURE_DEVOPS_MCP_TOOLS,
+)
 from data_agents.mcp_servers.azure_pricing.server_config import (
     AZURE_PRICING_MCP_READONLY_TOOLS,
     AZURE_PRICING_MCP_TOOLS,
@@ -169,6 +173,9 @@ MCP_TOOL_SETS: dict[str, list[str]] = {
     # migration_source: extração de DDL, objetos e stats de bancos de origem (SQL Server, PostgreSQL)
     "migration_source_all": MIGRATION_SOURCE_MCP_TOOLS,
     "migration_source_readonly": MIGRATION_SOURCE_MCP_READONLY_TOOLS,
+    # azure_devops: MCP oficial Microsoft — Repos, Pipelines, Boards, Wiki, Test Plans
+    "azure_devops_all": AZURE_DEVOPS_MCP_TOOLS,
+    "azure_devops_readonly": AZURE_DEVOPS_MCP_READONLY_TOOLS,
     # fabric_ontology: CRUD completo no Fabric IQ Ontology (entity types, relationships, bindings)
     "fabric_ontology_all": FABRIC_ONTOLOGY_MCP_TOOLS,
     "fabric_ontology_readonly": FABRIC_ONTOLOGY_MCP_READONLY_TOOLS,

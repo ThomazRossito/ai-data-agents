@@ -163,6 +163,62 @@ dbu_rates_per_hour:
     serverless_per_dbu: 0.95
 
 # =============================================================================
+# Region-specific DBU Rate Overrides  (PR: region-aware pricing, 2026-07-22)
+# =============================================================================
+# CRÍTICO: no Azure, o DBU rate NÃO é global — varia por região. Os rates em
+# `dbu_rates_per_hour` acima são o US/global reference. As regiões APAC (e outras)
+# têm rate mais alto. Estes overrides vêm da Azure Retail Prices API oficial
+# (https://prices.azure.com/api/retail/prices, filtro armRegionName=<region>).
+#
+# Semântica no engine (_resolve_dbu_rate → _apply_region_override):
+#   1. Resolve o rate base normalmente (dbu_rates_per_hour).
+#   2. Se existir override para (region, compute_type[, tier/photon]), USA o override.
+#   3. Caso contrário, mantém o rate base (regiões sem override, ex: brazilsouth,
+#      continuam idênticas — smoke test canônico $726.88 PRESERVADO).
+#
+# NOTA: só populamos regiões efetivamente verificadas contra a Retail API.
+# Para regiões não listadas, ativar real-mode (DATABRICKS_PRICING_MODE=real) ou
+# sinalizar caveat ao usuário.
+# =============================================================================
+region_dbu_rate_overrides:
+  southeastasia:
+    _display_name: "Southeast Asia (Singapore)"
+    _source: "Azure Retail Prices API, armRegionName=southeastasia, fetched 2026-07"
+    _verified_against_source: "2026-07-22"
+    all_purpose_compute:
+      premium:
+        no_photon: 0.55   # Premium All-purpose Compute DBU
+        photon: 0.55      # Premium All-Purpose Photon DBU (same list rate)
+    jobs_compute:
+      premium:
+        no_photon: 0.30   # Premium Jobs Compute DBU (US ref 0.20 → SEA 0.30, +50%)
+        photon: 0.30      # Premium Jobs Compute Photon DBU
+    sql:
+      classic: 0.22       # Premium SQL Analytics DBU
+      pro: 0.69           # Premium SQL Compute Pro DBU (US ref 0.55 → SEA 0.69)
+      serverless: 0.88    # Premium Serverless SQL DBU (US ref 0.70 → SEA 0.88)
+    jobs_serverless:
+      base_per_dbu: 0.50  # Premium Automated Serverless Compute DBU (US ref 0.35 → SEA 0.50)
+    dlt_serverless:
+      base_per_dbu: 0.50
+    all_purpose_serverless:
+      base_per_dbu: 1.00  # Premium Interactive Serverless Compute DBU (US ref 0.75 → SEA 1.00)
+    model_serving:
+      cpu_per_dbu: 0.088  # Premium Serverless Realtime Inferencing DBU (US ref 0.07 → SEA 0.088)
+      gpu_per_dbu: 0.088
+    delta_live_tables:
+      core: 0.30          # Premium Core Compute DLT DBU
+      pro: 0.38           # Premium Pro Compute DLT DBU
+      advanced: 0.54      # Premium Advanced Compute DLT DBU
+    # Model Training (Premium Model Training DBU) = 0.85 na SEA
+    # Lakebase (Premium Database Serverless Compute DBU) = 0.32 na SEA
+
+  # Placeholder para outras regiões APAC — popular via Retail API antes de usar.
+  # eastasia: { ... }
+  # japaneast: { ... }
+  # australiaeast: { ... }
+
+# =============================================================================
 # DBU Multiplier por Instance Type
 # =============================================================================
 # Mapeia Azure VM SKU → DBU/hora consumido.

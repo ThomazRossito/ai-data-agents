@@ -123,6 +123,7 @@ Esse número é a "Hello World" do engine — toda alteração no código deve p
 - [Photon ROI](concepts/photon-roi.md) — quando Photon compensa: regra de bolso e métricas de validação
 - [Multi-cloud](concepts/multi-cloud.md) — diferenças Azure vs AWS no modelo DBU + instance pricing
 - [Instance pricing (mock Fase 1)](concepts/instance-pricing.md) — limitações do mock + roadmap pra Azure Retail / AWS Pricing API
+- [FinOps na migração SQL Server → Databricks](concepts/finops-migration.md) — modelo de custo (licença → DBU), anti-padrão de budgets informativos, tagging/enforcement via cluster policies, rightsizing, quick-wins e Predictive Optimization
 
 ## 7. Tools MCP disponíveis (13 totais)
 

@@ -1,7 +1,7 @@
 # AI Data Agents — Guia para Claude Code
 
 Sistema multi-agente construído sobre o **Claude Agent SDK** (protocolo Anthropic Messages API) servido pela **Moonshot Kimi K2** via endpoint compatível, com integração
-nativa via MCP ao **Databricks** e **Microsoft Fabric**. Orquestra <!-- INVENTORY:agents_total -->18<!-- /INVENTORY:agents_total --> agentes especialistas
+nativa via MCP ao **Databricks** e **Microsoft Fabric**. Orquestra <!-- INVENTORY:agents_total -->25<!-- /INVENTORY:agents_total --> agentes especialistas
 em Engenharia, Qualidade, Governança, Análise de Dados, Streaming, FinOps e Web Semântica.
 
 ---
@@ -39,7 +39,12 @@ Usuário → data_agents/cli.py / data_agents/ui/chainlit_app.py
         │   ├─► databricks-engineer  [T1] — SQL, PySpark, LakeFlow/DLT, CDC, Jobs, diagnóstico Spark, Genie, AI/BI, KA/MAS
         │   ├─► databricks-ai        [T1] — RAG, Vector Search, LLMOps, Kafka/Flink, Spark Streaming, AI Functions
         │   ├─► fabric-engineer      [T1] — Fabric: Medallion, Star Schema, Semantic Model, DAX, governança, FinOps
-        │   ├─► migration-expert     [T1] — Migração SQL Server/PostgreSQL → Databricks/Fabric
+        │   ├─► migration-expert     [T1] — Migração SQL Server/PostgreSQL → Databricks/Fabric (generalista)
+        │   ├─► sqlserver-to-databricks [T1] — Migração completa SQL Server → Databricks: schema, T-SQL, CDC, reconciliação, cutover/rollback
+        │   ├─► ssis-to-databricks   [T1] — Migração de pacotes SSIS (.dtsx): Control/Data Flow → PySpark/Delta/Lakeflow/Workflows
+        │   ├─► ssas-to-databricks   [T1] — Migração de modelos tabulares SSAS (.bim/.vpax): DAX → Metric Views, RLS → UC
+        │   ├─► hadoop-to-databricks [T1] — Migração de ecossistema Hadoop: HDFS/Hive/Impala/Oozie/Ranger → Databricks
+        │   ├─► teradata-to-databricks [T1] — Migração de Teradata Vantage: BTEQ/TPT, PRIMARY INDEX/PPI, TASM → Databricks
         │   └─► python-expert        [T1] — Python puro: pacotes, APIs, CLIs, testes
         ├─► Tier 2 — Specialized
         │   ├─► dbt-expert           [T2] — dbt Core: models, testes, snapshots
@@ -48,7 +53,10 @@ Usuário → data_agents/cli.py / data_agents/ui/chainlit_app.py
         │   ├─► data-contracts-engineer [T2] — ODCS, SLA contratual, breaking changes (/contract)
         │   ├─► data-mesh-architect  [T2] — Data Mesh, Data Products, governança federada (/mesh)
         │   ├─► fabric-rti           [T2] — Fabric RTI: Eventhouse, KQL, Eventstream, Activator
-        │   └─► fabric-ontology      [T2] — OWL 2, RDF, SPARQL, Fabric IQ Ontology (/ontology)
+        │   ├─► fabric-ontology      [T2] — OWL 2, RDF, SPARQL, Fabric IQ Ontology (/ontology)
+        │   ├─► azure-cost-calculator [T2] — FinOps Azure: custo conversacional, PAYG vs Reserved/Savings, TCO, USD↔BRL
+        │   ├─► databricks-cost-calculator [T2] — FinOps Databricks: DBU/instance cost, PAYG vs DBCU, Photon ROI, TCO
+        │   └─► azure-analytics-auditor [T2] — Auditoria de prontidão Analytics on Azure Specialization (Módulo B)
         └─► Tier 3 — Conversational & Intake
             ├─► business-analyst     [T3] — intake de requisitos, /brief
             └─► geral                [T0] — perguntas conceituais, zero MCP (Haiku)
@@ -70,7 +78,7 @@ data_agents/agents/
   cache_prefix.md ← prefixo byte-idêntico injetado em TODOS os agentes (prompt caching)
 
 data_agents/mcp_servers/
-  databricks/     ← MCP oficial Databricks (50+ tools)
+  databricks/     ← MCP Databricks (pacote markov-kernel, COMUNIDADE — ⚠️ descasamento; ver server_config.py + auditoria 2026-07-26)
   databricks_genie/ ← MCP customizado: Genie Conversation API
   fabric/         ← MCP oficial Microsoft Fabric
   fabric_community/ ← MCP comunidade: linhagem, dependências
@@ -246,12 +254,20 @@ Use estes aliases no frontmatter `tools:` dos agentes em vez de listar cada tool
 | fabric-rti | fabric_rti |
 | fabric-ontology | context7, tavily, firecrawl, fabric, fabric_community, fabric_official, fabric_sql, fabric_ontology |
 | migration-expert | migration_source, databricks, fabric, fabric_sql, context7 |
+| sqlserver-to-databricks | migration_source, databricks, context7 |
+| ssis-to-databricks | databricks, migration_source, context7 |
+| ssas-to-databricks | databricks, context7, fabric_semantic |
+| hadoop-to-databricks | migration_source, databricks, context7 |
+| teradata-to-databricks | migration_source, databricks, context7 |
 | python-expert | context7 |
 | dbt-expert | context7, postgres |
 | data-quality-steward | databricks, fabric, fabric_community, fabric_rti, postgres |
 | governance-auditor | databricks, fabric, fabric_community, tavily, postgres, memory_mcp |
 | data-contracts-engineer | context7, databricks, fabric_sql, postgres, memory_mcp |
 | data-mesh-architect | context7, tavily, databricks, memory_mcp |
+| azure-cost-calculator | azure_pricing |
+| databricks-cost-calculator | databricks_pricing, databricks_billing, context7, databricks, tavily, memory_mcp |
+| azure-analytics-auditor | *(nenhum — leitura/escrita local de arquivos, sem MCP)* |
 | business-analyst | tavily, firecrawl |
 | geral | *(nenhum — resposta direta sem MCP)* |
 
@@ -357,7 +373,7 @@ def get_mcp_config() -> dict:
 **Novos campos em `Settings`:** Adicionar com default `""` e documentar com comentário
 explicando: o que é, como obter, plano gratuito se houver.
 
-**Agentes:** Todos os <!-- INVENTORY:agents_total -->18<!-- /INVENTORY:agents_total --> agentes do registry usam `kimi-k2.6` (modelo único da família K2.6 da Moonshot, abr/2026). Diferenciação por tier acontece via `TIER_TURNS_MAP` (T0=3, T1=20, T2=12, T3=5) e `TIER_EFFORT_MAP` (low/high/medium/low). Para `/plan` (DOMA Full), o Supervisor envia `thinking={"type":"adaptive","effort":"high"}` — mesmo modelo, modo de raciocínio estendido.
+**Agentes:** Todos os <!-- INVENTORY:agents_total -->25<!-- /INVENTORY:agents_total --> agentes do registry usam `kimi-k2.6` (modelo único da família K2.6 da Moonshot, abr/2026). Diferenciação por tier acontece via `TIER_TURNS_MAP` (T0=3, T1=20, T2=12, T3=5) e `TIER_EFFORT_MAP` (low/high/medium/low). Para `/plan` (DOMA Full), o Supervisor envia `thinking={"type":"adaptive","effort":"high"}` — mesmo modelo, modo de raciocínio estendido.
 
 **Testes:** Ao adicionar um agente, verificar se algum teste em `test_agents.py` precisa
 de atualização. Ao adicionar um MCP sem credenciais, adicionar ao `CREDENTIAL_FREE_MCPS`
@@ -444,10 +460,12 @@ POSTGRES_URL=postgresql://...     # banco PostgreSQL
 | `registry/*.md` | Frontmatter YAML + corpo Markdown | Definição declarativa de cada agente |
 | `registry/_template.md` | — | Template para criar novos agentes |
 
-**<!-- INVENTORY:agents_total -->18<!-- /INVENTORY:agents_total --> agentes no registry:** `databricks-engineer`, `databricks-ai`, `fabric-engineer`,
-`fabric-rti`, `fabric-ontology`, `migration-expert`, `python-expert`, `dbt-expert`,
+**<!-- INVENTORY:agents_total -->25<!-- /INVENTORY:agents_total --> agentes no registry:** `databricks-engineer`, `databricks-ai`, `fabric-engineer`,
+`migration-expert`, `sqlserver-to-databricks`, `ssis-to-databricks`, `ssas-to-databricks`,
+`hadoop-to-databricks`, `teradata-to-databricks`, `python-expert`, `dbt-expert`,
 `data-quality-steward`, `governance-auditor`, `data-contracts-engineer`, `data-mesh-architect`,
-`business-analyst`, `geral`, `azure-cost-calculator`.
+`fabric-rti`, `fabric-ontology`, `azure-cost-calculator`, `databricks-cost-calculator`,
+`azure-analytics-auditor`, `business-analyst`, `geral`.
 
 ### data_agents/config/ — Configuração Central
 
@@ -471,7 +489,7 @@ Cada subdiretório: `__init__.py` + `server_config.py` (+ `server.py` para MCPs 
 
 | Diretório | Tipo | Ferramentas representativas |
 |-----------|------|-----------------------------|
-| `databricks/` | Oficial (uvx) | `execute_sql`, `list_catalogs`, `create_job`, `get_cluster` — 50+ tools |
+| `databricks/` | ⚠️ Comunidade markov-kernel (pip) — NÃO é o servidor do ai-dev-kit | `execute_sql`, `list_catalogs`, `create_job`, `get_cluster` (tools granulares; a lista completa em `server_config.py` está escrita p/ o ai-dev-kit — reconciliar) |
 | `databricks_genie/` | Customizado (Python FastAPI-MCP) | `create_space`, `ask_question`, `get_conversation` |
 | `fabric/` | Oficial (dotnet) | Workspace, Lakehouse, Pipeline, Semantic Model ops |
 | `fabric_rti/` | Oficial (uvx) | KQL/Kusto queries em Real-Time Intelligence |
@@ -538,9 +556,10 @@ Cada subdiretório: `__init__.py` + `server_config.py` (+ `server.py` para MCPs 
 
 | Arquivo | Classes / Funções chave | Propósito |
 |---------|------------------------|-----------|
-| `dag.py` | `WorkflowDAG`, `WorkflowStep`, `build_dag()` | Grafo acíclico de dependências entre steps |
-| `executor.py` | `WorkflowExecutor`, `execute_workflow()` | Executa steps com context chain entre agentes |
-| `tracker.py` | `WorkflowTracker`, `log_step()` | Rastreia execução em `logs/workflows.jsonl` |
+| `dag.py` | `display_name_for()` + constantes/regex | Fonte de verdade: agentes conhecidos, regex de detecção de eventos, display names (consumido por `tracker`/`executor`) |
+| `executor.py` | `load_workflow_history()`, `get_workflow_summary()` | Lê `logs/workflows.jsonl` e agrega métricas para o dashboard de monitoramento |
+| `tracker.py` | `register_progress_callback()`, `log_s4_decision()`, `_write_event()` | Hooks Pre/PostToolUse: grava eventos em `logs/workflows.jsonl` + callbacks de progresso p/ a UI |
+> **Nota:** o *engine* de execução de workflows (`WorkflowRunner`, `WorkflowStep`, `WorkflowState`, `build_wf01..05`) fica em `data_agents/commands/workflow.py` — **não** em `workflow/dag.py`/`executor.py` (que são detecção de eventos + sumarização para o dashboard).
 
 ### data_agents/ui/ — Interface Web (Chainlit)
 
@@ -607,7 +626,7 @@ Estrutura: `kb/<domain>/index.md` + `concepts/*.md` + `patterns/*.md`
 
 | Domínio | Skills (SKILL.md) disponíveis |
 |---------|-----------------------------|
-| `databricks/` | agent-bricks, ai-functions, aibi-dashboards, app-python, bundles, config, dbsql, docs, execution-compute, genie, iceberg, jobs, lakebase-autoscale, lakebase-provisioned, metric-views, mlflow-evaluation, model-serving, python-sdk, spark-declarative-pipelines, spark-structured-streaming, synthetic-data-gen, unity-catalog, unstructured-pdf-generation, vector-search, zerobus-ingest, spark-python-data-source |
+| `databricks/` | agent-bricks, ai-functions, aibi-dashboards, apps-python, bundles, config, dbsql, docs, execution-compute, genie, iceberg, jobs, lakebase-autoscale, lakebase-provisioned, metric-views, mlflow-evaluation, model-serving, python-sdk, spark-declarative-pipelines, spark-structured-streaming, synthetic-data-gen, unity-catalog, unstructured-pdf-generation, vector-search, zerobus-ingest, spark-python-data-source |
 | `fabric/` | cross-platform, data-factory, deployment-pipelines, direct-lake, eventhouse-rti, git-integration, medallion, monitoring-dmv, notebook-manager, workspace-manager |
 | `migration/` | Skill completa de assessment e migração |
 | `patterns/` | data-quality, pipeline-design, spark-patterns, sql-generation, star-schema-design |

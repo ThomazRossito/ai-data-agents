@@ -200,6 +200,18 @@ class MemoryManager:
 
             # Sincroniza o índice com as novas memórias salvas
             if count > 0:
+                # Compila os daily logs recém-escritos em memórias ESTRUTURADAS
+                # + dedup de LESSON_LEARNED ANTES de reindexar. Sem esta chamada o
+                # compiler (compile_daily_logs) nunca rodava no runtime → o
+                # MemoryStore/long_term/lições ficavam vazios (auditoria 2026-07-26).
+                # use_sonnet_contradiction=False evita custo de LLM no flush.
+                try:
+                    from data_agents.memory.compiler import compile_daily_logs
+
+                    compile_daily_logs(self.store, use_sonnet_contradiction=False)
+                except Exception as _cexc:  # noqa: BLE001 — flush não pode derrubar a sessão
+                    logger.warning(f"compile_daily_logs falhou no flush: {_cexc}")
+
                 self._long_term_synced = False
                 self.sync_long_term()
 

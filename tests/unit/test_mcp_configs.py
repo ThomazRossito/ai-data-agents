@@ -9,6 +9,11 @@ from data_agents.mcp_servers.fabric_rti.server_config import (
     get_fabric_rti_mcp_config,
     FABRIC_RTI_MCP_TOOLS,
 )
+from data_agents.mcp_servers.azure_devops.server_config import (
+    get_azure_devops_mcp_config,
+    AZURE_DEVOPS_MCP_TOOLS,
+    AZURE_DEVOPS_MCP_READONLY_TOOLS,
+)
 from data_agents.config.mcp_servers import build_mcp_registry
 
 
@@ -72,3 +77,32 @@ def test_fabric_tools_format():
 def test_rti_tools_format():
     for tool in FABRIC_RTI_MCP_TOOLS:
         assert tool.startswith("mcp__fabric_rti__"), f"Tool com prefixo errado: {tool}"
+
+
+def test_azure_devops_config_has_required_keys():
+    config = get_azure_devops_mcp_config()
+    assert "azure_devops" in config
+    server = config["azure_devops"]
+    assert server["type"] == "stdio"
+    assert server["command"] == "npx"
+    assert "@azure-devops/mcp" in server["args"]
+    assert "env" in server
+    assert "PERSONAL_ACCESS_TOKEN" in server["env"]
+
+
+def test_azure_devops_tools_format():
+    for tool in AZURE_DEVOPS_MCP_TOOLS:
+        assert tool.startswith("mcp__azure_devops__"), f"Tool com prefixo errado: {tool}"
+
+
+def test_azure_devops_readonly_is_subset():
+    tools = set(AZURE_DEVOPS_MCP_TOOLS)
+    for tool in AZURE_DEVOPS_MCP_READONLY_TOOLS:
+        assert tool in tools, f"Readonly tool ausente do conjunto completo: {tool}"
+
+
+def test_azure_devops_not_in_default_registry_without_credentials():
+    # azure_devops requer credenciais reais — não deve aparecer se explicitamente
+    # não incluído na lista de plataformas ativas.
+    registry = build_mcp_registry(platforms=["databricks"])
+    assert "azure_devops" not in registry

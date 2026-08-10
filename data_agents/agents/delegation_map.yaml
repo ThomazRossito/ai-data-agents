@@ -26,6 +26,20 @@ routes:
     tier: T1
     keywords: [ddl, medallion, assessment]
 
+  # Migração completa de banco SQL Server → Databricks (schema+dados+T-SQL+CDC+reconciliação+cutover)
+  - situation: "Migrar banco/instância SQL Server inteiro (schema+dados+T-SQL+CDC+cutover) para Databricks"
+    agent: sqlserver-to-databricks
+    tier: T1
+    keywords: ["sql server", "discovery", "dmv", "complexity scoring", "t-shirt sizing", "lakebridge", "lakehouse federation", cutover, freeze, rollback]
+  - situation: "Discovery/assessment de SQL Server via DMVs / Complexity Scoring Matrix / waves"
+    agent: sqlserver-to-databricks
+    tier: T1
+    keywords: ["dm_db_partition_stats", "sys.sql_modules", "complexity scoring", waves, "t-shirt sizing"]
+  - situation: "CDC do SQL Server / reconciliação em 2 fases / runbook de cutover"
+    agent: sqlserver-to-databricks
+    tier: T1
+    keywords: [cdc, "change data capture", "auto cdc", "lakeflow connect", reconciliação, "freeze window", "go/no-go"]
+
   # Migração SSIS (pacotes ETL .dtsx)
   - situation: "Migrar SSIS / pacotes .dtsx / Integration Services para Databricks"
     agent: ssis-to-databricks
@@ -35,6 +49,40 @@ routes:
     agent: ssis-to-databricks
     tier: T1
     keywords: ["data flow", "control flow", "scd wizard", "derived column", lookup, "ole db", "execute sql task", "script task"]
+
+  # Migração SSAS (modelo tabular / .bim / .vpax → Metric Views)
+  - situation: "Migrar SSAS / modelo tabular / .bim / .vpax / Analysis Services → Databricks"
+    agent: ssas-to-databricks
+    tier: T1
+    keywords: [ssas, tabular, ".bim", ".vpax", "analysis services", "modelo tabular", "medidas dax", "power bi dataset"]
+
+  # Migração Hadoop (ecossistema completo → Databricks)
+  - situation: "Migrar cluster/ecossistema Hadoop (HDFS/Hive/Impala/YARN/Sqoop/Oozie/Pig/MapReduce/HBase/Ranger) para Databricks"
+    agent: hadoop-to-databricks
+    tier: T1
+    keywords: [hadoop, hive, hdfs, impala, sqoop, oozie, yarn, mapreduce, pig, hbase, ranger, cloudera, "spark-on-yarn", hiveql, kerberos, hdp, cdh, ambari, sentry]
+  - situation: "Conversão de DDL Hive / HiveQL / Impala SQL para Delta/Databricks SQL"
+    agent: hadoop-to-databricks
+    tier: T1
+    keywords: ["hive metastore", "show create table", "serde", "stored as", "liquid clustering hive", "hive metastore federation"]
+  - situation: "Sqoop/CDC Hadoop, Oozie → Lakeflow Jobs, ou Ranger/Kerberos → Unity Catalog"
+    agent: hadoop-to-databricks
+    tier: T1
+    keywords: [sqoop, "oozie coordinator", "lakeflow jobs oozie", "ranger policy", "kerberos principal", keytab, "hdfs acl"]
+
+  # Migração Teradata (data warehouse completo → Databricks)
+  - situation: "Migrar data warehouse Teradata Vantage (BTEQ/TPT/FastLoad/MultiLoad/DBC/PRIMARY INDEX/PPI/TASM) para Databricks"
+    agent: teradata-to-databricks
+    tier: T1
+    keywords: [teradata, vantage, bteq, tpt, fastload, multiload, dbc, tasm, "primary index", ppi, qualify, write_nos]
+  - situation: "Conversão de DDL Teradata (SHOW TABLE/DBC.ColumnsV) e SQL/BTEQ/SPL para Delta/Databricks SQL"
+    agent: teradata-to-databricks
+    tier: T1
+    keywords: ["show table", "dbc.columnsv", "set table", "multiset table", "join index", "secondary index"]
+  - situation: "Ingestão Teradata (WRITE_NOS/TPT/JDBC), CDC sem Stream nativo, ou TASM/Federation Teradata"
+    agent: teradata-to-databricks
+    tier: T1
+    keywords: ["write_nos", "volatile table", "workloaddefinitions", "td2", "teradata federation"]
 
   # Intake de requisitos
   - situation: "Transcript / briefing / notas brutas"
@@ -233,6 +281,32 @@ routes:
     agent: azure-analytics-auditor
     tier: T2
     keywords: ["gap analysis", prontidão, readiness, "coverage matrix", "audit checklist", "solution design", "well-architected review", poc, pilot, deployment, "sign-off"]
+
+  # Microsoft Foundry (plataforma completa) — agentes, catálogo/deploy, avaliações, Prompt Flow, RAG
+  - situation: "Especificação de agentes / design de sistema multi-agente / plataforma no Microsoft Foundry"
+    agent: foundry-engineer
+    tier: T2
+    keywords: [foundry, "microsoft foundry", "azure ai foundry", "agent service", "connected agents", a2a, "semantic kernel", autogen, "agent framework", "prompt flow", "model deployment", evals, avaliação, rag, "ai search"]
+
+  # Task Architecture — análise/otimização de árvore de tasks (agnóstica de plataforma)
+  - situation: "Análise/otimização de árvore de tasks parent/child (DAG, 5 dimensões, split/merge)"
+    agent: task-architect
+    tier: T2
+    keywords: ["task analysis", "análise de tasks", "sub-task", "árvore de tasks", "task tree", wbs, "decomposição de tarefas", "backlog refinement", "work breakdown"]
+
+  # Azure DevOps — Repos, Pipelines, Boards, Artifacts, Test Plans
+  - situation: "Azure DevOps: Repos, Pipelines YAML, Boards, Artifacts, Test Plans"
+    agent: azure-devops-engineer
+    tier: T1
+    keywords: ["azure devops", ado, "azure pipelines", "azure boards", "work item", repos, "pull request", "pipeline yaml", "azure-pipelines.yml", artifacts, "test plans", "ci/cd azure"]
+  - situation: "Deploy de Databricks Asset Bundles / Fabric via Azure Pipelines (service principal)"
+    agent: azure-devops-engineer
+    tier: T1
+    keywords: ["deploy databricks", "databricks bundle", "bundle deploy", "bundle validate", "service principal", "azure pipelines fabric"]
+  - situation: "Hierarquia de work items no Azure Boards (epic/feature/user story/PBI/task)"
+    agent: azure-devops-engineer
+    tier: T1
+    keywords: ["azure boards", "work item", epic, feature, "user story", pbi, backlog, iteration, sprint]
 
   # Conceitual
   - situation: "Pergunta conceitual sem MCP"

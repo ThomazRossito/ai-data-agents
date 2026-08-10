@@ -41,6 +41,7 @@ from data_agents.hooks.audit_hook import audit_tool_usage
 from data_agents.hooks.context_budget_hook import track_context_budget
 from data_agents.hooks.cost_guard_hook import log_cost_generating_operations
 from data_agents.hooks.memory_hook import capture_session_context, pre_track_lesson_timing
+from data_agents.hooks.migration_gate_hook import enforce_migration_gate
 from data_agents.hooks.output_compressor_hook import compress_tool_output
 from data_agents.hooks.security_hook import block_destructive_commands, check_sql_cost
 from data_agents.hooks.workflow_tracker import pre_track_workflow_events, track_workflow_events
@@ -305,6 +306,13 @@ def build_supervisor_options(
                 HookMatcher(hooks=[compress_tool_output]),  # type: ignore[list-item]
             ],
             "PreToolUse": [
+                # Gate de migração (Step 0.6A): bloqueia a 2ª delegação a um especialista
+                # de migração no mesmo turno — impede GENERATE sem aprovação humana.
+                # Primeiro na fila para negar ANTES de emitir agent_start (pre_track).
+                HookMatcher(
+                    matcher="Agent",
+                    hooks=[enforce_migration_gate],  # type: ignore[list-item]
+                ),
                 HookMatcher(
                     matcher="Bash",
                     hooks=[block_destructive_commands],  # type: ignore[list-item]

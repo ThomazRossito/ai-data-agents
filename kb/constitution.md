@@ -54,6 +54,24 @@ atendam **todos** os critérios abaixo simultaneamente:
 **Por padrão OFF** — ativar explicitamente no `.env` quando confortável com autonomia total.
 Toda decisão de auto-aprovação é logada em `logs/workflows.jsonl` com `event: s4_decision`.
 
+### §2.2 — Documento e Aprovação para Migração/Produção (obrigatório)
+
+Independente do número de agentes (**inclusive single-agent**), tarefas de **alto impacto** SEMPRE
+geram um **documento reviewable** e passam por **aprovação humana ANTES de gerar código/executar**:
+
+- **Migração** (relacional, SSIS, **SSAS/modelo tabular**, cross-platform)
+- **Novos pipelines de produção** e **nova infraestrutura**
+- **Escritas de produção** (mudança de schema, carga de dados, operação irreversível)
+
+O especialista delegado produz primeiro uma **Spec** (`output/specs/spec_<nome>.md`) ou um **plano
+de migração** que o usuário lê; o Supervisor apresenta e **aguarda aprovação** antes de autorizar a
+geração de código. Nenhum agente executa uma migração end-to-end sozinho sem esse portão.
+
+Para tarefas **não-triviais** (geração de código, múltiplas etapas), o agente entrega antes um
+**brief curto** (objetivo, abordagem, artefatos) para o usuário entender o que vai acontecer.
+Execuções **complexas/alto-token** pausam para confirmação humana. Se **nenhum agente é dono** do
+domínio, o Supervisor **para e pergunta** (AskUserQuestion) — nunca improvisa fora da jurisdição (P1).
+
 ---
 
 ## 3. Clarity Checkpoint (Validação de Clareza)

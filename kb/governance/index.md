@@ -1,6 +1,6 @@
 ---
 domain: governance
-updated_at: 2026-05-22
+updated_at: 2026-08-02
 agents: [data-contracts-engineer, data-mesh-architect, fabric-engineer, fabric-ontology, governance-auditor, migration-expert]
 mcp_validated: "2026-04-15"
 ---
@@ -23,6 +23,8 @@ mcp_validated: "2026-04-15"
 | `concepts/pii-concepts.md`               | Classificação PII, níveis de sensibilidade, LGPD/GDPR               |
 | `concepts/audit-concepts.md`             | System Tables Databricks, OneLake Catalog, audit trails              |
 | `concepts/compliance-concepts.md`        | LGPD/GDPR: princípios, papéis, obrigações, ciclo de vida             |
+| `concepts/uc-abac-governed-tags.md`      | ABAC Unity Catalog: Governed Tags, `CREATE POLICY` (row filter/column mask/grant), mapeamento SQL Server RLS/DDM → UC |
+| `concepts/ranger-kerberos-to-uc.md`      | Ranger/Sentry/Kerberos (Hadoop) → UC: privilégios, SCIM/Service Principal, row filter/column mask, extração de políticas (Ranger REST, `SHOW GRANT`, `kadmin`, `hdfs groups`) |
 
 ### Padrões (`patterns/`)
 
@@ -54,7 +56,7 @@ mcp_validated: "2026-04-15"
 ### Linhagem de Dados
 - Toda tabela Gold deve ter sua linhagem documentada até a fonte de origem.
 - Use `mcp__fabric_community__get_lineage` para consultar linhagem no Fabric.
-- Use System Tables `system.lineage.table_lineage` para linhagem no Databricks.
+- Use System Tables `system.access.table_lineage` (e `system.access.column_lineage`) para linhagem no Databricks.
 - Documente dependências cross-platform (Shortcuts, Mirroring) no catálogo.
 
 ### Conformidade LGPD/GDPR

@@ -161,6 +161,9 @@ Restrições constitucionais: [regras relevantes de kb/constitution.md]
 ```
 
 **Trigger:** Usuário solicita migração de SQL Server ou PostgreSQL para Databricks ou Microsoft Fabric.
+
+> **Roteamento por tipo de origem (atualizado 2026-08-02):** este WF-05 via `migration-expert` é o caminho **genérico** (schema/DDL; também PostgreSQL e destino Fabric). Prefira o especialista dedicado quando aplicável: SQL Server **completo → Databricks** (dados + objetos T-SQL + CDC + reconciliação + cutover) → **`sqlserver-to-databricks`** (`/sqlserver`); pacotes **SSIS `.dtsx`** → **`ssis-to-databricks`** (`/ssis`); modelos **SSAS `.bim/.vpax`** → **`ssas-to-databricks`** (`/ssas`). Os especialistas rodam geradores determinísticos (`scripts/sqlserver_generate.py`, `ssas_generate.py`, `reconcile_generate.py`) e o gate de aprovação humana (Step 0.6A).
+
 **Handoff points:**
 1. migration-expert faz assessment completo via `migration_source` MCP → extrai DDL, views, procedures, estatísticas
 2. databricks-engineer recebe o inventário e adapta DDL para Delta Lake (Databricks) ou Lakehouse (Fabric), mapeando tipos
@@ -272,6 +275,91 @@ depende do schema. Os dois agentes fazem escolhas razoáveis isoladamente
 
 ---
 
+### WF-07: Greenfield Cost Estimate (Databricks compute + Azure infra + storage)
+
+```
+┌───────────────────────────┐   ┌──────────────────────────┐
+│ read-sizing-spreadsheet   │   │  (se houver planilha de   │
+│ (skill)                   │──→│   sizing como input)      │
+└───────────────────────────┘   └──────────────────────────┘
+              │ cenário estruturado (num_envs, region, workloads...)
+              ▼
+   ┌──────────────────────────────────────────────────────────┐
+   │                  EXECUÇÃO EM PARALELO (W5)                 │
+   ├──────────────────────────────┬───────────────────────────┤
+   │ databricks-cost-calculator   │  azure-cost-calculator     │
+   │ • Databricks compute × N env │  • Azure infra × N env      │
+   │ • Storage ADLS Gen2          │  • vNet, NAT, PEP, Log, KV  │
+   │ • Genie / FM API / AI Search │  • Firewall, Defender,      │
+   │ • region-aware DBU rates     │    Bastion, egress          │
+   └──────────────────────────────┴───────────────────────────┘
+              │                              │
+              └──────────────┬───────────────┘
+                             ▼
+              ┌──────────────────────────────────────┐
+              │  Consolidação DETERMINÍSTICA          │
+              │  scripts/greenfield_consolidate.py    │
+              │  (lê os 2 JSONs → XLSX, <1s)          │
+              └──────────────────────────────────────┘
+```
+
+**Trigger:** estimativa de custo para um deploy **greenfield** (do zero) com
+múltiplos ambientes, OU quando o usuário fornece uma planilha de sizing. A marca
+registrada é: "quanto custa montar a plataforma toda", não "quanto custa este job".
+
+**Regra fundamental (por que este workflow existe):**
+O `databricks-cost-calculator` sozinho cobre apenas compute + storage Databricks.
+Num greenfield, a infra Azure de SUPORTE (vNet, NAT, Private Endpoints, Log
+Analytics, Key Vault, Firewall, Defender, Bastion) representa **35-45% do custo
+total** e não é Databricks — é do escopo do `azure-cost-calculator`. Sem
+orquestração, essa camada fica invisível e a estimativa sai ~4× menor que a real.
+
+**Spec:** consultar KB `azure-infra-for-databricks` para o sizing enterprise de
+referência por ambiente. Se houver planilha, usar a skill `read-sizing-spreadsheet`.
+
+**Handoff points:**
+1. (opcional) skill `read-sizing-spreadsheet` parseia a planilha → cenário
+2. Supervisor compila `output/workflow-context/wf07-context.md` com num_envs,
+   region, workloads, exclusões
+3. databricks-cost-calculator e azure-cost-calculator rodam EM PARALELO (etapas
+   independentes) lendo o mesmo contexto. Cada um GRAVA um JSON de cenário:
+   `<projeto>/scenario_used.json` e `<projeto>/azure_infra_scenario_used.json`
+   (ambos com bloco `totals.monthly_usd`).
+4. Consolidação é DETERMINÍSTICA — NÃO peça ao python-expert para "montar o XLSX"
+   do zero (isso é não-determinístico e já causou hang num Read ambíguo). Em vez
+   disso, rode UM comando fixo:
+   ```bash
+   python3 scripts/greenfield_consolidate.py \
+     --databricks <projeto>/scenario_used.json \
+     --azure      <projeto>/azure_infra_scenario_used.json \
+     --out        <projeto>/greenfield_cost_consolidated.xlsx
+   ```
+   O script lê os dois JSONs (já com todos os ambientes somados — NÃO re-multiplica
+   por env) e grava um XLSX com Summary + breakdown Databricks + breakdown Azure +
+   projeção Y2/Y3. É rápido (<1s) e idempotente.
+
+**REGRA anti-hang:** a etapa 4 é um `Bash` de um comando, seguido de UM `Read`
+opcional só para confirmar que o arquivo existe (nunca `Read` no binário .xlsx
+inteiro — apenas checar existência via `ls`). Não reprocessar, não reler em loop.
+
+**Prompt de delegação do Supervisor (etapa paralela, azure-cost-calculator):**
+```
+Workflow: WF-07 Greenfield Cost Estimate
+Etapa: 1b de 2 (paralela com 1a databricks-cost-calculator)
+Contexto: output/workflow-context/wf07-context.md
+KB obrigatória: kb/azure-infra-for-databricks/index.md
+
+Sua tarefa: modelar a infra Azure de suporte para {num_envs} workspaces
+Databricks em {region}. Um stack de rede por ambiente + shared services.
+Confirme premissas ambíguas com o usuário (NUNCA chutar Firewall/Defender ON/OFF).
+```
+
+**Regra crítica de escopo:** databricks-cost-calculator NÃO deve tentar modelar
+vNet/NAT/PEP/etc. (fora do seu escopo). azure-cost-calculator NÃO deve modelar
+DBU/compute Databricks. Cada um no seu, o business-analyst soma.
+
+---
+
 ## 3.3 Detecção Automática de Workflow
 
 O Supervisor deve detectar automaticamente quando um workflow pré-definido se aplica:
@@ -284,6 +372,7 @@ O Supervisor deve detectar automaticamente quando um workflow pré-definido se a
 | "auditoria", "governança completa", "relatório de compliance" | WF-04 |
 | "migrar sql server", "migrar postgres", "migração relacional", "banco relacional para databricks/fabric" | WF-05 |
 | "schema e script", "ddl e seed", "criar tabelas e popular", "criar schema e gerar dados", "poc", "fase 1", "lakebase e python", "schema + implementação", "criar banco e script" | WF-06 |
+| "greenfield", "do zero", "implementação nova", "custo da plataforma toda", "N ambientes", "planilha de sizing", "estimativa completa de custo", "custo de infra + databricks" | WF-07 |
 
 **Regra de detecção de dependência de artefato (independente de palavras-chave):**
 
