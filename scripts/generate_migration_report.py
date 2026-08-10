@@ -5,28 +5,48 @@ Substituído por `scripts/ssas_generate.py` (genérico, testado, com gates). Ref
 
 Gera o plano de migração SSAS → Databricks em Markdown.
 """
+
 import json
 from pathlib import Path
 from collections import defaultdict
 
-JSON_PATH = Path("/Users/thomaz_rossito/Projects/ai-data-agents/output/migracao_brf_comercial_inventario.json")
+JSON_PATH = Path(
+    "/Users/thomaz_rossito/Projects/ai-data-agents/output/migracao_brf_comercial_inventario.json"
+)
 OUT_MD = Path("/Users/thomaz_rossito/Projects/ai-data-agents/output/migracao_brf_comercial.md")
 
 # Mapeamento manual das tabelas Delta já existentes (extraído de SCHMA_TABLES_v2.md)
 DELTA_TABLES = {
-    "venda_realizada", "meta_x_realizado", "venda_realizada_dia_e_carteira",
-    "venda_realizada_nrt", "cliente_estrutura", "cliente_vendedor_material",
-    "area_vendas", "calendario_generico", "rls_comercial", "estrutura_venda_rg",
-    "estrutura_venda_fvi", "estrutura_venda_as", "estrutura_venda_fs",
-    "estrutura_venda_fir", "estrutura_venda_ina", "estrutura_venda_inn",
-    "material_estrutura", "cliente_material_total_itens", "filial_vendas",
-    "rede_estatico", "bandeira_estatico", "cliente_segmentacao",
-    "cliente_segmentacao_estatico"
+    "venda_realizada",
+    "meta_x_realizado",
+    "venda_realizada_dia_e_carteira",
+    "venda_realizada_nrt",
+    "cliente_estrutura",
+    "cliente_vendedor_material",
+    "area_vendas",
+    "calendario_generico",
+    "rls_comercial",
+    "estrutura_venda_rg",
+    "estrutura_venda_fvi",
+    "estrutura_venda_as",
+    "estrutura_venda_fs",
+    "estrutura_venda_fir",
+    "estrutura_venda_ina",
+    "estrutura_venda_inn",
+    "material_estrutura",
+    "cliente_material_total_itens",
+    "filial_vendas",
+    "rede_estatico",
+    "bandeira_estatico",
+    "cliente_segmentacao",
+    "cliente_segmentacao_estatico",
 }
+
 
 # Mapeamento aproximado SSAS → Delta (normalização de nomes)
 def normalize(name: str) -> str:
     return name.lower().replace("dim", "").replace("fact", "").replace(" ", "_")
+
 
 SSAS_TO_DELTA = {
     "dimclientesegmentacao": "cliente_segmentacao",
@@ -54,14 +74,17 @@ SSAS_TO_DELTA = {
     "factvendarealizadanrt": "venda_realizada_nrt",
 }
 
+
 def delta_for_ssas(name: str) -> str:
     key = name.lower().replace(" ", "")
     return SSAS_TO_DELTA.get(key, "——")
+
 
 def fmt_list(items):
     if not items:
         return "Nenhum"
     return "\n".join(f"- {i}" for i in items)
+
 
 def main():
     with open(JSON_PATH, "r", encoding="utf-8") as f:
@@ -71,8 +94,12 @@ def main():
     lines.append("# Plano de Migração: Modelo Tabular SSAS → Databricks")
     lines.append("")
     lines.append("**Projeto:** BRF Comercial")
-    lines.append(f"**Modelo SSAS:** {inv['model_name']} (compatibilityLevel {inv['compatibilityLevel']})")
-    lines.append(f"**Cultura:** {inv['culture']} | discourageImplicitMeasures: {inv['discourageImplicitMeasures']}")
+    lines.append(
+        f"**Modelo SSAS:** {inv['model_name']} (compatibilityLevel {inv['compatibilityLevel']})"
+    )
+    lines.append(
+        f"**Cultura:** {inv['culture']} | discourageImplicitMeasures: {inv['discourageImplicitMeasures']}"
+    )
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -92,7 +119,9 @@ def main():
         lines.append(f"  - Servidor: `{ds['server']}`")
         lines.append(f"  - Database: `{ds['database']}`")
         lines.append(f"  - Autenticação: {ds['authentication_kind']} (usuário: `{ds['username']}`)")
-        lines.append(f"  - EncryptConnection: {ds['encrypt_connection']} | CommandTimeout: {ds['command_timeout']}")
+        lines.append(
+            f"  - EncryptConnection: {ds['encrypt_connection']} | CommandTimeout: {ds['command_timeout']}"
+        )
         lines.append("")
 
     # 1.2 Tabelas (dimensões e fatos)
@@ -114,9 +143,15 @@ def main():
     lines.append("| Tabela SSAS | Tipo | Colunas | Medidas | Partições | Mapeamento Delta |")
     lines.append("|-------------|------|---------|---------|-----------|------------------|")
     for t in inv["tables"]:
-        tipo = "Fato" if t["name"].lower().startswith("fat") else ("Dimensão" if t["name"].lower().startswith("dim") else "Outra")
+        tipo = (
+            "Fato"
+            if t["name"].lower().startswith("fat")
+            else ("Dimensão" if t["name"].lower().startswith("dim") else "Outra")
+        )
         delta = delta_for_ssas(t["name"])
-        lines.append(f"| {t['name']} | {tipo} | {len(t['columns'])} | {len(t['measures'])} | {len(t['partitions'])} | {delta} |")
+        lines.append(
+            f"| {t['name']} | {tipo} | {len(t['columns'])} | {len(t['measures'])} | {len(t['partitions'])} | {delta} |"
+        )
     lines.append("")
 
     # Detalhes de colunas (abreviado: apenas dims e fatos principais)
@@ -129,9 +164,13 @@ def main():
         visible_cols = [c["name"] for c in t["columns"] if not c.get("isHidden")]
         lines.append(f"**{t['name']}** — {len(t['columns'])} colunas ({len(hidden_cols)} ocultas)")
         if visible_cols:
-            lines.append(f"  - Visíveis: {', '.join(visible_cols[:10])}{'...' if len(visible_cols) > 10 else ''}")
+            lines.append(
+                f"  - Visíveis: {', '.join(visible_cols[:10])}{'...' if len(visible_cols) > 10 else ''}"
+            )
         if hidden_cols:
-            lines.append(f"  - Ocultas (SKs): {', '.join(hidden_cols[:8])}{'...' if len(hidden_cols) > 8 else ''}")
+            lines.append(
+                f"  - Ocultas (SKs): {', '.join(hidden_cols[:8])}{'...' if len(hidden_cols) > 8 else ''}"
+            )
         lines.append("")
 
     # 1.3 Partições
@@ -150,7 +189,7 @@ def main():
                 sql_start = expr.find('"\\n')
                 sql_end = expr.rfind('\\n"')
                 if sql_start != -1 and sql_end != -1:
-                    sql = expr[sql_start+3:sql_end].replace('\\n', '\n').replace('\\t', '\t')
+                    sql = expr[sql_start + 3 : sql_end].replace("\\n", "\n").replace("\\t", "\t")
                     lines.append("  - Query SQL (resumo):")
                     lines.append("    ```sql")
                     # mostrar até 15 linhas
@@ -176,7 +215,9 @@ def main():
     lines.append("|------|---------------------|----------------------|-------|-----------------|")
     for rel in inv["relationships"]:
         active = "Sim" if rel["isActive"] else "Não"
-        lines.append(f"| {rel['name']} | {rel['fromTable']}.{rel['fromColumn']} → {rel['toTable']}.{rel['toColumn']} | {active} | {rel['crossFilteringBehavior']} |")
+        lines.append(
+            f"| {rel['name']} | {rel['fromTable']}.{rel['fromColumn']} → {rel['toTable']}.{rel['toColumn']} | {active} | {rel['crossFilteringBehavior']} |"
+        )
     lines.append("")
 
     # 1.5 Medidas DAX
@@ -199,7 +240,11 @@ def main():
         for m in measures:
             folder = f" / pasta: `{m['displayFolder']}`" if m.get("displayFolder") else ""
             lines.append(f"- **{m['name']}**{folder}")
-            expr = " ".join(m["expression"]) if isinstance(m["expression"], list) else m["expression"].replace("\n", " ")
+            expr = (
+                " ".join(m["expression"])
+                if isinstance(m["expression"], list)
+                else m["expression"].replace("\n", " ")
+            )
             lines.append(f"  - Expressão: `{expr[:250]}{'...' if len(expr) > 250 else ''}`")
             if m.get("formatString"):
                 lines.append(f"  - Formato: `{m['formatString']}`")
@@ -213,7 +258,9 @@ def main():
     total_hier = sum(len(t["hierarchies"]) for t in inv["tables"])
     lines.append(f"Total: **{total_hier}** hierarquias definidas no modelo.")
     if total_hier == 0:
-        lines.append("> **Nota:** O modelo não contém hierarquias explícitas no TOM. No Power BI, os usuários provavelmente montam drill-downs a partir das colunas individuais (ex: Ano → Mês → Dia).")
+        lines.append(
+            "> **Nota:** O modelo não contém hierarquias explícitas no TOM. No Power BI, os usuários provavelmente montam drill-downs a partir das colunas individuais (ex: Ano → Mês → Dia)."
+        )
     lines.append("")
 
     # 1.7 Roles e RLS
@@ -259,7 +306,9 @@ def main():
 
     lines.append("### 2.1 Tabelas SSAS → Tabelas Unity Catalog (Delta)")
     lines.append("")
-    lines.append("O schema `lakehouse.debug_poc` já possui as tabelas correspondentes. O mapeamento é direto para a maioria das entidades:")
+    lines.append(
+        "O schema `lakehouse.debug_poc` já possui as tabelas correspondentes. O mapeamento é direto para a maioria das entidades:"
+    )
     lines.append("")
     lines.append("| Tabela SSAS | Tabela Delta (UC) | Status | Observações |")
     lines.append("|-------------|-------------------|--------|-------------|")
@@ -278,33 +327,57 @@ def main():
     lines.append("")
     lines.append("No Databricks, as medidas DAX podem ser materializadas de três formas:")
     lines.append("")
-    lines.append("1. **Metric Views (Unity Catalog)** — métricas governadas reutilizáveis por SQL. Ideal para KPIs simples (SUM, COUNT, DIVIDE).")
-    lines.append("2. **AI/BI Dashboards** — medidas definidas em DAX-like no layer semântico do dashboard. Bom para visualizações ad-hoc.")
-    lines.append("3. **Materialized Views Delta** — pré-computar agregações no pipeline. Ideal para medidas de alta cardinalidade ou complexas.")
+    lines.append(
+        "1. **Metric Views (Unity Catalog)** — métricas governadas reutilizáveis por SQL. Ideal para KPIs simples (SUM, COUNT, DIVIDE)."
+    )
+    lines.append(
+        "2. **AI/BI Dashboards** — medidas definidas em DAX-like no layer semântico do dashboard. Bom para visualizações ad-hoc."
+    )
+    lines.append(
+        "3. **Materialized Views Delta** — pré-computar agregações no pipeline. Ideal para medidas de alta cardinalidade ou complexas."
+    )
     lines.append("")
-    lines.append("Recomendação: usar **Metric Views** para medidas de negócio reutilizáveis e **Materialized Views** para agregações pesadas.")
+    lines.append(
+        "Recomendação: usar **Metric Views** para medidas de negócio reutilizáveis e **Materialized Views** para agregações pesadas."
+    )
     lines.append("")
     lines.append("Exemplos de mapeamento:")
     lines.append("")
     lines.append("| Medida SSAS (exemplo) | Tipo | Implementação no Databricks |")
     lines.append("|-----------------------|------|-----------------------------|")
-    lines.append("| SUM de volume/faturamento | Agregação simples | Metric View (`SUM(volume_real)`) ou coluna na MV Gold |")
+    lines.append(
+        "| SUM de volume/faturamento | Agregação simples | Metric View (`SUM(volume_real)`) ou coluna na MV Gold |"
+    )
     lines.append("| DIVIDE (taxa, %) | Razão | Metric View com expressão SQL |")
-    lines.append("| Medidas com FILTER/ALL | Contexto modificado | Materialized View pré-filtrada ou view parametrizada |")
-    lines.append("| Medidas com CALCULATE+TIMEINTEL | Inteligência temporal | `dim_data` + joins temporais em MV Gold |")
+    lines.append(
+        "| Medidas com FILTER/ALL | Contexto modificado | Materialized View pré-filtrada ou view parametrizada |"
+    )
+    lines.append(
+        "| Medidas com CALCULATE+TIMEINTEL | Inteligência temporal | `dim_data` + joins temporais em MV Gold |"
+    )
     lines.append("")
 
     lines.append("### 2.3 RLS → Databricks")
     lines.append("")
-    lines.append("O modelo SSAS usa roles com filtros DAX por e-mail e organização de vendas. No Databricks, existem três camadas de RLS:")
+    lines.append(
+        "O modelo SSAS usa roles com filtros DAX por e-mail e organização de vendas. No Databricks, existem três camadas de RLS:"
+    )
     lines.append("")
     lines.append("| Mecanismo | Escopo | Quando usar |")
     lines.append("|-----------|--------|-------------|")
-    lines.append("| **Dynamic View Filters** | Schema/View | Filtros baseados em `current_user()` ou lookup de e-mail. Bom para RLS simples por usuário. |")
-    lines.append("| **Unity Catalog Row Filters** | Tabela Delta | Política de acesso nativa no UC (REDACT/MASK/FILTER). Requer Databricks 15.4+ com tabelas do tipo `MANAGED`. |")
-    lines.append("| **AI/BI Dashboard RLS** | Dashboard | Filtros aplicados no contexto do dashboard. Limitado ao escopo do AI/BI. |")
+    lines.append(
+        "| **Dynamic View Filters** | Schema/View | Filtros baseados em `current_user()` ou lookup de e-mail. Bom para RLS simples por usuário. |"
+    )
+    lines.append(
+        "| **Unity Catalog Row Filters** | Tabela Delta | Política de acesso nativa no UC (REDACT/MASK/FILTER). Requer Databricks 15.4+ com tabelas do tipo `MANAGED`. |"
+    )
+    lines.append(
+        "| **AI/BI Dashboard RLS** | Dashboard | Filtros aplicados no contexto do dashboard. Limitado ao escopo do AI/BI. |"
+    )
     lines.append("")
-    lines.append("**Recomendação:** Implementar RLS via **Dynamic Views** no schema `gold` (ou `analytics`), fazendo JOIN com a dimensão `rls_comercial` filtrando por `current_user()`. Isso replica o comportamento DAX do SSAS sem duplicar dados.")
+    lines.append(
+        "**Recomendação:** Implementar RLS via **Dynamic Views** no schema `gold` (ou `analytics`), fazendo JOIN com a dimensão `rls_comercial` filtrando por `current_user()`. Isso replica o comportamento DAX do SSAS sem duplicar dados."
+    )
     lines.append("")
     lines.append("```sql")
     lines.append("-- Exemplo de view com RLS dinâmico")
@@ -319,13 +392,19 @@ def main():
 
     lines.append("### 2.4 Hierarquias")
     lines.append("")
-    lines.append("Como o modelo SSAS não define hierarquias explícitas, o mapeamento consiste em garantir que as colunas de nível existam nas dimensões Delta e que estejam ordenadas corretamente (via `sortByColumn` ou `ORDER BY`).")
+    lines.append(
+        "Como o modelo SSAS não define hierarquias explícitas, o mapeamento consiste em garantir que as colunas de nível existam nas dimensões Delta e que estejam ordenadas corretamente (via `sortByColumn` ou `ORDER BY`)."
+    )
     lines.append("")
     lines.append("Exemplos de hierarquias implícitas a expor:")
     lines.append("- **Tempo:** Ano → Mês → Dia (usar `calendario_generico`)")
-    lines.append("- **Produto:** Negócio GM → Categoria GM → Sub-Categoria → Material (usar `material_estrutura`)")
+    lines.append(
+        "- **Produto:** Negócio GM → Categoria GM → Sub-Categoria → Material (usar `material_estrutura`)"
+    )
     lines.append("- **Cliente:** Rede → Bandeira → Cliente (usar `cliente_estrutura`)")
-    lines.append("- **Venda:** Diretoria → Regional → Filial → Supervisor → Vendedor (usar `estrutura_venda_*`)")
+    lines.append(
+        "- **Venda:** Diretoria → Regional → Filial → Supervisor → Vendedor (usar `estrutura_venda_*`)"
+    )
     lines.append("")
     lines.append("No Databricks, hierarquias podem ser expostas via:")
     lines.append("- **Genie Space** — o assistente entende colunas e sugere drill-down.")
@@ -335,7 +414,9 @@ def main():
 
     lines.append("### 2.5 Proposta de Arquitetura Semântica")
     lines.append("")
-    lines.append("Para substituir o modelo tabular SSAS no Databricks, recomenda-se uma arquitetura em camadas:")
+    lines.append(
+        "Para substituir o modelo tabular SSAS no Databricks, recomenda-se uma arquitetura em camadas:"
+    )
     lines.append("")
     lines.append("```")
     lines.append("┌─────────────────────────────────────────────────────────────┐")
@@ -361,13 +442,17 @@ def main():
     lines.append("")
     lines.append("| Critério | Genie Space | AI/BI Dashboard |")
     lines.append("|----------|-------------|-----------------|")
-    lines.append("| Público | Analistas de negócio (self-service) | Consumidores de relatório fixo |")
+    lines.append(
+        "| Público | Analistas de negócio (self-service) | Consumidores de relatório fixo |"
+    )
     lines.append("| Interação | Linguagem natural | Visualizações pré-construídas |")
     lines.append("| Medidas complexas | Limitado (depende do Genie entender) | Suporta DAX-like |")
     lines.append("| RLS | Herda da view/tabela subjacente | RLS próprio do dashboard |")
     lines.append("| Performance | Depende do SQL Warehouse | Otimizado com caching |")
     lines.append("")
-    lines.append("> **Recomendação:** Iniciar com **AI/BI Dashboard** para os relatórios fixos (substituindo os consumers do SSAS) e disponibilizar **Genie Space** para exploração ad-hoc. Ambos devem apontar para as mesmas views RLS no schema `gold`.")
+    lines.append(
+        "> **Recomendação:** Iniciar com **AI/BI Dashboard** para os relatórios fixos (substituindo os consumers do SSAS) e disponibilizar **Genie Space** para exploração ad-hoc. Ambos devem apontar para as mesmas views RLS no schema `gold`."
+    )
     lines.append("")
 
     # ============================================================
@@ -383,14 +468,18 @@ def main():
     lines.append("### 3.1 Tabelas sem Mapeamento Delta Identificado")
     lines.append("")
     if unmapped:
-        lines.append(f"**{len(unmapped)}** tabelas do SSAS não possuem equivalente direto no schema `lakehouse.debug_poc`:")
+        lines.append(
+            f"**{len(unmapped)}** tabelas do SSAS não possuem equivalente direto no schema `lakehouse.debug_poc`:"
+        )
         lines.append("")
         for u in unmapped:
             lines.append(f"- `{u}`")
         lines.append("")
         lines.append("**Decisão:** Confirmar com o time de dados se essas tabelas serão:")
         lines.append("- (a) Criadas no pipeline de carga; ou")
-        lines.append("- (b) Descontinuadas (algumas podem ser tabelas de suporte não utilizadas nos consumers atuais).")
+        lines.append(
+            "- (b) Descontinuadas (algumas podem ser tabelas de suporte não utilizadas nos consumers atuais)."
+        )
     else:
         lines.append("Todas as tabelas principais possuem mapeamento.")
     lines.append("")
@@ -399,21 +488,43 @@ def main():
     lines.append("")
     lines.append("| Feature SSAS | Equivalente Databricks | Gap | Mitigação |")
     lines.append("|--------------|------------------------|-----|-----------|")
-    lines.append("| Perspectives | Não há no UC / Delta | Views diferentes por persona | Criar views `gold.venda_analista`, `gold.venda_gerente` com subsets de colunas |")
-    lines.append("| Implicit Measures | Desabilitado no SSAS; no Databricks, métricas devem ser explícitas | Usuários podem criar agregações ad-hoc no Genie | Documentar métricas oficiais em Metric Views |")
-    lines.append("| KPIs (status/trend) | Não nativo | Sem semáforo nativo no SQL | Implementar em AI/BI Dashboard ou com CASE/WHEN em views |")
-    lines.append("| Calculated Columns (DAX) | Não existe em Delta | Lógica de coluna calculada | Mover para pipeline Silver (PySpark) ou views SQL |")
-    lines.append("| Variáveis DAX (SUMMARIZE, ADDCOLUMNS) | SQL CTEs / subqueries | Reescrita necessária | Mapear para CTEs em views materializadas |")
-    lines.append("| Time Intelligence (SAMEPERIODLASTYEAR, etc.) | Funções de janela SQL + dim_data | Reescrita manual | Criar colunas offset na `dim_data` (ex: `data_ano_anterior`) |")
+    lines.append(
+        "| Perspectives | Não há no UC / Delta | Views diferentes por persona | Criar views `gold.venda_analista`, `gold.venda_gerente` com subsets de colunas |"
+    )
+    lines.append(
+        "| Implicit Measures | Desabilitado no SSAS; no Databricks, métricas devem ser explícitas | Usuários podem criar agregações ad-hoc no Genie | Documentar métricas oficiais em Metric Views |"
+    )
+    lines.append(
+        "| KPIs (status/trend) | Não nativo | Sem semáforo nativo no SQL | Implementar em AI/BI Dashboard ou com CASE/WHEN em views |"
+    )
+    lines.append(
+        "| Calculated Columns (DAX) | Não existe em Delta | Lógica de coluna calculada | Mover para pipeline Silver (PySpark) ou views SQL |"
+    )
+    lines.append(
+        "| Variáveis DAX (SUMMARIZE, ADDCOLUMNS) | SQL CTEs / subqueries | Reescrita necessária | Mapear para CTEs em views materializadas |"
+    )
+    lines.append(
+        "| Time Intelligence (SAMEPERIODLASTYEAR, etc.) | Funções de janela SQL + dim_data | Reescrita manual | Criar colunas offset na `dim_data` (ex: `data_ano_anterior`) |"
+    )
     lines.append("")
 
     lines.append("### 3.3 Decisões de Arquitetura")
     lines.append("")
-    lines.append("1. **Granularidade do RLS:** O SSAS filtra por `email` na dimensão `rls_comercial`. No Databricks, o `current_user()` retorna o UPN do Entra ID. É necessário validar se os e-mails do SSAS batem com os UPNs do Databricks.")
-    lines.append("2. **Performance das partições:** Algumas tabelas (ex: `DimClienteVendedorMaterial`) têm múltiplas partições com lógica de data/hora (`@hora < 19`). No Databricks, isso deve virar uma tabela Delta com `ORDER BY` + `ZORDER BY` ou `CLUSTER BY` na chave de join, e a lógica de hora deve ser tratada no pipeline (Bronze/Silver) ou no filtro da query.")
-    lines.append("3. **Multi-tenancy de estrutura de venda:** Existem múltiplas dimensões `EstruturaVenda` (RG, FVI, AS, FS, FIR, INA, INN). Confirmar se todas são necessárias no Gold ou se podem ser unificadas.")
-    lines.append("4. **Materializado vs Virtual:** As agregações do SSAS são pré-computadas (VertiPaq). No Databricks, decidir entre `MATERIALIZED VIEW` (custo de recomputação) ou views virtuais (custo de query). Recomendação: MV para fatos > 100M linhas; views para dimensões.")
-    lines.append("5. **Frequência de carga:** O SSAS processa partições diárias/horárias. Definir se o pipeline Databricks será incremental (`MERGE`) ou full-refresh.")
+    lines.append(
+        "1. **Granularidade do RLS:** O SSAS filtra por `email` na dimensão `rls_comercial`. No Databricks, o `current_user()` retorna o UPN do Entra ID. É necessário validar se os e-mails do SSAS batem com os UPNs do Databricks."
+    )
+    lines.append(
+        "2. **Performance das partições:** Algumas tabelas (ex: `DimClienteVendedorMaterial`) têm múltiplas partições com lógica de data/hora (`@hora < 19`). No Databricks, isso deve virar uma tabela Delta com `ORDER BY` + `ZORDER BY` ou `CLUSTER BY` na chave de join, e a lógica de hora deve ser tratada no pipeline (Bronze/Silver) ou no filtro da query."
+    )
+    lines.append(
+        "3. **Multi-tenancy de estrutura de venda:** Existem múltiplas dimensões `EstruturaVenda` (RG, FVI, AS, FS, FIR, INA, INN). Confirmar se todas são necessárias no Gold ou se podem ser unificadas."
+    )
+    lines.append(
+        "4. **Materializado vs Virtual:** As agregações do SSAS são pré-computadas (VertiPaq). No Databricks, decidir entre `MATERIALIZED VIEW` (custo de recomputação) ou views virtuais (custo de query). Recomendação: MV para fatos > 100M linhas; views para dimensões."
+    )
+    lines.append(
+        "5. **Frequência de carga:** O SSAS processa partições diárias/horárias. Definir se o pipeline Databricks será incremental (`MERGE`) ou full-refresh."
+    )
     lines.append("")
 
     # ============================================================
@@ -625,13 +736,27 @@ def main():
     lines.append("")
     lines.append("| Teste | Query SSAS (DAX) | Query Databricks (SQL) | Critério de Aceite |")
     lines.append("|-------|------------------|------------------------|--------------------|")
-    lines.append("| Count por tabela | `EVALUATE ROW(\"Count\", COUNTROWS(Tabela))` | `SELECT COUNT(*) FROM tabela` | Diferença = 0 |")
-    lines.append("| Soma de faturamento | `SUM(FactVendaRealizada[Faturamento Real])` | `SELECT SUM(faturamento_real) FROM venda_realizada` | Diferença <= 0.01% |")
-    lines.append("| Soma de volume | `SUM(FactVendaRealizada[Volume Real])` | `SELECT SUM(volume_real) FROM venda_realizada` | Diferença <= 0.01% |")
-    lines.append("| Cardinalidade de dimensão | `DISTINCTCOUNT(DimCliente[Cliente])` | `SELECT COUNT(DISTINCT cliente) FROM cliente_estrutura` | Diferença = 0 |")
-    lines.append("| Range de datas | `MIN(DimCalendario[Data])` / `MAX(...)` | `SELECT MIN(data), MAX(data) FROM calendario_generico` | Igual |")
-    lines.append("| RLS (por usuário) | Processar com role ativa | `SELECT COUNT(*) FROM venda_realizada_rls WHERE email = 'user@brf.com'` | Count compatível |")
-    lines.append("| Medida calculada | Comparar 5 medidas principais | Executar mesma lógica em SQL | Diferença <= 0.1% |")
+    lines.append(
+        '| Count por tabela | `EVALUATE ROW("Count", COUNTROWS(Tabela))` | `SELECT COUNT(*) FROM tabela` | Diferença = 0 |'
+    )
+    lines.append(
+        "| Soma de faturamento | `SUM(FactVendaRealizada[Faturamento Real])` | `SELECT SUM(faturamento_real) FROM venda_realizada` | Diferença <= 0.01% |"
+    )
+    lines.append(
+        "| Soma de volume | `SUM(FactVendaRealizada[Volume Real])` | `SELECT SUM(volume_real) FROM venda_realizada` | Diferença <= 0.01% |"
+    )
+    lines.append(
+        "| Cardinalidade de dimensão | `DISTINCTCOUNT(DimCliente[Cliente])` | `SELECT COUNT(DISTINCT cliente) FROM cliente_estrutura` | Diferença = 0 |"
+    )
+    lines.append(
+        "| Range de datas | `MIN(DimCalendario[Data])` / `MAX(...)` | `SELECT MIN(data), MAX(data) FROM calendario_generico` | Igual |"
+    )
+    lines.append(
+        "| RLS (por usuário) | Processar com role ativa | `SELECT COUNT(*) FROM venda_realizada_rls WHERE email = 'user@brf.com'` | Count compatível |"
+    )
+    lines.append(
+        "| Medida calculada | Comparar 5 medidas principais | Executar mesma lógica em SQL | Diferença <= 0.1% |"
+    )
     lines.append("")
     lines.append("**Scripts de reconciliação:**")
     lines.append("")
@@ -682,7 +807,8 @@ def main():
                 expr = tbl_obj["partitions"][0]["expression"]
                 # extrair nome da tabela SQL fonte
                 import re
-                m = re.search(r'FROM\s+(\S+)', expr, re.IGNORECASE)
+
+                m = re.search(r"FROM\s+(\S+)", expr, re.IGNORECASE)
                 src = m.group(1) if m else "N/A"
                 lines.append(f"- `{u}` → Fonte SQL: `{src}`")
             else:
@@ -694,10 +820,13 @@ def main():
     lines.append("---")
     lines.append("")
     lines.append("*Gerado automaticamente a partir do parser do modelo `Comercial.bim`.*")
-    lines.append(f"*Tabelas: {len(inv['tables'])} | Relacionamentos: {len(inv['relationships'])} | Medidas: {sum(len(t['measures']) for t in inv['tables'])} | Roles: {len(inv['roles'])}*")
+    lines.append(
+        f"*Tabelas: {len(inv['tables'])} | Relacionamentos: {len(inv['relationships'])} | Medidas: {sum(len(t['measures']) for t in inv['tables'])} | Roles: {len(inv['roles'])}*"
+    )
 
     OUT_MD.write_text("\n".join(lines), encoding="utf-8")
     print(f"Relatório salvo em {OUT_MD}")
+
 
 if __name__ == "__main__":
     main()

@@ -44,14 +44,14 @@ _GREEN = "00A972"
 _BORDER = "D0D0D0"
 _FILL_HEADER = PatternFill("solid", fgColor=_NAVY)
 _FILL_H2 = PatternFill("solid", fgColor="F1F1EE")
-_FILL_BLUE = PatternFill("solid", fgColor="E3F0FF")     # official hardcoded input
-_FILL_YELLOW = PatternFill("solid", fgColor="FFF3B0")   # assumption / toggle
-_FILL_GREEN = PatternFill("solid", fgColor="E3F5E1")    # output total
+_FILL_BLUE = PatternFill("solid", fgColor="E3F0FF")  # official hardcoded input
+_FILL_YELLOW = PatternFill("solid", fgColor="FFF3B0")  # assumption / toggle
+_FILL_GREEN = PatternFill("solid", fgColor="E3F5E1")  # output total
 _FONT_HEADER = Font(bold=True, color="FFFFFF", size=13, name="Arial")
 _FONT_H2 = Font(bold=True, color=_NAVY, size=11, name="Arial")
 _FONT_BODY = Font(size=10, name="Arial")
 _FONT_BODY_B = Font(size=10, bold=True, name="Arial")
-_FONT_BLUE = Font(size=10, color="0000FF", name="Arial")   # hardcoded input
+_FONT_BLUE = Font(size=10, color="0000FF", name="Arial")  # hardcoded input
 _FONT_GREEN = Font(size=10, color="008000", name="Arial")  # cross-sheet link
 _FONT_SMALL = Font(size=9, italic=True, color="6B6F76", name="Arial")
 _THIN = Side(style="thin", color=_BORDER)
@@ -127,8 +127,12 @@ def build_greenfield_xlsx(
     storage_line = {**storage_line, "_cell": storage_cell}
     _build_rollup(
         wb.create_sheet("4. Rollup"),
-        dbx_compute_cell, infra_total_cell, storage_line,
-        nonprod_factor, nonprod_count, sandbox_factor,
+        dbx_compute_cell,
+        infra_total_cell,
+        storage_line,
+        nonprod_factor,
+        nonprod_count,
+        sandbox_factor,
     )
     _build_summary(wb.create_sheet("5. Summary"), annual_growth_pct)
     _build_sources(wb.create_sheet("6. Sources"), sources or _DEFAULT_SOURCES)
@@ -178,7 +182,10 @@ def _build_cover(ws, client, region, tier, currency, generated_at) -> None:
     r += 1
     smap = [
         ("2. Databricks", "Compute por workload (PROD) + storage. Region-aware DBU rates."),
-        ("3. Azure Infra", "Stack de rede/segurança por ambiente + shared services com toggles ON/OFF."),
+        (
+            "3. Azure Infra",
+            "Stack de rede/segurança por ambiente + shared services com toggles ON/OFF.",
+        ),
         ("4. Rollup", "PROD + 2 non-prod (20%) + Sandbox (10%) + infra + storage."),
         ("5. Summary", "Mensal + anual + projeção Y2/Y3 com growth."),
         ("6. Sources", "URLs oficiais Microsoft/Databricks + caveats."),
@@ -223,14 +230,14 @@ def _build_databricks(ws, lines, storage_line) -> str:
     r += 1
     # PROD total (compute + storage)
     ws.cell(row=r, column=2, value="TOTAL PROD (compute + storage)").font = _FONT_BODY_B
-    tot = ws.cell(row=r, column=3, value=f"=SUM(C{first}:C{r-1})")
+    tot = ws.cell(row=r, column=3, value=f"=SUM(C{first}:C{r - 1})")
     tot.font = Font(bold=True, color="FFFFFF", name="Arial")
     tot.fill = _FILL_HEADER
     tot.number_format = _MONEY
     # compute-only total (excludes storage) — used by rollup
     r += 1
     ws.cell(row=r, column=2, value="  → compute-only (exclui storage)").font = _FONT_SMALL
-    comp = ws.cell(row=r, column=3, value=f"=SUM(C{first}:C{storage_row-1})")
+    comp = ws.cell(row=r, column=3, value=f"=SUM(C{first}:C{storage_row - 1})")
     comp.number_format = _MONEY
     comp.font = _FONT_BODY
     _widths(ws, [12, 50, 16, 50])
@@ -279,7 +286,7 @@ def _build_azure_infra(ws, per_env, shared, num_envs) -> str:
             ws.cell(row=r, column=col).border = _BORDER_ALL
         r += 1
     ws.cell(row=r, column=2, value="Subtotal per-env × envs").font = _FONT_BODY_B
-    per_env_total = ws.cell(row=r, column=8, value=f"=SUM(H{first}:H{r-1})")
+    per_env_total = ws.cell(row=r, column=8, value=f"=SUM(H{first}:H{r - 1})")
     per_env_total.fill = _FILL_GREEN
     per_env_total.font = _FONT_BODY_B
     per_env_total.number_format = _MONEY
@@ -323,7 +330,7 @@ def _build_azure_infra(ws, per_env, shared, num_envs) -> str:
             ws.cell(row=r, column=col).border = _BORDER_ALL
         r += 1
     ws.cell(row=r, column=2, value="Subtotal shared (toggles atuais)").font = _FONT_BODY_B
-    shared_total = ws.cell(row=r, column=7, value=f"=SUM(G{sfirst}:G{r-1})")
+    shared_total = ws.cell(row=r, column=7, value=f"=SUM(G{sfirst}:G{r - 1})")
     shared_total.fill = _FILL_GREEN
     shared_total.font = _FONT_BODY_B
     shared_total.number_format = _MONEY
@@ -331,7 +338,9 @@ def _build_azure_infra(ws, per_env, shared, num_envs) -> str:
     r += 2
 
     # infra total
-    ws.cell(row=r, column=2, value="TOTAL AZURE INFRA / mês").font = Font(bold=True, color="FFFFFF", name="Arial")
+    ws.cell(row=r, column=2, value="TOTAL AZURE INFRA / mês").font = Font(
+        bold=True, color="FFFFFF", name="Arial"
+    )
     ws.cell(row=r, column=2).fill = _FILL_HEADER
     infra_total = ws.cell(row=r, column=8, value=f"=H{per_env_total_row}+G{shared_total_row}")
     infra_total.font = Font(bold=True, color="FFFFFF", name="Arial")
@@ -341,8 +350,15 @@ def _build_azure_infra(ws, per_env, shared, num_envs) -> str:
     return f"'3. Azure Infra'!$H${r}"
 
 
-def _build_rollup(ws, dbx_compute_cell, infra_total_cell, storage_line,
-                  nonprod_factor, nonprod_count, sandbox_factor) -> None:
+def _build_rollup(
+    ws,
+    dbx_compute_cell,
+    infra_total_cell,
+    storage_line,
+    nonprod_factor,
+    nonprod_count,
+    sandbox_factor,
+) -> None:
     _hdr(ws, "A1:C1", "Environments Rollup")
     # dbx_compute_cell references the compute-only line on the Databricks sheet.
     ws.cell(row=3, column=1, value="Bloco").font = _FONT_BODY_B
@@ -352,14 +368,23 @@ def _build_rollup(ws, dbx_compute_cell, infra_total_cell, storage_line,
     ws.cell(row=3, column=3, value="$ / mês").font = _FONT_BODY_B
     ws.cell(row=3, column=3).fill = _FILL_H2
 
-    total_factor = 1.0 + nonprod_factor * nonprod_count + sandbox_factor
     rows = [
         ("Databricks compute — PROD", 1.0, f"={dbx_compute_cell}*1.0"),
-        (f"Databricks compute — {nonprod_count} non-prod ({int(nonprod_factor*100)}% cada)",
-         nonprod_factor * nonprod_count, f"={dbx_compute_cell}*{nonprod_factor*nonprod_count}"),
-        (f"Databricks compute — Sandbox ({int(sandbox_factor*100)}%)",
-         sandbox_factor, f"={dbx_compute_cell}*{sandbox_factor}"),
-        ("Storage (1× — não replica)", None, f"={storage_line['_cell']}" if storage_line.get("_cell") else None),
+        (
+            f"Databricks compute — {nonprod_count} non-prod ({int(nonprod_factor * 100)}% cada)",
+            nonprod_factor * nonprod_count,
+            f"={dbx_compute_cell}*{nonprod_factor * nonprod_count}",
+        ),
+        (
+            f"Databricks compute — Sandbox ({int(sandbox_factor * 100)}%)",
+            sandbox_factor,
+            f"={dbx_compute_cell}*{sandbox_factor}",
+        ),
+        (
+            "Storage (1× — não replica)",
+            None,
+            f"={storage_line['_cell']}" if storage_line.get("_cell") else None,
+        ),
         ("Azure Infra (já inclui N envs)", None, f"={infra_total_cell}"),
     ]
     r = 4
@@ -376,17 +401,21 @@ def _build_rollup(ws, dbx_compute_cell, infra_total_cell, storage_line,
         for col in range(1, 4):
             ws.cell(row=r, column=col).border = _BORDER_ALL
         r += 1
-    ws.cell(row=r, column=1, value="GRAND TOTAL MENSAL").font = Font(bold=True, color="FFFFFF", name="Arial")
+    ws.cell(row=r, column=1, value="GRAND TOTAL MENSAL").font = Font(
+        bold=True, color="FFFFFF", name="Arial"
+    )
     ws.cell(row=r, column=1).fill = _FILL_HEADER
-    gt = ws.cell(row=r, column=3, value=f"=SUM(C{first}:C{r-1})")
+    gt = ws.cell(row=r, column=3, value=f"=SUM(C{first}:C{r - 1})")
     gt.fill = _FILL_HEADER
     gt.font = Font(bold=True, color="FFFFFF", name="Arial")
     gt.number_format = _MONEY
     ws._gf_grand_monthly = f"'4. Rollup'!$C${r}"
     r += 1
-    ws.cell(row=r, column=1, value="GRAND TOTAL ANUAL").font = Font(bold=True, color="FFFFFF", name="Arial")
+    ws.cell(row=r, column=1, value="GRAND TOTAL ANUAL").font = Font(
+        bold=True, color="FFFFFF", name="Arial"
+    )
     ws.cell(row=r, column=1).fill = _FILL_HEADER
-    ga = ws.cell(row=r, column=3, value=f"=C{r-1}*12")
+    ga = ws.cell(row=r, column=3, value=f"=C{r - 1}*12")
     ga.fill = _FILL_HEADER
     ga.font = Font(bold=True, color="FFFFFF", name="Arial")
     ga.number_format = _MONEY
@@ -405,8 +434,16 @@ def _build_summary(ws, growth_pct) -> None:
     rows = [
         ("Mensal (Y1)", 1.0, f"='4. Rollup'!$C${_ROLLUP_MONTHLY_ROW}"),
         ("Anual (Y1)", 1.0, f"='4. Rollup'!$C${_ROLLUP_MONTHLY_ROW}*12"),
-        (f"Anual (Y2, +{growth_pct:.0f}% growth aprox)", 1 + g, f"='4. Rollup'!$C${_ROLLUP_MONTHLY_ROW}*12*{1+g:.3f}"),
-        (f"Anual (Y3, +{growth_pct:.0f}%/ano aprox)", (1 + g) ** 2, f"='4. Rollup'!$C${_ROLLUP_MONTHLY_ROW}*12*{(1+g)**2:.3f}"),
+        (
+            f"Anual (Y2, +{growth_pct:.0f}% growth aprox)",
+            1 + g,
+            f"='4. Rollup'!$C${_ROLLUP_MONTHLY_ROW}*12*{1 + g:.3f}",
+        ),
+        (
+            f"Anual (Y3, +{growth_pct:.0f}%/ano aprox)",
+            (1 + g) ** 2,
+            f"='4. Rollup'!$C${_ROLLUP_MONTHLY_ROW}*12*{(1 + g) ** 2:.3f}",
+        ),
     ]
     r = 4
     for label, factor, formula in rows:
@@ -420,9 +457,11 @@ def _build_summary(ws, growth_pct) -> None:
             ws.cell(row=r, column=col).border = _BORDER_ALL
         r += 1
     r += 1
-    note = ("Growth aplicado como aproximação sobre o total (compute + infra). "
-            "Storage cresce mais que compute na prática — refinar por camada se necessário. "
-            "Descontos comerciais (DBCU 1y/3y: -33%/-37%) NÃO aplicados — list price.")
+    note = (
+        "Growth aplicado como aproximação sobre o total (compute + infra). "
+        "Storage cresce mais que compute na prática — refinar por camada se necessário. "
+        "Descontos comerciais (DBCU 1y/3y: -33%/-37%) NÃO aplicados — list price."
+    )
     ws.cell(row=r, column=1, value=note).font = _FONT_SMALL
     ws.merge_cells(start_row=r, start_column=1, end_row=r + 2, end_column=3)
     ws.cell(row=r, column=1).alignment = Alignment(wrap_text=True, vertical="top")
@@ -452,12 +491,33 @@ def _build_sources(ws, sources) -> None:
 _ROLLUP_MONTHLY_ROW = 9
 
 _DEFAULT_SOURCES = [
-    {"name": "Azure Retail Prices API", "url": "https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices"},
-    {"name": "Azure Databricks pricing", "url": "https://azure.microsoft.com/pricing/details/databricks/"},
-    {"name": "Azure NAT Gateway", "url": "https://azure.microsoft.com/pricing/details/azure-nat-gateway/"},
-    {"name": "Azure Private Link", "url": "https://azure.microsoft.com/pricing/details/private-link/"},
-    {"name": "Azure Monitor / Log Analytics", "url": "https://azure.microsoft.com/pricing/details/monitor/"},
-    {"name": "Azure Firewall", "url": "https://azure.microsoft.com/pricing/details/azure-firewall/"},
-    {"name": "Microsoft Defender for Cloud", "url": "https://azure.microsoft.com/pricing/details/defender-for-cloud/"},
+    {
+        "name": "Azure Retail Prices API",
+        "url": "https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices",
+    },
+    {
+        "name": "Azure Databricks pricing",
+        "url": "https://azure.microsoft.com/pricing/details/databricks/",
+    },
+    {
+        "name": "Azure NAT Gateway",
+        "url": "https://azure.microsoft.com/pricing/details/azure-nat-gateway/",
+    },
+    {
+        "name": "Azure Private Link",
+        "url": "https://azure.microsoft.com/pricing/details/private-link/",
+    },
+    {
+        "name": "Azure Monitor / Log Analytics",
+        "url": "https://azure.microsoft.com/pricing/details/monitor/",
+    },
+    {
+        "name": "Azure Firewall",
+        "url": "https://azure.microsoft.com/pricing/details/azure-firewall/",
+    },
+    {
+        "name": "Microsoft Defender for Cloud",
+        "url": "https://azure.microsoft.com/pricing/details/defender-for-cloud/",
+    },
     {"name": "KB azure-infra-for-databricks", "url": "kb/azure-infra-for-databricks/index.md"},
 ]

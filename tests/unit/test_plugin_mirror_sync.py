@@ -303,9 +303,7 @@ class TestRealRepoDriftGuard:
                 differing = sorted(
                     p for p in (set(expected) & set(actual)) if expected[p] != actual[p]
                 )
-                problems.append(
-                    f"{name}: missing={missing} extra={extra} differing={differing}"
-                )
+                problems.append(f"{name}: missing={missing} extra={extra} differing={differing}")
 
         assert not problems, (
             "skills com árvore divergente do espelho — rode "
@@ -314,9 +312,7 @@ class TestRealRepoDriftGuard:
 
     def test_no_orphan_skill_mirrors(self) -> None:
         mirror_root = _REAL_PROJECT_ROOT / "plugins" / "ai-data-agents" / "skills"
-        expected_names = {
-            skill_dir.name for skill_dir in discover_skill_dirs(_REAL_PROJECT_ROOT)
-        }
+        expected_names = {skill_dir.name for skill_dir in discover_skill_dirs(_REAL_PROJECT_ROOT)}
         actual_names = {p.name for p in mirror_root.iterdir() if p.is_dir()}
         orphans = actual_names - expected_names
         assert not orphans, (
@@ -326,11 +322,7 @@ class TestRealRepoDriftGuard:
 
     def test_plugin_manifest_counts_match_reality(self) -> None:
         manifest_path = (
-            _REAL_PROJECT_ROOT
-            / "plugins"
-            / "ai-data-agents"
-            / ".claude-plugin"
-            / "plugin.json"
+            _REAL_PROJECT_ROOT / "plugins" / "ai-data-agents" / ".claude-plugin" / "plugin.json"
         )
         data = json.loads(manifest_path.read_text(encoding="utf-8"))
         description = data["description"]

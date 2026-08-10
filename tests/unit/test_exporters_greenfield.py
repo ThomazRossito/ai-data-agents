@@ -39,14 +39,45 @@ def _sample_workbook() -> BytesIO:
         {"code": "W08", "name": "FM Claude Opus tokens", "monthly_usd": 472.50},
     ]
     azure_infra_per_env = [
-        {"ref": "S01", "resource": "NAT Gateway (hours)", "qty": 1, "hours_or_gb": 730, "unit_price": 0.045},
-        {"ref": "S07", "resource": "Log Analytics ingest 200GB", "qty": 1, "hours_or_gb": 200, "unit_price": 2.99},
+        {
+            "ref": "S01",
+            "resource": "NAT Gateway (hours)",
+            "qty": 1,
+            "hours_or_gb": 730,
+            "unit_price": 0.045,
+        },
+        {
+            "ref": "S07",
+            "resource": "Log Analytics ingest 200GB",
+            "qty": 1,
+            "hours_or_gb": 200,
+            "unit_price": 2.99,
+        },
     ]
     azure_infra_shared = [
-        {"ref": "S14", "resource": "Azure Firewall Standard", "enabled": 1, "qty": 1, "hours_or_gb": 730, "unit_price": 1.25},
-        {"ref": "S16", "resource": "Defender for Servers P2", "enabled": 1, "qty": 16, "hours_or_gb": 730, "unit_price": 0.02},
+        {
+            "ref": "S14",
+            "resource": "Azure Firewall Standard",
+            "enabled": 1,
+            "qty": 1,
+            "hours_or_gb": 730,
+            "unit_price": 1.25,
+        },
+        {
+            "ref": "S16",
+            "resource": "Defender for Servers P2",
+            "enabled": 1,
+            "qty": 16,
+            "hours_or_gb": 730,
+            "unit_price": 0.02,
+        },
     ]
-    storage_line = {"name": "ADLS Gen2 Hot 50TB", "gb": 50000, "price_per_gb": 0.0208, "monthly_usd": 1040.0}
+    storage_line = {
+        "name": "ADLS Gen2 Hot 50TB",
+        "gb": 50000,
+        "price_per_gb": 0.0208,
+        "monthly_usd": 1040.0,
+    }
 
     return build_greenfield_xlsx(
         client="Seatrium",
@@ -64,7 +95,14 @@ def _sample_workbook() -> BytesIO:
 def test_workbook_loads_and_has_all_sheets():
     buf = _sample_workbook()
     wb = openpyxl.load_workbook(buf)
-    expected = ["1. Cover", "2. Databricks", "3. Azure Infra", "4. Rollup", "5. Summary", "6. Sources"]
+    expected = [
+        "1. Cover",
+        "2. Databricks",
+        "3. Azure Infra",
+        "4. Rollup",
+        "5. Summary",
+        "6. Sources",
+    ]
     assert wb.sheetnames == expected
 
 
@@ -88,7 +126,12 @@ def test_azure_infra_toggle_cells_are_editable_inputs():
     toggles = []
     for row in ws.iter_rows():
         for cell in row:
-            if cell.value in (0, 1) and cell.fill and cell.fill.fgColor.rgb and "FFF3B0" in str(cell.fill.fgColor.rgb):
+            if (
+                cell.value in (0, 1)
+                and cell.fill
+                and cell.fill.fgColor.rgb
+                and "FFF3B0" in str(cell.fill.fgColor.rgb)
+            ):
                 toggles.append(cell.coordinate)
     assert toggles, "expected editable ON/OFF toggle cells with yellow fill"
 
@@ -111,7 +154,9 @@ def test_rollup_grand_total_is_formula():
     wb = openpyxl.load_workbook(_sample_workbook())
     ws = wb["4. Rollup"]
     sums = [
-        cell.value for row in ws.iter_rows() for cell in row
+        cell.value
+        for row in ws.iter_rows()
+        for cell in row
         if isinstance(cell.value, str) and cell.value.startswith("=SUM")
     ]
     assert sums, "rollup grand total must be a SUM formula"
@@ -123,7 +168,9 @@ def test_rollup_storage_row_is_wired():
     wb = openpyxl.load_workbook(_sample_workbook())
     ws = wb["4. Rollup"]
     storage_refs = [
-        cell.value for row in ws.iter_rows() for cell in row
+        cell.value
+        for row in ws.iter_rows()
+        for cell in row
         if isinstance(cell.value, str) and "'2. Databricks'" in cell.value
     ]
     assert storage_refs, "rollup must reference the storage cell on the Databricks sheet"

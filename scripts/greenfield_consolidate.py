@@ -74,7 +74,6 @@ def build(databricks: dict, azure: dict, client: str, region: str, growth_pct: f
 
     dbx_total = float(databricks.get("totals", {}).get("monthly_usd", 0))
     azure_total = float(azure.get("totals", {}).get("monthly_usd", 0))
-    grand = dbx_total + azure_total
 
     # ── Sheet 1: Summary ──────────────────────────────────────────────
     ws = wb.active
@@ -102,9 +101,11 @@ def build(databricks: dict, azure: dict, client: str, region: str, growth_pct: f
         for col in range(1, 4):
             ws.cell(row=r, column=col).border = _BORDER
         r += 1
-    ws.cell(row=r, column=1, value="GRAND TOTAL").font = Font(bold=True, color="FFFFFF", name="Arial")
+    ws.cell(row=r, column=1, value="GRAND TOTAL").font = Font(
+        bold=True, color="FFFFFF", name="Arial"
+    )
     ws.cell(row=r, column=1).fill = _FILL_HEADER
-    gt = ws.cell(row=r, column=2, value=f"=SUM(B{first}:B{r-1})")
+    gt = ws.cell(row=r, column=2, value=f"=SUM(B{first}:B{r - 1})")
     gt.fill = _FILL_HEADER
     gt.font = Font(bold=True, color="FFFFFF", name="Arial")
     gt.number_format = _MONEY
@@ -134,10 +135,14 @@ def build(databricks: dict, azure: dict, client: str, region: str, growth_pct: f
             ws.cell(row=r, column=col).border = _BORDER
         r += 1
     r += 1
-    ws.cell(row=r, column=1, value=(
-        "List price, antes de desconto comercial (DBCU 1y/3y: -33%/-37%). "
-        "Region-aware DBU rates (southeastasia) aplicados. Growth aproximado sobre o total."
-    )).font = _FONT_SMALL
+    ws.cell(
+        row=r,
+        column=1,
+        value=(
+            "List price, antes de desconto comercial (DBCU 1y/3y: -33%/-37%). "
+            "Region-aware DBU rates (southeastasia) aplicados. Growth aproximado sobre o total."
+        ),
+    ).font = _FONT_SMALL
     ws.merge_cells(start_row=r, start_column=1, end_row=r + 2, end_column=3)
     ws.cell(row=r, column=1).alignment = Alignment(wrap_text=True, vertical="top")
     _widths(ws, [52, 16, 16])
@@ -160,7 +165,7 @@ def build(databricks: dict, azure: dict, client: str, region: str, growth_pct: f
         r += 1
     ws2.cell(row=r, column=1, value="TOTAL Databricks").font = _FONT_B
     ws2.cell(row=r, column=1).fill = _FILL_GREEN
-    t = ws2.cell(row=r, column=2, value=f"=SUM(B{wfirst}:B{r-1})")
+    t = ws2.cell(row=r, column=2, value=f"=SUM(B{wfirst}:B{r - 1})")
     t.fill = _FILL_GREEN
     t.font = _FONT_B
     t.number_format = _MONEY
@@ -228,7 +233,9 @@ def main() -> int:
     az_total = az.get("totals", {}).get("monthly_usd", 0)
     print(f"✅ wrote {out}")
     print(f"   Databricks: ${dbx_total:,.2f}/mo  +  Azure Infra: ${az_total:,.2f}/mo")
-    print(f"   GRAND TOTAL: ${dbx_total + az_total:,.2f}/mo  (${(dbx_total + az_total) * 12:,.2f}/yr)")
+    print(
+        f"   GRAND TOTAL: ${dbx_total + az_total:,.2f}/mo  (${(dbx_total + az_total) * 12:,.2f}/yr)"
+    )
     return 0
 
 

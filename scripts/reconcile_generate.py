@@ -36,6 +36,7 @@ import json
 import os
 import sys
 
+
 # ── quoting por dialeto ───────────────────────────────────────────────────────
 def ss(col: str) -> str:
     """Identificador SQL Server: [col]."""
@@ -58,9 +59,13 @@ def _checks_for(t: dict, side: str, float_tol: float, src_dialect: str = "tsql")
     hive/spark/databricks → backtick + md5 + LIMIT. (O destino é sempre Databricks/backtick.)"""
     src_d = str(src_dialect).lower()
     if side == "source":
-        dialect = ("tsql" if src_d in ("tsql", "mssql", "sqlserver")
-                   else "teradata" if src_d in ("teradata", "td")
-                   else "spark")
+        dialect = (
+            "tsql"
+            if src_d in ("tsql", "mssql", "sqlserver")
+            else "teradata"
+            if src_d in ("teradata", "td")
+            else "spark"
+        )
     else:
         dialect = "spark"
     is_tsql_src = dialect == "tsql"
@@ -80,12 +85,16 @@ def _checks_for(t: dict, side: str, float_tol: float, src_dialect: str = "tsql")
     # 2. sum (exato + float) — um SELECT com todas as somas
     sums = [f"SUM({q(c)}) AS {q('sum_' + c)}" for c in (num_exact + num_float)]
     if sums:
-        out.append(f"SELECT {', '.join(sums)} FROM {tbl};   -- sum (exato: {num_exact} | float±{float_tol}%: {num_float})")
+        out.append(
+            f"SELECT {', '.join(sums)} FROM {tbl};   -- sum (exato: {num_exact} | float±{float_tol}%: {num_float})"
+        )
 
     # 3. null counts (keys + numéricos) — portável nos dois dialetos
     nn = list(dict.fromkeys(keys + num_exact + num_float))  # dedup: chave numérica não repete
     if nn:
-        parts = [f"SUM(CASE WHEN {q(c)} IS NULL THEN 1 ELSE 0 END) AS {q('nulls_' + c)}" for c in nn]
+        parts = [
+            f"SUM(CASE WHEN {q(c)} IS NULL THEN 1 ELSE 0 END) AS {q('nulls_' + c)}" for c in nn
+        ]
         out.append(f"SELECT {', '.join(parts)} FROM {tbl};   -- null counts")
 
     # 4. distinct das keys
@@ -94,14 +103,18 @@ def _checks_for(t: dict, side: str, float_tol: float, src_dialect: str = "tsql")
 
     # 5. min/max de datas
     for d in dates:
-        out.append(f"SELECT MIN({q(d)}) AS {q('min_' + d)}, MAX({q(d)}) AS {q('max_' + d)} FROM {tbl};")
+        out.append(
+            f"SELECT MIN({q(d)}) AS {q('min_' + d)}, MAX({q(d)}) AS {q('max_' + d)} FROM {tbl};"
+        )
 
     # 6. string checksum (amostra por hash de linha) — best-effort (normalização difere;
     #    ver kb/migration/concepts/reconciliation.md). Ordena por key para amostra estável.
     if hash_cols and keys:
         key_list = ", ".join(q(k) for k in keys)
         if is_tsql_src:
-            concat = " + '|' + ".join(f"ISNULL(CONVERT(NVARCHAR(MAX), {q(c)}), '')" for c in hash_cols)
+            concat = " + '|' + ".join(
+                f"ISNULL(CONVERT(NVARCHAR(MAX), {q(c)}), '')" for c in hash_cols
+            )
             out.append(
                 f"SELECT TOP 1000 {key_list}, CONVERT(CHAR(32), HASHBYTES('MD5', {concat}), 2) AS row_hash\n"
                 f"FROM {tbl} ORDER BY {key_list};   -- amostra de hash (T-SQL / origem SQL Server)"
@@ -134,17 +147,24 @@ def generate(spec: dict, outdir: str) -> dict:
     float_tol = spec.get("float_tolerance_pct", 0.0001)
     src_dialect = spec.get("source_dialect", "tsql")
     _sd = str(src_dialect).lower()
-    src_label = ("SQL Server / T-SQL" if _sd in ("tsql", "mssql", "sqlserver")
-                 else "Teradata (aspas-duplas ANSI)" if _sd in ("teradata", "td")
-                 else f"{src_dialect} (HiveQL/Spark SQL — backtick)")
+    src_label = (
+        "SQL Server / T-SQL"
+        if _sd in ("tsql", "mssql", "sqlserver")
+        else "Teradata (aspas-duplas ANSI)"
+        if _sd in ("teradata", "td")
+        else f"{src_dialect} (HiveQL/Spark SQL — backtick)"
+    )
 
-    src, tgt = [
-        f"-- Reconciliação — LADO ORIGEM ({src_label}). Rode na fonte AINDA em BAU (baseline).",
-        "-- Base: kb/migration/concepts/reconciliation.md\n",
-    ], [
-        "-- Reconciliação — LADO DESTINO (Databricks SQL / Gold).",
-        "-- Base: kb/migration/concepts/reconciliation.md\n",
-    ]
+    src, tgt = (
+        [
+            f"-- Reconciliação — LADO ORIGEM ({src_label}). Rode na fonte AINDA em BAU (baseline).",
+            "-- Base: kb/migration/concepts/reconciliation.md\n",
+        ],
+        [
+            "-- Reconciliação — LADO DESTINO (Databricks SQL / Gold).",
+            "-- Base: kb/migration/concepts/reconciliation.md\n",
+        ],
+    )
     for t in tables:
         src += _checks_for(t, "source", float_tol, src_dialect)
         tgt += _checks_for(t, "target", float_tol, src_dialect)
@@ -174,7 +194,9 @@ def generate(spec: dict, outdir: str) -> dict:
 
     open(os.path.join(outdir, "reconcile_source.sql"), "w", encoding="utf-8").write("\n".join(src))
     open(os.path.join(outdir, "reconcile_target.sql"), "w", encoding="utf-8").write("\n".join(tgt))
-    open(os.path.join(outdir, "reconcile_report.md"), "w", encoding="utf-8").write("\n".join(report))
+    open(os.path.join(outdir, "reconcile_report.md"), "w", encoding="utf-8").write(
+        "\n".join(report)
+    )
 
     # ── GATES ──
     missing_keys = [t.get("source", "?") for t in tables if not t.get("keys")]
@@ -193,7 +215,9 @@ def main() -> int:
     with open(sys.argv[1], encoding="utf-8") as f:
         spec = json.load(f)
     rep = generate(spec, sys.argv[2])
-    print(f"tabelas: {rep['tables']} → reconcile_source.sql + reconcile_target.sql + reconcile_report.md")
+    print(
+        f"tabelas: {rep['tables']} → reconcile_source.sql + reconcile_target.sql + reconcile_report.md"
+    )
     if rep["gate_missing_keys"]:
         # keys são opcionais: sem elas só perdemos distinct-por-chave e hash-por-linha;
         # count/sum/null/min-max continuam válidos. Aviso, não falha.

@@ -26,7 +26,7 @@ description: |
 model: kimi-k2.6
 tools: [Read, Write, Grep, Glob, databricks_pricing_all, databricks_billing_all, context7_all, databricks_readonly, tavily_all, memory_mcp_all]
 mcp_servers: [databricks_pricing, databricks_billing, context7, databricks, tavily, memory_mcp]
-kb_domains: [databricks-pricing]
+kb_domains: [databricks-pricing, azure-infra-for-databricks]
 skill_domains: [databricks, finops]
 tier: T2
 

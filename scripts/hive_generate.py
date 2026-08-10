@@ -32,13 +32,19 @@ import unicodedata
 
 # ── Mapa de tipos Hive → Delta (Apache Hive Language Manual) ──────────────────
 _PRIM = {
-    "tinyint": ("TINYINT", None), "smallint": ("SMALLINT", None),
-    "int": ("INT", None), "integer": ("INT", None), "bigint": ("BIGINT", None),
+    "tinyint": ("TINYINT", None),
+    "smallint": ("SMALLINT", None),
+    "int": ("INT", None),
+    "integer": ("INT", None),
+    "bigint": ("BIGINT", None),
     "boolean": ("BOOLEAN", None),
-    "float": ("FLOAT", None),      # Hive FLOAT = 32-bit single (NÃO é 64-bit)
-    "double": ("DOUBLE", None), "double precision": ("DOUBLE", None),
-    "string": ("STRING", None), "binary": ("BINARY", None),
-    "date": ("DATE", None), "timestamp": ("TIMESTAMP", None),
+    "float": ("FLOAT", None),  # Hive FLOAT = 32-bit single (NÃO é 64-bit)
+    "double": ("DOUBLE", None),
+    "double precision": ("DOUBLE", None),
+    "string": ("STRING", None),
+    "binary": ("BINARY", None),
+    "date": ("DATE", None),
+    "timestamp": ("TIMESTAMP", None),
     "interval": ("STRING", "Hive INTERVAL — revisar (sem tipo direto)"),
 }
 
@@ -123,19 +129,23 @@ def _extract_paren_block(s: str, start: int) -> tuple[str, int]:
         elif s[i] == ")":
             depth -= 1
             if depth == 0:
-                return s[start + 1:i], i
+                return s[start + 1 : i], i
         i += 1
-    return s[start + 1:], len(s)
+    return s[start + 1 :], len(s)
 
 
 def parse_hive_ddl(text: str) -> list[dict]:
     """Extrai tabelas de um script com CREATE [EXTERNAL] TABLE do Hive."""
     tables = []
-    for m in re.finditer(r"CREATE\s+(?:EXTERNAL\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"
-                         r"`?([\w.]+)`?\s*\(", text, re.IGNORECASE):
+    for m in re.finditer(
+        r"CREATE\s+(?:EXTERNAL\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"
+        r"`?([\w.]+)`?\s*\(",
+        text,
+        re.IGNORECASE,
+    ):
         name = m.group(1)
         coldef, end = _extract_paren_block(text, m.end() - 1)
-        tail = text[end:end + 2000]  # resto do statement (partition/cluster/stored/tblproperties)
+        tail = text[end : end + 2000]  # resto do statement (partition/cluster/stored/tblproperties)
         cols = _parse_cols(coldef)
         part = re.search(r"PARTITIONED\s+BY\s*\(([^)]*)\)", tail, re.IGNORECASE)
         part_cols = []
@@ -158,17 +168,31 @@ def parse_hive_ddl(text: str) -> list[dict]:
                 mm = re.match(r"`?([A-Za-z_]\w*)`?", c.strip())
                 if mm:
                     buck_cols.append(mm.group(1))
-        tables.append({"name": name, "cols": cols + [{"name": p, "type": part_typed.get(p, "string"), "part": True}
-                                                      for p in part_cols
-                                                      if p not in {c["name"] for c in cols}],
-                       "part_cols": part_cols, "buck_cols": buck_cols})
+        tables.append(
+            {
+                "name": name,
+                "cols": cols
+                + [
+                    {"name": p, "type": part_typed.get(p, "string"), "part": True}
+                    for p in part_cols
+                    if p not in {c["name"] for c in cols}
+                ],
+                "part_cols": part_cols,
+                "buck_cols": buck_cols,
+            }
+        )
     return tables
 
 
 def generate(text: str, outdir: str) -> dict:
     os.makedirs(outdir, exist_ok=True)
     tables = parse_hive_ddl(text)
-    ddl, flags, recon, unknown = [], ["# Colunas que exigem revisão manual (Hive→Databricks)\n"], [], []
+    ddl, flags, recon, unknown = (
+        [],
+        ["# Colunas que exigem revisão manual (Hive→Databricks)\n"],
+        [],
+        [],
+    )
 
     for t in tables:
         name = t["name"]
@@ -200,22 +224,43 @@ def generate(text: str, outdir: str) -> dict:
             ct += f"\nCLUSTER BY ({', '.join(bq(c) for c in cluster)})"
         ct += ";"
         ddl.append(ct)
-        recon.append({"source": name, "target": gold, "keys": cluster[:2],
-                      "numeric_exact": num_exact, "numeric_float": num_float, "dates": dates})
+        recon.append(
+            {
+                "source": name,
+                "target": gold,
+                "keys": cluster[:2],
+                "numeric_exact": num_exact,
+                "numeric_float": num_float,
+                "dates": dates,
+            }
+        )
 
     open(os.path.join(outdir, "01_ddl_delta.sql"), "w", encoding="utf-8").write("\n\n".join(ddl))
     open(os.path.join(outdir, "02_type_flags.md"), "w", encoding="utf-8").write("\n".join(flags))
     open(os.path.join(outdir, "03_reconcile_spec.json"), "w", encoding="utf-8").write(
-        json.dumps({"float_tolerance_pct": 0.0001, "source_dialect": "hive", "tables": recon},
-                   ensure_ascii=False, indent=1)
+        json.dumps(
+            {"float_tolerance_pct": 0.0001, "source_dialect": "hive", "tables": recon},
+            ensure_ascii=False,
+            indent=1,
+        )
     )
 
     # ── GATES ──
     ddl_txt = "\n".join(ddl)
-    stripped = re.search(r"STORED AS|ROW FORMAT|TBLPROPERTIES|SERDE|LOCATION\s+'", ddl_txt, re.IGNORECASE)
-    bad_space = re.findall(r"[^`(]\b([A-Za-z_]+ [A-Za-z_]+)\b (INT|STRING|BIGINT|TIMESTAMP|DECIMAL|BOOLEAN|DOUBLE|FLOAT|DATE)", ddl_txt)
-    return {"tables": len(tables), "flags": len(flags) - 1, "unknown": unknown,
-            "gate_serde_leak": bool(stripped), "gate_unquoted": len(bad_space)}
+    stripped = re.search(
+        r"STORED AS|ROW FORMAT|TBLPROPERTIES|SERDE|LOCATION\s+'", ddl_txt, re.IGNORECASE
+    )
+    bad_space = re.findall(
+        r"[^`(]\b([A-Za-z_]+ [A-Za-z_]+)\b (INT|STRING|BIGINT|TIMESTAMP|DECIMAL|BOOLEAN|DOUBLE|FLOAT|DATE)",
+        ddl_txt,
+    )
+    return {
+        "tables": len(tables),
+        "flags": len(flags) - 1,
+        "unknown": unknown,
+        "gate_serde_leak": bool(stripped),
+        "gate_unquoted": len(bad_space),
+    }
 
 
 def main() -> int:
@@ -224,15 +269,21 @@ def main() -> int:
         return 2
     text = open(sys.argv[1], encoding="utf-8").read()
     rep = generate(text, sys.argv[2])
-    print(f"tabelas: {rep['tables']} | colunas flagadas: {rep['flags']} | tipos desconhecidos: {len(rep['unknown'])}")
-    print(f"[gate] SerDe/STORED AS/LOCATION vazando no DDL Delta: {rep['gate_serde_leak']} (deve ser False)")
+    print(
+        f"tabelas: {rep['tables']} | colunas flagadas: {rep['flags']} | tipos desconhecidos: {len(rep['unknown'])}"
+    )
+    print(
+        f"[gate] SerDe/STORED AS/LOCATION vazando no DDL Delta: {rep['gate_serde_leak']} (deve ser False)"
+    )
     print(f"[gate] identificador sem backtick: {rep['gate_unquoted']} (deve ser 0)")
     if rep["gate_serde_leak"] or rep["gate_unquoted"] or rep["unknown"]:
         if rep["unknown"]:
             print(f"[gate] tipos Hive desconhecidos: {rep['unknown']}", file=sys.stderr)
         print("FALHA nos gates — NÃO reporte 'concluído'.", file=sys.stderr)
         return 1
-    print(f"OK — artefatos em {sys.argv[2]}/ (01_ddl_delta.sql, 02_type_flags.md, 03_reconcile_spec.json)")
+    print(
+        f"OK — artefatos em {sys.argv[2]}/ (01_ddl_delta.sql, 02_type_flags.md, 03_reconcile_spec.json)"
+    )
     return 0
 
 

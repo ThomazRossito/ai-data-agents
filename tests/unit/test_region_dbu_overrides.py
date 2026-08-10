@@ -30,12 +30,20 @@ from data_agents.cost_engine.databricks import (  # noqa: E402
 _CAT = load_databricks_catalog("azure")
 
 
-def _mk(region: str, compute_type: str = "jobs_compute", tier: str = "premium",
-        photon: bool = False) -> DatabricksScenario:
+def _mk(
+    region: str, compute_type: str = "jobs_compute", tier: str = "premium", photon: bool = False
+) -> DatabricksScenario:
     return DatabricksScenario(
-        cloud="azure", compute_type=compute_type, tier=tier, photon=photon,
-        driver_instance="Standard_DS4_v2", worker_instance="Standard_DS4_v2",
-        num_workers=4, hours_per_day=8, days_per_month=22, region=region,
+        cloud="azure",
+        compute_type=compute_type,
+        tier=tier,
+        photon=photon,
+        driver_instance="Standard_DS4_v2",
+        worker_instance="Standard_DS4_v2",
+        num_workers=4,
+        hours_per_day=8,
+        days_per_month=22,
+        region=region,
         instance_pricing_model="on_demand",
         driver_instance_cost_per_hour_usd=0.526,
         worker_instance_cost_per_hour_usd=0.526,

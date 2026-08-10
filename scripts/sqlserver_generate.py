@@ -42,19 +42,35 @@ import unicodedata
 # ── Mapa de tipos SQL Server → Delta (verificado: curso 3.1 + web ago/2026) ───
 # valor: (tipo_delta, flag_revisão_manual_ou_None)
 _SIMPLE = {
-    "int": ("INT", None), "integer": ("INT", None), "bigint": ("BIGINT", None),
+    "int": ("INT", None),
+    "integer": ("INT", None),
+    "bigint": ("BIGINT", None),
     "smallint": ("SMALLINT", None),
-    "tinyint": ("SMALLINT", "TINYINT do SQL Server é 0-255 (unsigned); Databricks TINYINT é signed -128..127 → use SMALLINT"),
-    "bit": ("BOOLEAN", None), "boolean": ("BOOLEAN", None),
-    "float": ("DOUBLE", None), "real": ("FLOAT", None),
-    "money": ("DECIMAL(19,4)", None), "smallmoney": ("DECIMAL(10,4)", None),
-    "date": ("DATE", None), "datetime": ("TIMESTAMP", None), "datetime2": ("TIMESTAMP", None),
+    "tinyint": (
+        "SMALLINT",
+        "TINYINT do SQL Server é 0-255 (unsigned); Databricks TINYINT é signed -128..127 → use SMALLINT",
+    ),
+    "bit": ("BOOLEAN", None),
+    "boolean": ("BOOLEAN", None),
+    "float": ("DOUBLE", None),
+    "real": ("FLOAT", None),
+    "money": ("DECIMAL(19,4)", None),
+    "smallmoney": ("DECIMAL(10,4)", None),
+    "date": ("DATE", None),
+    "datetime": ("TIMESTAMP", None),
+    "datetime2": ("TIMESTAMP", None),
     "smalldatetime": ("TIMESTAMP", None),
     "datetimeoffset": ("STRING", "sem tz-aware nativo — STRING ou TIMESTAMP + coluna de offset"),
     "time": ("STRING", "sem TIME nativo — STRING 'HH:MM:SS'"),
-    "char": ("STRING", None), "nchar": ("STRING", None), "varchar": ("STRING", None),
-    "nvarchar": ("STRING", None), "text": ("STRING", "deprecated"), "ntext": ("STRING", "deprecated"),
-    "binary": ("BINARY", None), "varbinary": ("BINARY", None), "image": ("BINARY", "deprecated"),
+    "char": ("STRING", None),
+    "nchar": ("STRING", None),
+    "varchar": ("STRING", None),
+    "nvarchar": ("STRING", None),
+    "text": ("STRING", "deprecated"),
+    "ntext": ("STRING", "deprecated"),
+    "binary": ("BINARY", None),
+    "varbinary": ("BINARY", None),
+    "image": ("BINARY", "deprecated"),
     "uniqueidentifier": ("STRING", "GUID → STRING(36); novos valores via uuid()"),
     "xml": ("STRING", "parse via XPath / funções JSON"),
     "hierarchyid": ("STRING", "reimplementar hierarquia com recursive CTE"),
@@ -126,7 +142,17 @@ def generate(schema: dict, outdir: str) -> dict:
             # classificar p/ reconciliação
             base = re.match(r"([a-z_]+)", ctype.lower())
             base = base.group(1) if base else ""
-            if base in ("int", "integer", "bigint", "smallint", "tinyint", "decimal", "numeric", "money", "smallmoney"):
+            if base in (
+                "int",
+                "integer",
+                "bigint",
+                "smallint",
+                "tinyint",
+                "decimal",
+                "numeric",
+                "money",
+                "smallmoney",
+            ):
                 num_exact.append(norm(cn))
             elif base in ("float", "real"):
                 num_float.append(norm(cn))
@@ -137,26 +163,46 @@ def generate(schema: dict, outdir: str) -> dict:
             ct += f",\n  CONSTRAINT {bq('pk_' + norm(name))} PRIMARY KEY ({', '.join(bq(norm(k)) for k in pk)}) RELY"
         ct += "\n) USING DELTA;"
         ddl.append(ct)
-        recon_tables.append({
-            "source": f"{sch}.{name}", "target": gold(sch, name),
-            "keys": [norm(k) for k in pk],
-            "numeric_exact": num_exact, "numeric_float": num_float, "dates": dates,
-        })
+        recon_tables.append(
+            {
+                "source": f"{sch}.{name}",
+                "target": gold(sch, name),
+                "keys": [norm(k) for k in pk],
+                "numeric_exact": num_exact,
+                "numeric_float": num_float,
+                "dates": dates,
+            }
+        )
 
-    open(os.path.join(outdir, "01_ddl_databricks.sql"), "w", encoding="utf-8").write("\n\n".join(ddl))
+    open(os.path.join(outdir, "01_ddl_databricks.sql"), "w", encoding="utf-8").write(
+        "\n\n".join(ddl)
+    )
     open(os.path.join(outdir, "02_type_flags.md"), "w", encoding="utf-8").write("\n".join(flags))
     open(os.path.join(outdir, "03_reconcile_spec.json"), "w", encoding="utf-8").write(
-        json.dumps({"float_tolerance_pct": 0.0001, "source_dialect": "mssql", "tables": recon_tables},
-                   ensure_ascii=False, indent=1)
+        json.dumps(
+            {"float_tolerance_pct": 0.0001, "source_dialect": "mssql", "tables": recon_tables},
+            ensure_ascii=False,
+            indent=1,
+        )
     )
 
     # ── GATES ──
-    no_pk = [f"{t['source']}" for t, rt in zip(schema.get("tables", []), recon_tables) if not rt["keys"]]
+    no_pk = [
+        f"{t['source']}" for t, rt in zip(schema.get("tables", []), recon_tables) if not rt["keys"]
+    ]
     # gate anti-drift: toda coluna com espaço no DDL tem de estar em backtick (nunca deve falhar aqui)
     ddl_txt = "\n".join(ddl)
-    bad = re.findall(r"[^`\w]([A-Za-z_]+ [A-Za-z_]+) (INT|STRING|BIGINT|TIMESTAMP|DECIMAL|BOOLEAN|DOUBLE|DATE)", ddl_txt)
-    return {"tables": len(ddl), "flags": len(flags) - 1, "unknown_types": unknown,
-            "no_pk": no_pk, "gate_unquoted": len(bad)}
+    bad = re.findall(
+        r"[^`\w]([A-Za-z_]+ [A-Za-z_]+) (INT|STRING|BIGINT|TIMESTAMP|DECIMAL|BOOLEAN|DOUBLE|DATE)",
+        ddl_txt,
+    )
+    return {
+        "tables": len(ddl),
+        "flags": len(flags) - 1,
+        "unknown_types": unknown,
+        "no_pk": no_pk,
+        "gate_unquoted": len(bad),
+    }
 
 
 def main() -> int:
@@ -166,16 +212,26 @@ def main() -> int:
     with open(sys.argv[1], encoding="utf-8") as f:
         schema = json.load(f)
     rep = generate(schema, sys.argv[2])
-    print(f"tabelas: {rep['tables']} | colunas flagadas (revisão): {rep['flags']} | tipos desconhecidos: {len(rep['unknown_types'])}")
+    print(
+        f"tabelas: {rep['tables']} | colunas flagadas (revisão): {rep['flags']} | tipos desconhecidos: {len(rep['unknown_types'])}"
+    )
     print(f"[gate] identificador sem backtick no DDL: {rep['gate_unquoted']} (deve ser 0)")
     if rep["no_pk"]:
-        print(f"[aviso] tabelas SEM primary key (reconciliação por chave limitada): {rep['no_pk']}", file=sys.stderr)
+        print(
+            f"[aviso] tabelas SEM primary key (reconciliação por chave limitada): {rep['no_pk']}",
+            file=sys.stderr,
+        )
     if rep["gate_unquoted"] or rep["unknown_types"]:
         if rep["unknown_types"]:
-            print(f"[gate] tipos desconhecidos (revisar o mapa): {rep['unknown_types']}", file=sys.stderr)
+            print(
+                f"[gate] tipos desconhecidos (revisar o mapa): {rep['unknown_types']}",
+                file=sys.stderr,
+            )
         print("FALHA nos gates — NÃO reporte 'concluído'.", file=sys.stderr)
         return 1
-    print(f"OK — artefatos em {sys.argv[2]}/ (01_ddl_databricks.sql, 02_type_flags.md, 03_reconcile_spec.json)")
+    print(
+        f"OK — artefatos em {sys.argv[2]}/ (01_ddl_databricks.sql, 02_type_flags.md, 03_reconcile_spec.json)"
+    )
     return 0
 
 
