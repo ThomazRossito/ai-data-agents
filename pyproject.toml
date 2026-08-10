@@ -196,6 +196,13 @@ extend-exclude = [
     "plugins/",  # Generated view (build_plugin.sh) — espelha skills/, mesma exclusão se aplica
 ]
 
+[tool.ruff.lint]
+# Seleção explícita = default do ruff (E/F). O pyproject NUNCA teve select
+# (verificado no histórico git); regras I/SIM jamais foram enforce — há ~200
+# violações SIM117/I001 pré-existentes em tests/. Tornar explícito elimina a
+# divergência local×CI (versões distintas do ruff aplicavam defaults diferentes).
+select = ["E4", "E7", "E9", "F"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
