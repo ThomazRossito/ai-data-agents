@@ -153,6 +153,20 @@ class Settings(BaseSettings):
     # Gratuito (open source oficial da Anthropic)
     postgres_url: str = ""  # vazio = MCP postgres não será ativado
 
+    # --- Azure DevOps (MCP oficial Microsoft — Repos, Pipelines, Boards, Wiki, Test Plans) ---
+    # Nome da organização Azure DevOps (ex.: "contoso" em https://dev.azure.com/contoso).
+    # Obrigatório para ativar o MCP.
+    azure_devops_org: str = ""
+    # Personal Access Token (PAT) CRU (sem base64) do Azure DevOps.
+    # Como obter: Azure DevOps → ícone de usuário (canto superior direito) →
+    # "Personal access tokens" → "+ New Token".
+    # Escopos mínimos recomendados: Code (Read & Write), Build (Read & Execute),
+    # Work Items (Read & Write), Project and Team (Read), Test Management (Read & Write).
+    # A codificação base64 exigida pelo servidor MCP (formato "<email>:<pat>") é feita
+    # automaticamente por mcp_servers/azure_devops/server_config.py — não codifique aqui.
+    # Gratuito (Azure DevOps free tier: 5 usuários, repos/pipelines ilimitados p/ projetos privados pequenos).
+    azure_devops_token: str = ""
+
     # --- Migration Source (MCP Customizado — fontes de migração relacionais) ---
     # Registry de bancos de origem para migração (JSON). Suporta SQL Server e PostgreSQL.
     # Formato: {"NOME": {"type": "sqlserver|postgresql", "host": "...", "port": ..., "database": "...", "user": "...", "password": "..."}}
@@ -752,6 +766,14 @@ class Settings(BaseSettings):
                 "fields": {"POSTGRES_URL": self.postgres_url},
                 "required": ["POSTGRES_URL"],
             },
+            # Azure DevOps: MCP oficial Microsoft — requer org + PAT
+            "azure_devops": {
+                "fields": {
+                    "AZURE_DEVOPS_ORG": self.azure_devops_org,
+                    "AZURE_DEVOPS_TOKEN": self.azure_devops_token,
+                },
+                "required": ["AZURE_DEVOPS_ORG", "AZURE_DEVOPS_TOKEN"],
+            },
             # Migration Source: requer registry com ao menos uma fonte configurada
             "migration_source": {
                 "fields": {
@@ -849,6 +871,7 @@ class Settings(BaseSettings):
             "github",
             "firecrawl",
             "postgres",
+            "azure_devops",
         ]
         for mcp in external_mcps:
             info = status[mcp]

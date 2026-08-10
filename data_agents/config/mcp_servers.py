@@ -18,6 +18,7 @@ Para adicionar uma nova plataforma:
 
 import logging
 
+from data_agents.mcp_servers.azure_devops.server_config import get_azure_devops_mcp_config
 from data_agents.mcp_servers.azure_pricing.server_config import get_azure_pricing_mcp_config
 from data_agents.mcp_servers.context7.server_config import get_context7_mcp_config
 from data_agents.mcp_servers.databricks.server_config import get_databricks_mcp_config
@@ -118,6 +119,11 @@ ALL_MCP_CONFIGS: dict = {
     # Extrai DDL, views, procedures, functions e stats para assessment e planejamento de migração.
     # Requer MIGRATION_SOURCES no .env com registry JSON das fontes.
     "migration_source": get_migration_source_mcp_config,
+    # azure_devops: MCP oficial da Microsoft (npx @azure-devops/mcp) para Repos, Pipelines,
+    # Boards (work items), Wiki, Test Plans, Artifacts e Advanced Security.
+    # Requer AZURE_DEVOPS_ORG + AZURE_DEVOPS_TOKEN (PAT) no .env — NÃO faz parte de
+    # ALWAYS_ACTIVE_MCPS (requer credenciais reais do Azure DevOps do usuário).
+    "azure_devops": get_azure_devops_mcp_config,
     # fabric_ontology: MCP customizado para CRUD completo no Fabric IQ Ontology.
     # Entity types, relationship types, data bindings, contextualizations.
     # Auth via Azure CLI (az login) — sem credenciais extras no .env.

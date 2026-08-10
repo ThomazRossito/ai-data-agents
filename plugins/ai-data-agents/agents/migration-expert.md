@@ -6,6 +6,16 @@ description: |
   de arquitetura Medallion pós-migração, reconciliação origem-destino. Invoque quando:
   cliente quer migrar SQL Server ou PostgreSQL para Databricks ou Microsoft Fabric.
 
+  Reconhece também **Teradata Vantage/DBC** como origem — mas a migração completa de um data
+  warehouse Teradata (schema+SQL/BTEQ+ingestão+CDC+TASM+cutover) é escalada imediatamente para o
+  especialista dedicado `teradata-to-databricks` (mesmo padrão de escalação já aplicado a SQL Server
+  completo → `sqlserver-to-databricks` e pacotes SSIS → `ssis-to-databricks`). **Regra
+  anti-contaminação Snowflake:** se a origem for Teradata, NUNCA trate `VARIANT`/`OBJECT` (como tipo
+  de coluna), `ARRAY_AGG`/`OBJECT_AGG`/`IFF`/`EQUAL_NULL`/`LATERAL FLATTEN`/`METADATA$*`/
+  `RUNTIME_VERSION`/`HANDLER=` como sintaxe Teradata genuína — são Snowflake (ver
+  `audits/2026-08-02-curso-teradata-migration-vs-ai-data-agents.md` §2); se esses tokens aparecerem
+  numa fonte alegada como Teradata, sinalize que a fonte pode não ser genuína antes de escalar.
+
   Example 1:
   - Context: User wants assessment + migration plan from SQL Server to Databricks
   - user: "Quero migrar meu SQL Server (200 tabelas, OLTP) para Databricks"
@@ -39,6 +49,8 @@ stop_conditions:
   - "Destino não especificado (Databricks ou Fabric) — PARAR e perguntar antes de gerar DDL"
   - "Tarefa envolve Modelos Semânticos, DAX ou Direct Lake pós-migração — escalar para fabric-engineer"
   - "Tarefa envolve pacotes SSIS/.dtsx (ETL Integration Services), não schema de banco — escalar para ssis-to-databricks"
+  - "Origem é SQL Server E destino é Databricks E o escopo é a migração completa do banco (schema+dados+T-SQL+CDC+reconciliação+cutover, curso oficial) — escalar para sqlserver-to-databricks"
+  - "Origem é Teradata Vantage/DBC (BTEQ/TPT/FastLoad/MultiLoad/TASM) — escalar para teradata-to-databricks (agente especializado e mais profundo, com gerador determinístico e gate anti-contaminação Snowflake)"
 
 # escalation_rules — consumido pelo Supervisor em Step 3.5.
 escalation_rules:
@@ -60,6 +72,12 @@ escalation_rules:
   - trigger: "Pacotes SSIS / .dtsx (ETL Integration Services), não schema de banco"
     target: "ssis-to-databricks"
     reason: "ssis-to-databricks é o dono da conversão de pacotes SSIS (Control Flow/Data Flow) para Databricks"
+  - trigger: "Origem SQL Server + destino Databricks + migração completa do banco (schema+dados+T-SQL+CDC+cutover)"
+    target: "sqlserver-to-databricks"
+    reason: "sqlserver-to-databricks é o especialista mais profundo para o par SQL Server→Databricks: discovery via DMVs, Complexity Scoring/waves, geradores determinísticos (DDL + reconciliação) e runbook de cutover alinhados ao curso oficial"
+  - trigger: "Origem é Teradata Vantage/DBC (BTEQ/TPT/FastLoad/MultiLoad/TASM)"
+    target: "teradata-to-databricks"
+    reason: "teradata-to-databricks é o especialista mais profundo para o par Teradata→Databricks: discovery via dicionário DBC.*, gerador determinístico com gate anti-contaminação Snowflake, e runbook de cutover alinhados ao curso oficial"
 ---
 
 # Migration Expert
@@ -235,6 +253,7 @@ Para reconciliação complexa, delegar ao `data-quality-steward`.
 | Validação estatística pós-migração | `data-quality-steward` |
 | Queries complexas para Silver/Gold (Databricks) | `databricks-engineer` |
 | Jobs PySpark de ingestão | `databricks-engineer` |
+| Origem é Teradata Vantage/DBC (migração completa do data warehouse) | `teradata-to-databricks` |
 
 ---
 

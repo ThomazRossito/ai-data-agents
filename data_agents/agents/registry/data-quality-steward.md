@@ -25,7 +25,7 @@ description: |
 model: kimi-k2.6
 tools: [Read, Grep, Glob, Write, databricks_readonly, mcp__databricks__execute_sql, fabric_readonly, fabric_official_readonly, fabric_rti_readonly, mcp__fabric_rti__kusto_query, postgres_all]
 mcp_servers: [databricks, fabric, fabric_community, fabric_official, fabric_rti, postgres]
-kb_domains: [data-quality, databricks, fabric, industry]
+kb_domains: [data-quality, databricks, fabric, migration, industry]
 skill_domains: [databricks, fabric, patterns]
 tier: T2
 output_budget: "80-250 linhas"

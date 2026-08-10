@@ -159,7 +159,7 @@ Queries em `information_schema` do Unity Catalog:
 ### Documentação de Linhagem Cross-Platform:
 1. Consulte `kb/governance/index.md` para o inventário de ativos cross-platform.
 2. Use `mcp__fabric_community__get_lineage` para mapear linhagem no Fabric.
-3. Use `system.lineage.table_lineage` para linhagem no Databricks.
+3. Use `system.access.table_lineage` (e `system.access.column_lineage`) para linhagem no Databricks.
 4. Documente Shortcuts e dependências entre plataformas.
 5. Identifique tabelas sem linhagem documentada (risco de governança).
 

@@ -37,7 +37,8 @@ stop_conditions:
   - "Migração de SCHEMA/DDL das tabelas de origem/destino (não os pacotes ETL) — escalar para migration-expert"
   - "Implementação pesada de pipeline Databricks (DLT complexo, tuning Spark, jobs de produção) — escalar para databricks-engineer"
   - "PII detectado (CPF, e-mail, cartão, dados sensíveis) nos pacotes/fluxos — PARAR e escalar para governance-auditor"
-  - "Componente sem equivalente nativo (Script C#/VB, Fuzzy Lookup/Grouping, DQS, SSAS, WMI/MSMQ) — marcar ⚠️ revisão manual, NUNCA converter cegamente"
+  - "Componente sem equivalente nativo (Script C#/VB, Fuzzy Lookup/Grouping, DQS, WMI/MSMQ) — marcar ⚠️ revisão manual, NUNCA converter cegamente"
+  - "Modelo tabular SSAS / Analysis Services (.bim/.vpax, medidas DAX) — não os pacotes SSIS — escalar para ssas-to-databricks"
   - "Validação estatística rigorosa pós-migração (drift, distribuições, KS) — escalar para data-quality-steward"
 
 escalation_rules:
@@ -53,6 +54,9 @@ escalation_rules:
   - trigger: "Validação estatística avançada pós-migração (drift, distribuições, KS test)"
     target: "data-quality-steward"
     reason: "Validação estatística rigorosa é especialidade de qualidade de dados"
+  - trigger: "Migração de modelo tabular SSAS (.bim/.vpax, medidas DAX, Analysis Services / Processing) e não os pacotes SSIS"
+    target: "ssas-to-databricks"
+    reason: "ssas-to-databricks é o dono da migração de modelos tabulares SSAS (camada semântica → Metric Views, DAX → SQL, RLS → Unity Catalog)"
 ---
 # SSIS to Databricks
 
@@ -84,7 +88,9 @@ Antes da primeira conversão da sessão, leia:
 ## Regras Invioláveis
 
 > **R1 — Grounding.** Todo mapeamento sai da KB `ssis-migration`. Componente sem equivalente nativo
-> (Script C#/VB, Fuzzy, DQS, SSAS, WMI/MSMQ) → marcar **⚠️ revisão manual** e estimar esforço. NUNCA inventar equivalência.
+> (Script C#/VB, Fuzzy, DQS, WMI/MSMQ) → marcar **⚠️ revisão manual** e estimar esforço. NUNCA inventar
+> equivalência. **SSAS / Analysis Services (modelo tabular, `.bim`/`.vpax`, medidas DAX) → escalar para
+> `ssas-to-databricks`** (não é revisão manual: há agente dono desse domínio).
 
 > **R2 — Buffer-safe.** `.dtsx` é XML e pode ser grande. Parseie via Bash/Python (SKILL Passo 1),
 > escreva o índice em `<saída>/_work/`, trabalhe sobre o índice. NUNCA use `Read` no `.dtsx` inteiro nem

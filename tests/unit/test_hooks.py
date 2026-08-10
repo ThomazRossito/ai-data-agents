@@ -548,3 +548,71 @@ class TestResetSessionCounters:
         _session_counters.clear()
         reset_session_counters()  # Não deve levantar exceção
         assert len(_session_counters) == 0
+
+
+class TestMigrationGateHook:
+    """Testes do enforce_migration_gate — gate S0.6(A) de aprovação de migração."""
+
+    @staticmethod
+    def _reset():
+        from data_agents.hooks.migration_gate_hook import reset_migration_gate
+
+        reset_migration_gate()
+
+    @staticmethod
+    def _agent(name):
+        return {"tool_name": "Agent", "tool_input": {"subagent_type": name}}
+
+    @pytest.mark.asyncio
+    async def test_allows_first_migration_delegation(self):
+        from data_agents.hooks.migration_gate_hook import enforce_migration_gate
+
+        self._reset()
+        result = await enforce_migration_gate(self._agent("ssas-to-databricks"), "a1", None)
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_blocks_second_migration_delegation_same_turn(self):
+        from data_agents.hooks.migration_gate_hook import enforce_migration_gate
+
+        self._reset()
+        inp = self._agent("ssas-to-databricks")
+        await enforce_migration_gate(inp, "a1", None)  # 1ª (SPEC)
+        result = await enforce_migration_gate(inp, "a2", None)  # 2ª (GENERATE) → deny
+        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+        assert "S0.6(A)" in result["hookSpecificOutput"]["permissionDecisionReason"]
+
+    @pytest.mark.asyncio
+    async def test_reset_allows_generate_next_turn(self):
+        from data_agents.hooks.migration_gate_hook import (
+            enforce_migration_gate,
+            reset_migration_gate,
+        )
+
+        reset_migration_gate()
+        inp = self._agent("migration-expert")
+        await enforce_migration_gate(inp, "a1", None)  # turno 1: SPEC
+        reset_migration_gate()  # novo turno do usuário (aprovou)
+        result = await enforce_migration_gate(inp, "a2", None)  # turno 2: GENERATE → allow
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_ignores_non_migration_agents(self):
+        from data_agents.hooks.migration_gate_hook import enforce_migration_gate
+
+        self._reset()
+        eng = self._agent("databricks-engineer")
+        assert await enforce_migration_gate(eng, "a1", None) == {}
+        assert await enforce_migration_gate(eng, "a2", None) == {}
+        # não consomem o orçamento do gate: uma migração ainda é permitida
+        assert await enforce_migration_gate(self._agent("ssis-to-databricks"), "a3", None) == {}
+
+    @pytest.mark.asyncio
+    async def test_ignores_non_agent_tools(self):
+        from data_agents.hooks.migration_gate_hook import enforce_migration_gate
+
+        self._reset()
+        result = await enforce_migration_gate(
+            {"tool_name": "Bash", "tool_input": {"command": "ls"}}, "b1", None
+        )
+        assert result == {}

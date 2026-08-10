@@ -220,8 +220,77 @@ def load_databricks_catalog(cloud: CloudName) -> dict[str, Any]:
     return catalog
 
 
+def _apply_region_override(
+    catalog: dict[str, Any], scenario: DatabricksScenario, base_rate: float
+) -> float:
+    """Aplica override de DBU rate específico da região, se existir.
+
+    No Azure o DBU rate varia por região (APAC ~20-50% acima do US reference).
+    Este helper consulta `region_dbu_rate_overrides[region][compute_type]` e
+    navega a mesma sub-estrutura que `_resolve_dbu_rate` usa (tier/photon,
+    base_per_dbu, classic/pro/serverless, cpu_per_dbu, core/pro/advanced).
+
+    Se não houver override para a combinação, retorna `base_rate` inalterado —
+    garantindo que regiões sem override (ex: brazilsouth) permaneçam idênticas
+    e o smoke test canônico ($726.88) seja preservado.
+    """
+    overrides = catalog.get("region_dbu_rate_overrides")
+    if not overrides:
+        return base_rate
+    region_block = overrides.get(scenario.region)
+    if not region_block:
+        return base_rate
+    compute_override = region_block.get(scenario.compute_type)
+    if compute_override is None:
+        return base_rate
+
+    ct = scenario.compute_type
+    try:
+        if ct in (
+            "serverless_compute",
+            "jobs_serverless",
+            "dlt_serverless",
+            "all_purpose_serverless",
+        ):
+            return float(compute_override["base_per_dbu"])
+        if ct == "delta_live_tables":
+            dlt_tier = scenario.tier if scenario.tier in compute_override else "pro"
+            return float(compute_override[dlt_tier])
+        if ct == "sql":
+            sql_tier = scenario.tier if scenario.tier in compute_override else "pro"
+            return float(compute_override[sql_tier])
+        if ct == "model_serving":
+            return float(compute_override["cpu_per_dbu"])
+        if ct == "vector_search":
+            return float(compute_override["storage_endpoint_per_hour"])
+        if ct == "mosaic_agent":
+            return float(compute_override["serverless_per_dbu"])
+        # all_purpose_compute e jobs_compute: tier + photon
+        tier_data = compute_override.get(scenario.tier)
+        if tier_data is None:
+            return base_rate
+        photon_key = "photon" if scenario.photon else "no_photon"
+        if photon_key not in tier_data:
+            return base_rate
+        return float(tier_data[photon_key])
+    except (KeyError, TypeError, ValueError):
+        # Override malformado — nunca quebrar; usa base_rate.
+        return base_rate
+
+
 def _resolve_dbu_rate(catalog: dict[str, Any], scenario: DatabricksScenario) -> float:
-    """Resolve DBU rate (USD/DBU·hora) do catalog para o cenário."""
+    """Resolve DBU rate (USD/DBU·hora) do catalog para o cenário.
+
+    Region-aware: resolve o rate base e aplica override regional se existir
+    (ver `_apply_region_override`). Regiões sem override usam o rate base —
+    o smoke test canônico brazilsouth ($726.88) permanece inalterado.
+    """
+    base_rate = _resolve_base_dbu_rate(catalog, scenario)
+    return _apply_region_override(catalog, scenario, base_rate)
+
+
+def _resolve_base_dbu_rate(catalog: dict[str, Any], scenario: DatabricksScenario) -> float:
+    """Resolve o DBU rate base (US/global reference), sem ajuste regional."""
     rates = catalog["dbu_rates_per_hour"]
     compute = rates.get(scenario.compute_type)
     if compute is None:

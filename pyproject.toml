@@ -27,7 +27,10 @@ dependencies = [
 
     # Databricks Enterprise & MLOps
     "databricks-sdk>=0.20.0",
-    "mlflow>=2.11.0",
+    # mlflow>=3.11: corrige ~24 advisories server-side (o projeto usa mlflow só
+    # como cliente de tracking; ainda assim subir p/ versão corrigida é o certo).
+    "mlflow>=3.11.0",
+    "pyarrow>=23.0.1",  # PYSEC-2026-113 (Arrow C++ UAF; não exposto no binding Py)
 
     # Microsoft Fabric & Identity
     "azure-identity>=1.15.0",
@@ -74,6 +77,12 @@ dependencies = [
     # já aceitam starlette 1.x (verificado via pip install --dry-run em 2026-05-26).
     # Sem esse pin, pip resolveria pra versões transitivas antigas (ex: 0.50.0).
     "starlette>=1.0.1",
+
+    # Cryptography: NÃO pinar >=50 — a cadeia do mlflow (databricks-sdk) exige
+    # cryptography<50; pinar >=50 conflita e quebra a instalação. O único advisory
+    # no floor <50 é PYSEC-2026-3552 (oráculo PKCS7 decrypt), NÃO-aplicável (o projeto
+    # não decripta EnvelopedData de terceiros) — ignorado com justificativa no ci.yml.
+    # Revisar quando o mlflow aceitar cryptography>=50.
 ]
 
 [project.optional-dependencies]
@@ -82,7 +91,11 @@ dev = [
     "pytest-asyncio>=0.23",
     "pytest-cov>=5.0",
     "pytest-testmon>=2.0",
-    "ruff>=0.4",
+    # Ruff PINADO (não use range flutuante): o formatter do ruff muda de estilo
+    # entre versões e o 0.16+ passou a formatar blocos de código em Markdown por
+    # padrão — o que tornava o CI (que pegava o latest via >=0.4) divergente do
+    # local. Pin exato = local == CI determinístico. Bump consciente quando quiser.
+    "ruff==0.15.22",
     "mypy>=1.10",
     "bandit>=1.7",
     "types-PyYAML>=6.0",
@@ -190,6 +203,13 @@ extend-exclude = [
     "inputs/",   # External repos vendored for integration — not project code
     "plugins/",  # Generated view (build_plugin.sh) — espelha skills/, mesma exclusão se aplica
 ]
+
+[tool.ruff.lint]
+# Seleção explícita = default do ruff (E/F). O pyproject NUNCA teve select
+# (verificado no histórico git); regras I/SIM jamais foram enforce — há ~200
+# violações SIM117/I001 pré-existentes em tests/. Tornar explícito elimina a
+# divergência local×CI (versões distintas do ruff aplicavam defaults diferentes).
+select = ["E4", "E7", "E9", "F"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -1,6 +1,6 @@
 ---
 domain: databricks
-updated_at: 2026-05-22
+updated_at: 2026-08-02
 agents: [data-contracts-engineer, data-mesh-architect, data-quality-steward, databricks-ai, databricks-engineer, governance-auditor, migration-expert]
 mcp_validated: "2026-04-15"
 ---
@@ -23,6 +23,7 @@ mcp_validated: "2026-04-15"
 | `concepts/jobs-concepts.md`          | Jobs multi-task, Workflows, dependências e retry policies             |
 | `concepts/bundles-concepts.md`       | DABs: estrutura, targets, variáveis, engine nativo                   |
 | `concepts/ai-ml-concepts.md`         | MLflow, Model Serving, Vector Search, AI Functions — conceitos       |
+| `concepts/lakehouse-federation.md`   | Federation SQL Server: Connection+Foreign Catalog, matriz de pushdown, perfilamento e validação de schema sem extração; + Hive Metastore Federation (Hadoop): `CREATE CONNECTION TYPE hive_metastore`, read-only vs writeable, HDFS on-prem não suportado; + Teradata Federation & Interop: `CREATE CONNECTION TYPE teradata` (TD2 auth, DBR 16.1+/SQL Warehouse 2024.50+, verificado ao vivo), TMODE ANSI vs TERA case-sensitivity, Iceberg/UniForm via `CREATE DATALAKE` (feature de nicho, direção inversa) |
 
 ### Padrões (`patterns/`)
 

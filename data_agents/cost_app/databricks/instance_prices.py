@@ -121,6 +121,41 @@ _AZURE_PRICES_USD_HOUR: dict[str, dict[str, float]] = {
         "Standard_NC12s_v3": 6.546,
         "Standard_NC24s_v3": 13.092,
     },
+    # Southeast Asia (Singapore) — ESTIMATE = eastus × 1.12 (SEA ~12% premium vs
+    # US East). These are multiplier-derived, consistent with the brazilsouth /
+    # westeurope methodology above. For a real commit, enable real-mode
+    # (DATABRICKS_INSTANCE_PRICES_MODE=real) — instance_prices_real.py queries the
+    # Azure Retail Prices API directly. NOTE: DBU rates for southeastasia are
+    # already EXACT (region_dbu_rate_overrides in azure.yaml, Retail-API-verified);
+    # only these VM prices carry the ±estimate.
+    "southeastasia": {
+        "Standard_DS3_v2": 0.256,
+        "Standard_DS4_v2": 0.513,
+        "Standard_DS5_v2": 1.026,
+        "Standard_DS12_v2": 0.416,
+        "Standard_DS13_v2": 0.830,
+        "Standard_DS14_v2": 1.660,
+        "Standard_DS15_v2": 2.075,
+        "Standard_E4ds_v4": 0.282,
+        "Standard_E8ds_v4": 0.564,
+        "Standard_E16ds_v4": 1.129,
+        "Standard_E32ds_v4": 2.258,
+        "Standard_E64ds_v4": 4.516,
+        "Standard_F4s_v2": 0.189,
+        "Standard_F8s_v2": 0.379,
+        "Standard_F16s_v2": 0.758,
+        "Standard_F32s_v2": 1.516,
+        "Standard_F64s_v2": 3.032,
+        "Standard_F72s_v2": 3.410,
+        "Standard_L8s_v2": 0.780,
+        "Standard_L16s_v2": 1.559,
+        "Standard_L32s_v2": 3.118,
+        "Standard_L64s_v2": 6.236,
+        "Standard_L80s_v2": 7.795,
+        "Standard_NC6s_v3": 3.427,
+        "Standard_NC12s_v3": 6.854,
+        "Standard_NC24s_v3": 13.709,
+    },
 }
 
 # ─── AWS EC2 On-Demand estimados ────────────────────────────────────────────

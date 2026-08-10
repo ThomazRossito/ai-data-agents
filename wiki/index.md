@@ -1,12 +1,16 @@
 # AI Data Agents — Índice Central
 
-Sistema multi-agente construído sobre o Claude Agent SDK da Anthropic.
-Orquestra 14 agentes especialistas em Engenharia, Qualidade, Governança, Análise de Dados, Streaming, FinOps e Web Semântica.
+Sistema multi-agente construído sobre o Claude Agent SDK da Anthropic (modelo Moonshot Kimi K2.6).
+Orquestra 22 agentes especialistas em Engenharia, Qualidade, Governança, Análise de Dados, Streaming, FinOps e Web Semântica.
 
 ---
 
 ## Regras e Governança
 
+- [[supervisor]] — 🧭 Mapa do Orquestrador (hub navegável dos 22 agentes)
+- [[Dashboard]] — 📊 Painéis vivos (Dataview): agentes, skills, KB
+- [[kb-map]] — 📚 Mapa dos 24 domínios de KB
+- [[migracao]] — 🔀 Migração → Databricks (agentes + geradores)
 - [[constitution]] — Regras invioláveis de todos os agentes
 - [[collaboration-workflows]] — Workflows colaborativos WF-01 a WF-05
 - [[task_routing]] — Mapa de delegação e roteamento de tarefas
@@ -15,27 +19,40 @@ Orquestra 14 agentes especialistas em Engenharia, Qualidade, Governança, Análi
 
 ## Agentes
 
+> Mapa completo e navegável em [[supervisor]]. Links apontam para o registry real
+> (`data_agents/agents/registry/`) para desambiguar do espelho em `plugins/`.
+
 ### Tier 1 — Engineering Core
-- [[databricks-engineer]] — SQL (Unity Catalog/Spark SQL), PySpark, LakeFlow/DLT, CDC, Jobs, diagnóstico Spark, Genie, AI/BI Dashboards
-- [[databricks-ai]] — RAG, Vector Search, embeddings, LLMOps, AI Functions, Kafka, Flink, Spark Structured Streaming
-- [[fabric-engineer]] — Fabric completo: Medallion, Data Factory, Star Schema, Semantic Models, DAX, Catalog, FinOps
-- [[migration-expert]] — Migração SQL Server/PostgreSQL → Databricks/Fabric
-- [[python-expert]] — Python puro: pacotes, APIs, CLIs, testes
+- [[data_agents/agents/registry/databricks-engineer|databricks-engineer]] — SQL/PySpark/Delta, LakeFlow/DLT, CDC, Jobs, diagnóstico Spark, Genie, AI/BI
+- [[data_agents/agents/registry/databricks-ai|databricks-ai]] — RAG, Vector Search, LLMOps, AI Functions, Kafka/Flink/Structured Streaming
+- [[data_agents/agents/registry/fabric-engineer|fabric-engineer]] — Fabric: Medallion, Data Factory, Star Schema, Semantic Models/DAX, FinOps
+- [[data_agents/agents/registry/python-expert|python-expert]] — Python puro: pacotes, APIs, CLIs, testes
+- [[data_agents/agents/registry/migration-expert|migration-expert]] — schema/DDL SQL Server/PostgreSQL → Databricks/Fabric
+
+**Migração dedicada → Databricks:**
+- [[data_agents/agents/registry/sqlserver-to-databricks|sqlserver-to-databricks]] — banco SQL Server completo → Databricks
+- [[data_agents/agents/registry/ssis-to-databricks|ssis-to-databricks]] — pacotes SSIS (.dtsx) → Databricks
+- [[data_agents/agents/registry/ssas-to-databricks|ssas-to-databricks]] — modelos SSAS (.bim/.vpax) + DAX
+- [[data_agents/agents/registry/hadoop-to-databricks|hadoop-to-databricks]] — Hadoop (HDFS/Hive/Sqoop/Oozie/Ranger)
+- [[data_agents/agents/registry/teradata-to-databricks|teradata-to-databricks]] — Teradata (DBC/BTEQ/TPT/PPI/TASM)
 
 ### Tier 2 — Especializados
-- [[dbt-expert]] — dbt Core: models, testes, snapshots
-- [[data-quality-steward]] — Validação, profiling, SLA cross-platform
-- [[governance-auditor]] — Auditoria, LGPD, linhagem, RLS/OLS
-- [[data-contracts-engineer]] — ODCS, SLA contratual, breaking changes
-- [[data-mesh-architect]] — Data Mesh, Data Products, governança federada
-- [[fabric-rti]] — Fabric Real-Time Intelligence: Eventhouse, KQL, Eventstream, Activator
-- [[fabric-ontology]] — OWL 2, RDF, SPARQL, Fabric IQ Ontology
+- [[data_agents/agents/registry/data-quality-steward|data-quality-steward]] — validação, profiling, SLA, reconciliação
+- [[data_agents/agents/registry/governance-auditor|governance-auditor]] — auditoria, LGPD, linhagem, RLS/CLS/ABAC
+- [[data_agents/agents/registry/dbt-expert|dbt-expert]] — dbt Core: models, testes, snapshots
+- [[data_agents/agents/registry/data-contracts-engineer|data-contracts-engineer]] — ODCS, SLA contratual, breaking changes
+- [[data_agents/agents/registry/data-mesh-architect|data-mesh-architect]] — Data Mesh, Data Products, governança federada
+- [[data_agents/agents/registry/fabric-rti|fabric-rti]] — Fabric RTI: Eventhouse, KQL, Eventstream, Activator
+- [[data_agents/agents/registry/fabric-ontology|fabric-ontology]] — OWL 2, RDF, SPARQL, Fabric IQ Ontology
+- [[data_agents/agents/registry/azure-analytics-auditor|azure-analytics-auditor]] — auditoria de arquitetura analítica Azure
+- [[data_agents/agents/registry/azure-cost-calculator|azure-cost-calculator]] — FinOps: custo Azure
+- [[data_agents/agents/registry/databricks-cost-calculator|databricks-cost-calculator]] — FinOps: custo Databricks (DBU)
 
 ### Tier 3 — Conversacionais
-- [[business-analyst]] — Intake de requisitos, /brief, /ship
+- [[data_agents/agents/registry/business-analyst|business-analyst]] — intake de requisitos (`/brief`, `/ship`)
 
 ### Tier 0 — Direto (sem MCP)
-- [[geral]] — Perguntas conceituais, zero MCP (Haiku)
+- [[data_agents/agents/registry/geral|geral]] — perguntas conceituais, zero MCP
 
 ---
 
@@ -59,13 +76,7 @@ Orquestra 14 agentes especialistas em Engenharia, Qualidade, Governança, Análi
 
 ## Skills Operacionais
 
-> Playbooks de como executar tarefas (lidos on-demand pelos agentes)
-
-- [[skills/pipeline_design]] — Design de pipelines
-- [[skills/sql_generation]] — Geração de SQL
-- [[skills/spark_patterns]] — Padrões PySpark
-- [[skills/star_schema_design]] — Modelagem Star Schema
-- [[skills/data_quality]] — Qualidade de dados
+> Playbooks de como executar tarefas (lidos on-demand pelos agentes). São 109 arquivos `SKILL.md` sob `skills/` — a lista completa por domínio está viva no [[Dashboard]] (tabela "Skills por domínio").
 
 ---
 
@@ -73,15 +84,13 @@ Orquestra 14 agentes especialistas em Engenharia, Qualidade, Governança, Análi
 
 > Capturadas automaticamente durante sessões
 
-- [[memory/data/ai-data-agents/index]] — Índice de todas as memórias ativas (do projeto atual)
+- [[data_agents/memory/data/ai-data-agents/index|Índice de memórias]] — memórias ativas do projeto atual
 
 ---
 
 ## Documentação Estratégica
 
-- [[to_do/ANALISE_ESTRATEGICA_E_ROADMAP]] — Roadmap S0–S6
-- [[to_do/PLANO_EXECUCAO]] — Plano de execução faseado
-- [[to_do/GAPS_E_MELHORIAS]] — Backlog de melhorias
+- [[docs/GAPS_E_MELHORIAS|GAPS_E_MELHORIAS]] — Backlog de melhorias
 - [[README]] — Guia completo do projeto
 - [[CHANGELOG]] — Histórico de versões
 
@@ -89,5 +98,5 @@ Orquestra 14 agentes especialistas em Engenharia, Qualidade, Governança, Análi
 
 ## Configuração
 
-- [[.claude/CLAUDE.md]] — Guia para Claude Code (este projeto)
-- [[Dashboard]] — Dashboard com queries Dataview
+- `.claude/CLAUDE.md` — Guia para Claude Code (pasta oculta; o Obsidian não indexa `.claude/`)
+- [[Dashboard]] — Painéis Dataview (agentes, skills, KB)

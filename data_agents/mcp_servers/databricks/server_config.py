@@ -1,23 +1,27 @@
 """
 Configuração do MCP Server para Databricks.
 
-Utiliza o pacote oficial `databricks-mcp-server` do ai-dev-kit da Databricks:
-  https://github.com/databricks-solutions/ai-dev-kit
+⚠️ ESTADO ATUAL — descasamento conhecido (auditoria 2026-07-26):
+O pin `databricks-mcp-server>=0.4.4` (pyproject.toml) resolve, no PyPI, para o
+pacote da COMUNIDADE de Olivier Debeuf De Rijcker / markov-kernel (MIT) —
+https://github.com/markov-kernel/databricks-mcp — e NÃO para o servidor oficial
+do ai-dev-kit da Databricks. `run_server.py` importa o módulo `databricks_mcp`
+desse pacote (tools granulares: list_/create_/run_ de clusters, jobs, workspace,
+Unity Catalog, execute_sql).
 
-Capabilities expostas (50+ tools):
-  - Unity Catalog: catálogos, schemas, tabelas, volumes, funções, grants
-  - SQL Execution: execute_sql, execute_sql_multi (paralelo), get_best_warehouse
-  - Jobs & Workflows: listar, disparar, cancelar, monitorar, wait_for_run
-  - Spark Declarative Pipelines (LakeFlow/DLT): listar, iniciar, parar
-  - Compute: execute_code, manage_cluster, manage_sql_warehouse, list_compute
-  - Workspace & Notebooks: navegar, exportar, upload_to_workspace
-  - Files & Volumes: ler e listar arquivos em DBFS e Volumes
-  - AI/BI: create_or_update_genie, create_or_update_dashboard
-  - AI Agents: manage_ka (Knowledge Assistants), manage_mas (Mosaic AI Supervisor)
-  - Model Serving: list/query/status de endpoints
+O servidor do ai-dev-kit (https://github.com/databricks-solutions/ai-dev-kit,
+Field Engineering) é um pacote DIFERENTE (`databricks_mcp_server`, tools `manage_*`),
+NÃO publicado no PyPI — daí a colisão de nome. A lista `DATABRICKS_MCP_TOOLS`
+abaixo foi escrita para ESSE servidor do ai-dev-kit e pode não corresponder ao
+servidor markov instalado.
+
+Resolução pendente (decisão do time): (a) assumir o pacote markov e reduzir a
+tool-list às tools reais dele; ou (b) adotar o servidor do ai-dev-kit
+(vendorizar / instalar editável). Verificar o servidor real com:
+  databricks-mcp-server --list-tools
 
 Pré-requisitos:
-  pip install databricks-mcp-server
+  pip install databricks-mcp-server   # markov-kernel (comunidade), NÃO Databricks
   Configurar: DATABRICKS_HOST e DATABRICKS_TOKEN no .env
 """
 
@@ -44,8 +48,11 @@ def get_databricks_mcp_config() -> dict:
     }
 
 
-# Subconjunto principal das tools expostas pelo servidor
-# (lista completa disponível em: databricks-mcp-server --list-tools)
+# ⚠️ Lista escrita para o servidor do ai-dev-kit (tools manage_*/create_or_update_*).
+# NÃO reflete necessariamente o servidor markov instalado (ver docstring acima).
+# Reconciliar com `databricks-mcp-server --list-tools` antes de confiar nesta lista.
+# Auditoria 2026-07-26: itens como list_pipelines/get_pipeline/describe_table/
+# wait_for_run/get_best_warehouse/manage_ka/manage_mas NÃO existem no pacote markov.
 DATABRICKS_MCP_TOOLS = [
     # Unity Catalog — Descoberta de metadados
     "mcp__databricks__list_catalogs",

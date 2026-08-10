@@ -147,6 +147,16 @@ commands:
     prompt_template: |-
       [DOMA EXPRESS] Delegue IMEDIATAMENTE para governance-auditor. Não crie PRD, não peça aprovação. Instrua o agente a ler `kb/governance/index.md` antes de executar. Tarefa: {task}
     display_template: '[bold yellow]🔐 [DOMA Express] Direcionando para: {agent}[/bold yellow]'
+  devops:
+    agent: azure-devops-engineer
+    doma_mode: express
+    description: Envia tarefa de Azure DevOps (Repos, Pipelines, Boards, Artifacts, Test Plans) para o Azure DevOps Engineer (DOMA Express).
+    skills:
+    - kb/azure-devops/index.md
+    - skills/azure-devops/azure-devops-engineer/SKILL.md
+    prompt_template: |-
+      [DOMA EXPRESS] Delegue IMEDIATAMENTE para azure-devops-engineer. Não crie PRD, não peça aprovação. Instrua o agente a ler `kb/azure-devops/index.md` e `skills/azure-devops/azure-devops-engineer/SKILL.md` antes de executar. Use o MCP oficial azure_devops quando disponível; nunca inventar nome de tool/task de pipeline/flag — marcar ⚠️ verificar se não confirmado. Tarefa: {task}
+    display_template: '[bold yellow]🔧 [DOMA Express] Direcionando para: {agent}[/bold yellow]'
   azure-spec:
     agent: azure-analytics-auditor
     doma_mode: express
@@ -183,7 +193,7 @@ commands:
     agent: migration-expert
     doma_mode: full
     description: |-
-      Inicia assessment e migração de SQL Server ou PostgreSQL para Databricks/Fabric. Gera PRD de migração com mapeamento de tipos, Medallion e estratégia de cutover. Exemplos: /migrate sql-server para databricks | /migrate postgres para fabric
+      Inicia assessment e migração de SQL Server ou PostgreSQL para Databricks/Fabric. Gera um plano de migração reviewable (mapeamento de tipos, Medallion, cutover) e AGUARDA aprovação antes de gerar scripts (Constituição §2.2). Exemplos: /migrate sql-server para databricks | /migrate postgres para fabric
     skills:
     - kb/migration/index.md
     prompt_template: |-
@@ -200,6 +210,50 @@ commands:
     prompt_template: |-
       [DOMA EXPRESS] Delegue IMEDIATAMENTE para ssis-to-databricks. Não gere código antes de ler a KB. O agente deve: (1) Ler `kb/ssis-migration/index.md` e o playbook `skills/ssis-migration/ssis-to-databricks/SKILL.md`. (2) PARSE dos .dtsx via Python (buffer-safe, índice em _work/). (3) INVENTORY + CLASSIFY por complexidade. (4) MAP Control Flow→Workflows e Data Flow→PySpark/DLT usando os concepts da KB. (5) GENERATE notebooks/Jobs + conversion_report em output/ssis-migration/<slug>/. (6) RECONCILE origem×destino. Marcar itens sem equivalente (Script C#/Fuzzy/DQS) como revisão manual. Tarefa: {task}
     display_template: '[bold yellow]🔄 [DOMA Express] Direcionando para: {agent}[/bold yellow]'
+  sqlserver:
+    agent: sqlserver-to-databricks
+    doma_mode: express
+    description: |-
+      Migração COMPLETA de banco SQL Server → Databricks (schema, dados, objetos T-SQL, CDC, reconciliação, cutover), alinhada ao curso oficial Databricks. Gera um SPEC reviewable e AGUARDA aprovação antes de gerar código (Constituição §2.2). Ex.: /sqlserver migrar o banco AdventureWorks para databricks
+    skills:
+    - kb/sqlserver-migration/index.md
+    - skills/sqlserver-migration/sqlserver-to-databricks/SKILL.md
+    prompt_template: |-
+      [DOMA MIGRATE] Delegue IMEDIATAMENTE para sqlserver-to-databricks. Não gere DDL/SQL à mão nem reimplemente gerador. O agente deve: (1) Ler `kb/sqlserver-migration/index.md` + o playbook. (2) DISCOVER via `scripts/mssql_discovery.sql` no `migration_source` MCP. (3) ASSESS (Complexity Scoring Matrix → waves; Analytics-First vs ETL-First). (4) DESIGN + produzir SPEC e PARAR para aprovação humana (Step 0.6A). Após aprovação: (5) CONVERT via `scripts/sqlserver_generate.py`. (6) INGEST/CDC (ingestão pesada → databricks-engineer). (7) VALIDATE via `scripts/reconcile_generate.py` (reconciliação de 2 fases). (8) CUTOVER (freeze window, matriz de rollback). Tarefa: {task}
+    display_template: '[bold yellow]🗄️ [DOMA Migrate] SQL Server → Databricks: {agent}[/bold yellow]'
+  hadoop:
+    agent: hadoop-to-databricks
+    doma_mode: express
+    description: |-
+      Migração COMPLETA de ecossistema Hadoop → Databricks (HDFS, Hive, Impala, Spark-on-YARN, Sqoop, Oozie, Pig, MapReduce, HBase, Ranger/Kerberos), alinhada ao curso oficial Databricks (curso-gêmeo do SQL Server Migration). Gera um SPEC reviewable e AGUARDA aprovação antes de gerar código (Constituição §2.2). Ex.: /hadoop migrar o cluster Cloudera para databricks
+    skills:
+    - kb/hadoop-migration/index.md
+    - skills/hadoop-migration/hadoop-to-databricks/SKILL.md
+    prompt_template: |-
+      [DOMA MIGRATE] Delegue IMEDIATAMENTE para hadoop-to-databricks. Não gere DDL/SQL à mão nem reimplemente gerador. O agente deve: (1) Ler `kb/hadoop-migration/index.md` + o playbook. (2) DISCOVER via Beeline/HDFS/YARN/Ranger (sem MCP dedicado a Hive — discovery majoritariamente manual, ver SKILL). (3) ASSESS (Complexity Scoring Matrix → waves; Analytics-First vs ETL-First). (4) DESIGN + produzir SPEC e PARAR para aprovação humana (Step 0.6A). Após aprovação: (5) CONVERT via `scripts/hive_generate.py` (Hive DDL → Delta); HiveQL/Impala via Lakebridge; Pig/MapReduce/HBase SEMPRE flag de redesign, nunca conversão mecânica. (6) INGEST/CDC (Catalog Federation/DistCp/Direct Read; ingestão pesada → databricks-engineer). (7) VALIDATE via `scripts/reconcile_generate.py` (reconciliação de 2 fases). (8) CUTOVER (freeze via Oozie suspend + hdfs snapshot, matriz de rollback). Ranger/Kerberos/PII em escala → escalar governance-auditor. Tarefa: {task}
+    display_template: '[bold yellow]🐘 [DOMA Migrate] Hadoop → Databricks: {agent}[/bold yellow]'
+  teradata:
+    agent: teradata-to-databricks
+    doma_mode: express
+    description: |-
+      Migração COMPLETA de data warehouse Teradata Vantage → Databricks (BTEQ, TPT, FastLoad, MultiLoad, DBC, PRIMARY INDEX/PPI, TASM), alinhada ao curso oficial Databricks (terceira instância da família SQL Server/Hadoop Migration). Gera um SPEC reviewable e AGUARDA aprovação antes de gerar código (Constituição §2.2). ⚠️ Curso-fonte contaminado com Snowflake — gate anti-contaminação sempre ativo. Ex.: /teradata migrar o data warehouse Teradata para databricks
+    skills:
+    - kb/teradata-migration/index.md
+    - skills/teradata-migration/teradata-to-databricks/SKILL.md
+    prompt_template: |-
+      [DOMA MIGRATE] Delegue IMEDIATAMENTE para teradata-to-databricks. Não gere DDL/SQL à mão nem reimplemente gerador. O agente deve: (1) Ler `kb/teradata-migration/index.md` + o playbook. (2) DISCOVER via BTEQ/JDBC contra o dicionário DBC.* + SHOW TABLE (sem MCP dedicado a Teradata — discovery majoritariamente manual, ver SKILL). (3) ASSESS (Complexity Scoring Matrix → waves; Analytics-First vs ETL-First). (4) DESIGN + produzir SPEC e PARAR para aprovação humana (Step 0.6A). Após aprovação: (5) CONVERT via `scripts/teradata_generate.py` (Teradata DDL → Delta; roda gate anti-contaminação Snowflake — NUNCA tratar VARIANT/OBJECT/ARRAY_AGG/OBJECT_AGG/IFF/EQUAL_NULL/LATERAL FLATTEN/METADATA$*/RUNTIME_VERSION/HANDLER= como sintaxe Teradata); SQL/BTEQ via Lakebridge/BladeBridge; Join Index/índices secundários SEMPRE flag de redesign, nunca conversão mecânica. (6) INGEST/CDC (WRITE_NOS/TPT/JDBC por volume; ingestão pesada → databricks-engineer). (7) VALIDATE via `scripts/reconcile_generate.py` (source_dialect teradata; reconciliação de 2 fases; casar estimador STDDEV_POP/STDDEV_SAMP). (8) CUTOVER (Big Bang/Blue-Green, Decommission Readiness Check, matriz de rollback). TASM/roles/PII em escala → escalar governance-auditor. Tarefa: {task}
+    display_template: '[bold yellow]🗃️ [DOMA Migrate] Teradata → Databricks: {agent}[/bold yellow]'
+  ssas:
+    agent: ssas-to-databricks
+    doma_mode: express
+    description: |-
+      Migra modelo tabular SSAS (.bim/.vpax) → Databricks: física (Delta/UC), semântica (Metric Views), consumo (AI/BI + Genie); DAX → SQL onde possível, RLS → UC row filters. Gera SPEC e AGUARDA aprovação (§2.2). Ex.: /ssas migrar o modelo em inputs/prj_brf/
+    skills:
+    - kb/ssas-migration/index.md
+    - skills/ssas-migration/ssas-to-databricks/SKILL.md
+    prompt_template: |-
+      [DOMA MIGRATE] Delegue IMEDIATAMENTE para ssas-to-databricks. Não escreva SQL à mão nem reimplemente gerador — rode `scripts/ssas_generate.py`. O agente deve: (1) Ler `kb/ssas-migration/index.md` + o playbook. (2) PARSE buffer-safe do .bim/.vpax (índice compacto em _work/). (3) INVENTORY + CLASSIFY. (4) MAP 3 camadas + produzir SPEC e PARAR para aprovação humana (Step 0.6A). Após aprovação: (5) GENERATE via `scripts/ssas_generate.py` (DDL + Metric Views + RLS + reconciliação, 3 gates). (6) RECONCILE. Marcar DAX complexo/calculation groups como revisão manual. Tarefa: {task}
+    display_template: '[bold yellow]📊 [DOMA Migrate] SSAS → Databricks: {agent}[/bold yellow]'
   genie:
     agent: databricks-engineer
     doma_mode: express
@@ -338,12 +392,24 @@ commands:
     agent: null
     doma_mode: full
     description: |-
-      Executa um workflow colaborativo pré-definido (WF-01 a WF-05) com encadeamento de contexto entre agentes e suporte a etapas paralelas. Exemplos: /workflow WF-01 pipeline bronze-gold vendas | /workflow WF-05 migrar SQL Server
+      Executa um workflow colaborativo pré-definido (WF-01 a WF-07) com encadeamento de contexto entre agentes e suporte a etapas paralelas. Exemplos: /workflow WF-01 pipeline bronze-gold vendas | /workflow WF-05 migrar SQL Server | /workflow WF-07 custo greenfield 4 ambientes
     skills:
     - kb/collaboration-workflows.md
     prompt_template: |-
       [DOMA WORKFLOW] Execute o workflow pré-definido identificado na tarefa abaixo. Consulte `kb/collaboration-workflows.md` para os detalhes do workflow solicitado. Siga a sequência de agentes definida, passando o contexto de cada etapa para a próxima. Compile o contexto do workflow em `output/workflow-context/<wf-id>-context.md` antes de invocar o primeiro agente. Se o workflow exigir aprovação humana em alguma etapa, pause e aguarde confirmação. Tarefa: {task}
     display_template: '[bold magenta]⚙️ [DOMA Workflow] Iniciando workflow colaborativo...[/bold magenta]'
+  greenfield:
+    agent: null
+    doma_mode: full
+    description: |-
+      Estimativa de custo GREENFIELD (do zero): Databricks compute + Azure infra + storage para N ambientes. Orquestra WF-07 — databricks-cost-calculator + azure-cost-calculator em paralelo, consolidando em XLSX. Aceita planilha de sizing como input. Exemplos: /greenfield custo plataforma Seatrium 4 ambientes Azure Singapore | /greenfield estimar com a planilha de sizing anexa
+    skills:
+    - kb/collaboration-workflows.md
+    - kb/azure-infra-for-databricks/index.md
+    - skills/finops/read-sizing-spreadsheet/SKILL.md
+    prompt_template: |-
+      [DOMA WORKFLOW — WF-07 Greenfield Cost Estimate] Execute o workflow WF-07 conforme `kb/collaboration-workflows.md`. Se houver planilha de sizing, PRIMEIRO execute a skill como SCRIPT (o diretório tem hífen, não é importável como módulo): `python3 skills/finops/read-sizing-spreadsheet/parse_sizing.py "<caminho_da_planilha>"` — valide `needs_confirmation` com o usuário antes de prosseguir. Compile `output/workflow-context/wf07-context.md`. Depois rode EM PARALELO: (1a) databricks-cost-calculator (compute+storage, region-aware DBU rates) gravando `<projeto>/scenario_used.json`; (1b) azure-cost-calculator (infra Azure, consultando `kb/azure-infra-for-databricks/index.md`) gravando `<projeto>/azure_infra_scenario_used.json`. CONSOLIDAÇÃO (etapa 2) é DETERMINÍSTICA — NÃO peça para o python-expert montar o XLSX do zero. Rode UM comando: `python3 scripts/greenfield_consolidate.py --databricks <projeto>/scenario_used.json --azure <projeto>/azure_infra_scenario_used.json --out <projeto>/greenfield_cost_consolidated.xlsx`. Confirme só com `ls` (nunca dê Read no binário .xlsx). REGRA: nunca entregar estimativa greenfield sem a camada de infra Azure. Tarefa: {task}
+    display_template: '[bold green]🏗️ [Greenfield] Estimando plataforma completa (Databricks + Azure Infra)...[/bold green]'
   streaming:
     agent: databricks-ai
     doma_mode: express
@@ -437,6 +503,28 @@ commands:
     prompt_template: |-
       [DOMA EXPRESS] Delegue IMEDIATAMENTE para data-contracts-engineer. Não crie PRD, não peça aprovação. Instrua o agente a ler `kb/governance/index.md` e `kb/data-quality/index.md` antes de executar. Tarefa: {task}
     display_template: '[bold yellow]📋 [DOMA Express] Direcionando para: {agent}[/bold yellow]'
+  foundry:
+    agent: foundry-engineer
+    doma_mode: express
+    description: |-
+      Envia tarefa do Microsoft Foundry (plataforma completa) para o Foundry Engineer (DOMA Express). Use para: design de sistemas multi-agente, especificação de agentes no Microsoft Foundry (ex-Azure AI Foundry: Foundry Agent Service, Connected Agents/A2A, Semantic Kernel, Microsoft Agent Framework/AutoGen), catálogo/deploy de modelos, fine-tuning/grounding, avaliações (groundedness/relevance/completeness + safety), Prompt Flow, RAG com Azure AI Search, e observabilidade GenAI. Exemplos: /foundry especificação de agentes no Microsoft Foundry com RAG e avaliação | /foundry desenha o plano de avaliação da minha solução antes de ir pra produção
+    skills:
+    - kb/foundry/index.md
+    - skills/foundry/foundry-engineer/SKILL.md
+    prompt_template: |-
+      [DOMA EXPRESS] Delegue IMEDIATAMENTE para foundry-engineer. Não crie PRD, não peça aprovação. Instrua o agente a ler `kb/foundry/index.md` e `skills/foundry/foundry-engineer/SKILL.md` antes de executar. Regra de ouro: NUNCA inventar nome de serviço/SDK/pacote/classe/método/modelo do Microsoft Foundry — confirmar via context7/tavily ou marcar "⚠️ verificar", e sempre declarar status GA vs. Public Preview de cada feature citada. Para especificação de agentes: produzir o documento estruturado (papéis, tools, orquestração, governança) em `output/specs/` ou `output/architecture/`. Para plataforma (modelo/avaliação/Prompt Flow/RAG/observabilidade): identificar o estágio do ciclo de 5 estágios e nunca recomendar "pronto para produção" sem um plano de avaliação explícito. Análise de árvore de tasks NÃO é deste agente — se o pedido incluir isso, sinalize que é escopo do task-architect (/tasks). Tarefa: {task}
+    display_template: '[bold cyan]🧩 [DOMA Express] Direcionando para: {agent}[/bold cyan]'
+  tasks:
+    agent: task-architect
+    doma_mode: express
+    description: |-
+      Envia árvore de tasks/backlog para o Task Architect (DOMA Express). Agnóstico de plataforma — use para: análise/otimização de árvores de tasks parent/child (DAG, 5 dimensões, split/merge/reorder/rescope/reassign/add-acceptance-criteria), refinamento de backlog, WBS, ou detecção de ciclos/órfãs/granularidade ruim em qualquer sistema de tracking (Jira, Azure DevOps, Asana, texto livre). Exemplos: /tasks analisa essa árvore de tasks e aponta ciclos e granularidade ruim | /tasks refinamento do backlog de sprint anexo
+    skills:
+    - kb/task-architecture/index.md
+    - skills/task-architecture/task-architect/SKILL.md
+    prompt_template: |-
+      [DOMA EXPRESS] Delegue IMEDIATAMENTE para task-architect. Não crie PRD, não peça aprovação. Instrua o agente a ler `kb/task-architecture/index.md` e `skills/task-architecture/task-architect/SKILL.md` antes de executar. O agente deve: modelar a árvore como DAG, detectar ciclos/órfãos/caminho crítico ANTES de qualquer scoring, pontuar as 5 dimensões (completude/clareza/risco/granularidade/alinhamento) com evidência por dimensão, e validar cada sugestão de melhoria (APPROVE/REJECT/CONDITIONALLY_APPROVE) contra as dependências reais do DAG. Modo advisory/read-only por padrão — nunca escrever de volta num sistema externo sem confirmação humana. Este agente é independente de plataforma — se o pedido envolver design de agentes/Foundry, sinalize que é escopo do foundry-engineer (/foundry). Tarefa: {task}
+    display_template: '[bold cyan]🌳 [DOMA Express] Direcionando para: {agent}[/bold cyan]'
   cost-databricks:
     agent: databricks-cost-calculator
     doma_mode: express

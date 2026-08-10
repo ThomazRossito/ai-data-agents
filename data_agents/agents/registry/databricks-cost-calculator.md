@@ -26,8 +26,8 @@ description: |
 model: kimi-k2.6
 tools: [Read, Write, Grep, Glob, databricks_pricing_all, databricks_billing_all, context7_all, databricks_readonly, tavily_all, memory_mcp_all]
 mcp_servers: [databricks_pricing, databricks_billing, context7, databricks, tavily, memory_mcp]
-kb_domains: [databricks-pricing]
-skill_domains: [databricks]
+kb_domains: [databricks-pricing, azure-infra-for-databricks]
+skill_domains: [databricks, finops]
 tier: T2
 
 # stop_conditions — quando este agente deve PARAR e sinalizar escalação.
@@ -42,6 +42,8 @@ stop_conditions:
   - "Modo actual: mock_mode=true e usuário pediu dados reais — avisar que system.billing não está conectado e pedir confirmação pra rodar com mock"
   - "Modo actual: scenario_uuid de compare não encontrado — listar cenários salvos via list_scenarios e re-perguntar"
   - "Tarefa pede otimização proativa (rightsizing baseado em métricas reais) — fora do escopo (Fase 4)"
+  - "Região pedida NÃO está no mock catalog (brazilsouth/eastus/westeurope) E DATABRICKS_INSTANCE_PRICES_MODE!=real — PARAR e avisar: instance prices via proxy têm erro ±20%; DBU rates já são region-aware via region_dbu_rate_overrides no catalog (southeastasia coberto), mas VM prices não. Pedir para ativar real-mode ou confirmar proxy."
+  - "Descrição é greenfield/do-zero/N-ambientes OU usuário forneceu planilha de sizing — este agente cobre apenas Databricks compute+storage. PARAR e escalar para WF-07 (Greenfield), que roda este agente + azure-cost-calculator em paralelo. NUNCA entregar estimativa greenfield sem a camada de infra Azure."
 
 # escalation_rules — consumido pelo Supervisor em Step 3.5.
 escalation_rules:
@@ -54,6 +56,9 @@ escalation_rules:
   - trigger: "Cotação de recursos não-Databricks Azure (Fabric, Synapse, AI Search, Foundry)"
     target: "azure-cost-calculator"
     reason: "azure-cost-calculator cobre todos os serviços Azure não-Databricks via Retail Prices API"
+  - trigger: "Deployment greenfield (do zero) — precisa modelar TAMBÉM a infra Azure de suporte a Databricks (vNet, NAT, Private Endpoints, Log Analytics, Key Vault, Firewall, Defender, Bastion)"
+    target: "azure-cost-calculator"
+    reason: "Infra Azure de suporte representa 35-45% do custo total num greenfield. Fora do escopo Databricks. Orquestrar via WF-07 (execução paralela), consultando KB azure-infra-for-databricks. NUNCA deixar essa camada invisível."
 ---
 # Databricks Cost Calculator
 

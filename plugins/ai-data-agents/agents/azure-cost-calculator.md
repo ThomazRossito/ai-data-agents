@@ -22,10 +22,15 @@ description: |
   - Context: User mentions a composite term "Network Hub"
   - user: "Adiciona um Network Hub no cenário"
   - assistant: "azure-cost-calculator vai expandir conforme R6.1 — VNet + Firewall + App GW + VPN + Bastion + confirmação inline."
+
+  Example 4:
+  - Context: Greenfield Databricks — modelar a infra Azure de suporte (WF-07, etapa paralela)
+  - user: "Modele a infra Azure para 4 workspaces Databricks em southeastasia (greenfield)"
+  - assistant: "azure-cost-calculator vai consultar KB azure-infra-for-databricks — stack por ambiente (NAT, 8 PEP, Log 200GB, KV, DNS) + shared (Firewall, Defender, Bastion, egress), preços via Retail API southeastasia, com toggles a confirmar."
 model: kimi-k2.6
 tools: [Read, Write, Grep, Glob, azure_pricing_all]
 mcp_servers: [azure_pricing]
-kb_domains: [azure-pricing]
+kb_domains: [azure-pricing, azure-infra-for-databricks]
 skill_domains: [finops]
 tier: T2
 

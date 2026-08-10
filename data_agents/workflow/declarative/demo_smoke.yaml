@@ -1,0 +1,22 @@
+# Smoke test BARATO do loader declarativo — 2 passos, agente `geral` (zero MCP).
+# Prova a cadeia: YAML → loader → WorkflowRunner → Kimi → output + context chain.
+# Rode com: python scripts/try_declarative_workflow.py
+wf_id: WF-SMOKE
+description: Smoke test do loader declarativo (agente geral, sem MCP, baratíssimo)
+steps:
+  - agent: geral
+    phase: Passo 1
+    task: |
+      Teste do carregador de workflows declarativos do ai-data-agents.
+      Responda em UMA frase curta confirmando que recebeu a tarefa do passo 1.
+      Não use ferramentas e não gere código.
+
+  - agent: geral
+    phase: Passo 2 (context chain)
+    task: |
+      Contexto do passo anterior:
+
+      {context}
+
+      Em UMA frase, confirme que você recebeu o output do passo 1 acima —
+      isso prova que o context chain do workflow declarativo funciona.

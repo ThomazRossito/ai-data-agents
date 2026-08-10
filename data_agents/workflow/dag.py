@@ -10,8 +10,10 @@ import re
 
 # ─── Padrões de detecção ────────────────────────────────────────────────────
 
-# Detecta referências a workflows no prompt de delegação (WF-01 a WF-05)
-WORKFLOW_PATTERN = re.compile(r"WF-0([1-5])", re.IGNORECASE)
+# Detecta referências a workflows no prompt de delegação (WF-01 a WF-07)
+# WF-06 = Schema → Implementation (DDL-first)
+# WF-07 = Greenfield Cost Estimate (Databricks compute + Azure infra + storage)
+WORKFLOW_PATTERN = re.compile(r"WF-0([1-7])", re.IGNORECASE)
 
 # Detecta referências ao Clarity Checkpoint
 CLARITY_PATTERN = re.compile(

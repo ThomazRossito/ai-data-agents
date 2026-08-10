@@ -112,6 +112,20 @@ try:
 except Exception:  # nunca deixar o logging derrubar a UI
     logger.debug("setup_logging da UI falhou (ignorado)", exc_info=True)
 
+# ── Marcador de startup do PROCESSO (visível em app.jsonl) ────────────────────
+# A cada restart do chainlit este módulo é importado UMA vez → uma linha clara no
+# app.jsonl. Sem isto, restarts da UI eram invisíveis (o "Configuração:" é só do
+# CLI), dificultando saber se um .py editado já foi recarregado. Auditoria 2026-07-26.
+try:
+    import os as _os
+
+    logger.info(
+        "🚀 [startup] Chainlit UI iniciado — PID %s | processo (re)carregado agora",
+        _os.getpid(),
+    )
+except Exception:  # nunca deixar o log de startup derrubar a UI
+    logger.debug("log de startup da UI falhou (ignorado)", exc_info=True)
+
 # ── Tier lookup para labels de delegação ─────────────────────────────────────
 _AGENT_TIERS: dict[str, str] = {
     name: meta.tier for name, meta in preload_registry().items() if meta.tier
@@ -394,7 +408,7 @@ Powered by Claude Agent SDK + MCP
 
 **Desenvolvido por:**
 Thomaz Antonio Rossito Neto
-Specialist Data & AI Solutions Architect | Center of Excellence CoE @CI&T
+Principal Data & AI Architect | Center of Excellence CoE @CI&T
 **LinkedIn:** https://www.linkedin.com/in/thomaz-antonio-rossito-neto/
 **GitHub:** https://github.com/ThomazRossito/
 """
@@ -637,11 +651,75 @@ async def _handle_supervisor(user_input: str) -> None:
     # Timeout por mensagem: se o SDK ficar mais de 3 min sem emitir nenhuma
     # mensagem (StreamEvent, AssistantMessage ou ResultMessage), cancela e
     # reporta o erro. Evita que a UI trave indefinidamente em hangs do SDK.
-    _MSG_TIMEOUT = 180  # segundos
+    # Timeout de GAP entre eventos (subiu de 180→600s). O thinking do Kimi no endpoint
+    # Moonshot pode ficar minutos EM SILÊNCIO (sem emitir eventos) antes de entregar o
+    # resultado — ver supervisor.py. Como texto e eventos de thinking resetam este timer,
+    # 600s só penaliza sessões realmente travadas. Necessário para MOONSHOT_ALLOW_THINKING=true.
+    _MSG_TIMEOUT = 600  # segundos — timeout DURO de gap (sessão realmente travada)
+    _HEARTBEAT_INTERVAL = 5.0  # segundos entre "batidas" do indicador de vida
+
+    # Indicador de vida ("não estou morto, ainda executando"): durante gaps
+    # silenciosos do SDK (ex.: thinking do Kimi, que não emite tokens por minutos),
+    # mostra um Step "⏳ Processando… Ns" que atualiza a cada _HEARTBEAT_INTERVAL.
+    # Assim o usuário distingue VIVO de travado/loop. Some quando a próxima
+    # mensagem chega. Usa só API já usada neste arquivo (Step + send/update).
+    _hb: dict[str, Any] = {"step": None}
+
+    async def _hb_beat(elapsed: float) -> None:
+        secs = int(elapsed)
+        hint = "" if secs < 60 else " · (etapas longas são normais aqui)"
+        label = f"⏳ Processando… {secs}s{hint}"
+        try:  # heartbeat é cosmético — NUNCA pode derrubar o stream
+            if _hb["step"] is None:
+                _hb["step"] = cl.Step(name=label, type="run")
+                await _hb["step"].send()
+            else:
+                _hb["step"].name = label
+                await _hb["step"].update()
+        except Exception:
+            logger.debug("heartbeat falhou (ignorado)", exc_info=True)
+
+    async def _hb_settle() -> None:
+        step = _hb.get("step")
+        if step is None:
+            return
+        _hb["step"] = None
+        try:
+            step.name = "✅ Retomado"
+            step.output = ""
+            await step.update()
+        except Exception:
+            logger.debug("heartbeat settle falhou (ignorado)", exc_info=True)
 
     async def _next_with_timeout(gen):
-        """Retorna o próximo item do generator com timeout."""
-        return await asyncio.wait_for(gen.__anext__(), timeout=_MSG_TIMEOUT)
+        """Próximo item do generator com heartbeat visual + timeout DURO.
+
+        Corre o `__anext__()` contra um tick de _HEARTBEAT_INTERVAL: a cada tick
+        sem mensagem, pulsa o indicador de vida; ao receber a mensagem (ou ao
+        estourar _MSG_TIMEOUT), encerra o indicador. Comportamento de timeout é
+        idêntico ao anterior (levanta asyncio.TimeoutError).
+        """
+        task = asyncio.ensure_future(gen.__anext__())
+        start = time.monotonic()
+        try:
+            while True:
+                done, _ = await asyncio.wait({task}, timeout=_HEARTBEAT_INTERVAL)
+                if task in done:
+                    return task.result()  # propaga StopAsyncIteration / msg / exceção
+                elapsed = time.monotonic() - start
+                if elapsed >= _MSG_TIMEOUT:
+                    task.cancel()
+                    raise asyncio.TimeoutError
+                await _hb_beat(elapsed)
+        finally:
+            await _hb_settle()
+
+    # Reset do gate de migração no início de cada turno (Step 0.6A). Sem isto, a
+    # delegação de GENERATE de um turno FUTURO (após o usuário aprovar) seria contada
+    # como a 2ª delegação de migração e bloqueada por engano pelo enforce_migration_gate.
+    from data_agents.hooks.migration_gate_hook import reset_migration_gate
+
+    reset_migration_gate()
 
     try:
         await client.query(prompt)
@@ -657,6 +735,16 @@ async def _handle_supervisor(user_input: str) -> None:
                 await response_msg.stream_token(
                     f"\n\n⏱️ **Timeout** — o agente não respondeu em {_MSG_TIMEOUT // 60} minutos. "
                     "Tente novamente ou use `/modo` para reiniciar a sessão."
+                )
+                # Registra o timeout como LESSON_LEARNED — erro/timeout precisam virar lição
+                # mesmo sem on_chat_end (que não dispara num timeout de mensagem).
+                from data_agents.hooks.memory_hook import record_lesson_learned
+
+                record_lesson_learned(
+                    summary=f"timeout na UI — sem resposta em {_MSG_TIMEOUT // 60} min",
+                    content=f"A tarefa excedeu {_MSG_TIMEOUT}s sem resposta do agente. Prompt: {user_input[:200]}",
+                    tags=["timeout", "ui"],
+                    session_id=cl.user_session.get("session_id") or "chainlit",
                 )
                 break
 
@@ -866,6 +954,15 @@ async def _handle_supervisor(user_input: str) -> None:
             )
         else:
             await response_msg.stream_token(f"\n\n❌ **Erro:** `{exc}`")
+            # Registra o erro como LESSON_LEARNED (determinístico, sem LLM).
+            from data_agents.hooks.memory_hook import record_lesson_learned
+
+            record_lesson_learned(
+                summary=f"erro na sessão: {type(exc).__name__}",
+                content=f"Erro: {exc}. Prompt: {user_input[:200]}",
+                tags=["error", "ui", type(exc).__name__.lower()],
+                session_id=cl.user_session.get("session_id") or "chainlit",
+            )
 
     await response_msg.update()
 

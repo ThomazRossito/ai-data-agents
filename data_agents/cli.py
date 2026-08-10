@@ -208,9 +208,7 @@ def print_banner() -> None:
 
     banner.append("  Desenvolvido por: \n", style="bold cyan")
     banner.append("  Thomaz Antonio Rossito Neto\n", style="bold")
-    banner.append(
-        "  Specialist Data & AI Solutions Architect | Center of Excellence CoE @CI&T\n", style="dim"
-    )
+    banner.append("  Principal Data & AI Architect | Center of Excellence CoE @CI&T\n", style="dim")
     banner.append("  LinkedIn: ", style="bold")
     banner.append("https://www.linkedin.com/in/thomaz-antonio-rossito-neto/\n", style="dim")
     banner.append("  GitHub: ", style="bold")
@@ -1297,6 +1295,11 @@ async def run_interactive() -> None:
                             else None,
                         )
                         user_input = (raw_input or "").strip()
+                        # Novo turno do usuário → reseta o gate de migração (Step 0.6A),
+                        # senão a delegação de GENERATE pós-aprovação seria bloqueada.
+                        from data_agents.hooks.migration_gate_hook import reset_migration_gate
+
+                        reset_migration_gate()
                     except asyncio.TimeoutError:
                         # Salvar checkpoint antes do reset por inatividade
                         if _session_state["last_prompt"]:

@@ -514,6 +514,55 @@ def clear_session_buffer() -> None:
     logger.debug("Buffer de memória limpo (fallback). SQLite preservado — TTL gerencia expiração.")
 
 
+def record_lesson_learned(
+    summary: str,
+    content: str,
+    tags: "list[str] | None" = None,
+    session_id: str = "",
+) -> bool:
+    """Registra uma LESSON_LEARNED DETERMINÍSTICA (ex.: erro/timeout) e a compila
+    para o MemoryStore/long_term. NÃO usa LLM (compile com heurística, sem custo).
+
+    Motivação (auditoria 2026-07-26): erros e timeouts precisam virar lição mesmo
+    quando o flush normal não roda — ex.: um timeout na UI aborta a mensagem mas
+    NÃO dispara `on_chat_end`, então nada era registrado. Retorna True se persistiu.
+    """
+    from data_agents.config.settings import settings
+
+    if not settings.memory_enabled:
+        return False
+    try:
+        from data_agents.memory.compiler import compile_daily_logs
+        from data_agents.memory.store import MemoryStore
+
+        store = MemoryStore()
+        tag_str = ", ".join(tags or ["lesson"])
+        store.append_daily_log(
+            f"type: lesson_learned\nsummary: {summary}\ntags: {tag_str}\n"
+            f"source_session: {session_id or 'unknown'}\nconfidence: 0.9\n\n{content}"
+        )
+        compile_daily_logs(store, use_sonnet_contradiction=False)
+        # Indexa IMEDIATAMENTE no long_term_memories (SQLite/FTS). Sem isto, a lição
+        # ficava só no MemoryStore (.md) e a tabela `long_term_memories` (o que se vê no
+        # DBeaver) só era preenchida no próximo inject_context/flush — parecendo "vazia"
+        # logo após o timeout/erro. migrate_from_store é idempotente (auditoria 2026-07-26).
+        try:
+            from pathlib import Path
+
+            from data_agents.memory.long_term import LongTermMemory
+
+            LongTermMemory(
+                db_path=Path(settings.long_term_db_path), embedder=None
+            ).migrate_from_store(store)
+        except Exception as _sexc:  # noqa: BLE001 — indexação não pode derrubar a captura
+            logger.warning(f"sync long_term da lição falhou (lição salva no store): {_sexc}")
+        logger.info(f"LESSON_LEARNED registrada: {summary[:60]}")
+        return True
+    except Exception as e:  # noqa: BLE001 — registrar lição nunca pode derrubar a sessão
+        logger.warning(f"record_lesson_learned falhou: {e}")
+        return False
+
+
 def flush_session_memories(session_id: str = "") -> int:
     """
     Processa o buffer da sessão: extrai memórias e salva nos daily logs.
