@@ -246,6 +246,14 @@ jobs:
         #      runner, não do nosso pyproject.
         # CONDIÇÃO DE INVALIDAÇÃO: se o projeto migrar para setuptools como build
         # backend OU passar a gerar sdist em macOS, RE-AVALIAR (bump setuptools>=83.0.0).
+        # PYSEC-2026-3552 (cryptography < 50, oráculo Bleichenbacher/timing em
+        # pkcs7_decrypt_*): NÃO-APLICABILIDADE. O projeto não decripta PKCS7/
+        # EnvelopedData de terceiros (não é gateway S/MIME), então o vetor não se
+        # materializa. Além disso, a cadeia do mlflow (databricks-sdk) exige
+        # cryptography<50, impedindo o pin >=50 que corrigiria; em troca, mlflow
+        # foi subido p/ >=3.11 (corrige ~24 advisories server-side dele) e pyarrow
+        # p/ >=23.0.1. CONDIÇÃO DE INVALIDAÇÃO: se mlflow aceitar cryptography>=50,
+        # remover este ignore e pinar cryptography>=50.0.0 no pyproject.
         run: |
           pip-audit \
             --skip-editable \
@@ -253,7 +261,8 @@ jobs:
             --desc on \
             --format columns \
             --ignore-vuln MAL-2026-4750 \
-            --ignore-vuln PYSEC-2026-3447
+            --ignore-vuln PYSEC-2026-3447 \
+            --ignore-vuln PYSEC-2026-3552
 
   # ─────────────────────────────────────────────────────────────────────────
   # Job 4: Bandit (Python security linter)

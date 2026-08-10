@@ -27,7 +27,10 @@ dependencies = [
 
     # Databricks Enterprise & MLOps
     "databricks-sdk>=0.20.0",
-    "mlflow>=2.11.0",
+    # mlflow>=3.11: corrige ~24 advisories server-side (o projeto usa mlflow só
+    # como cliente de tracking; ainda assim subir p/ versão corrigida é o certo).
+    "mlflow>=3.11.0",
+    "pyarrow>=23.0.1",  # PYSEC-2026-113 (Arrow C++ UAF; não exposto no binding Py)
 
     # Microsoft Fabric & Identity
     "azure-identity>=1.15.0",
@@ -75,10 +78,11 @@ dependencies = [
     # Sem esse pin, pip resolveria pra versões transitivas antigas (ex: 0.50.0).
     "starlette>=1.0.1",
 
-    # Cryptography — pin defensivo pra mitigar PYSEC-2026-3552 (oráculo
-    # Bleichenbacher/timing em PKCS7 decrypt; afeta cryptography 44.0.0–49.x).
-    # Fix em 50.0.0. Dep transitiva (azure-identity/mcp/etc.) — pin força o floor.
-    "cryptography>=50.0.0",
+    # Cryptography: NÃO pinar >=50 — a cadeia do mlflow (databricks-sdk) exige
+    # cryptography<50; pinar >=50 conflita e quebra a instalação. O único advisory
+    # no floor <50 é PYSEC-2026-3552 (oráculo PKCS7 decrypt), NÃO-aplicável (o projeto
+    # não decripta EnvelopedData de terceiros) — ignorado com justificativa no ci.yml.
+    # Revisar quando o mlflow aceitar cryptography>=50.
 ]
 
 [project.optional-dependencies]
