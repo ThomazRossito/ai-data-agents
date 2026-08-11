@@ -6,7 +6,7 @@
 
 ---
 
-## 🤖 Agentes por Tier
+## 🤖 Agentes por Tier 
 
 ```dataview
 TABLE WITHOUT ID
