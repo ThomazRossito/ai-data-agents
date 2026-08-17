@@ -95,7 +95,7 @@ dev = [
     # entre versões e o 0.16+ passou a formatar blocos de código em Markdown por
     # padrão — o que tornava o CI (que pegava o latest via >=0.4) divergente do
     # local. Pin exato = local == CI determinístico. Bump consciente quando quiser.
-    "ruff==0.15.22",
+    "ruff==0.16.3",
     "mypy>=1.10",
     "bandit>=1.7",
     "types-PyYAML>=6.0",
