@@ -198,9 +198,26 @@ class TestBuildSupervisorOptions:
                 assert (
                     len(hooks["PostToolUse"]) == 6
                 )  # audit + cost guard + workflow tracker + memory capture + context budget + output compressor
-                assert (
-                    len(hooks["PreToolUse"]) == 5
-                )  # migration gate + security + sql cost check + progress tracker + lesson timing
+                assert len(hooks["PreToolUse"]) == 6, (
+                    "migration gate + destructive commands + sql cost + "
+                    "sensitive writes + progress tracker + lesson timing"
+                )
+
+                # Checagem por nome, não só por contagem: um hook pode ser
+                # removido e outro adicionado sem que o total mude.
+                registered = {
+                    fn.__name__ for matcher in hooks["PreToolUse"] for fn in matcher.hooks
+                }
+                for esperado in (
+                    "enforce_migration_gate",
+                    "block_destructive_commands",
+                    "check_sql_cost",
+                    "block_sensitive_writes",
+                ):
+                    assert esperado in registered, (
+                        f"hook de PreToolUse '{esperado}' não está registrado — "
+                        f"registrados: {sorted(registered)}"
+                    )
 
     def test_build_includes_partial_messages(self):
         """Verifica que include_partial_messages está ativo para feedback visual."""

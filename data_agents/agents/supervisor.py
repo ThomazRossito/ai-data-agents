@@ -43,7 +43,11 @@ from data_agents.hooks.cost_guard_hook import log_cost_generating_operations
 from data_agents.hooks.memory_hook import capture_session_context, pre_track_lesson_timing
 from data_agents.hooks.migration_gate_hook import enforce_migration_gate
 from data_agents.hooks.output_compressor_hook import compress_tool_output
-from data_agents.hooks.security_hook import block_destructive_commands, check_sql_cost
+from data_agents.hooks.security_hook import (
+    block_destructive_commands,
+    block_sensitive_writes,
+    check_sql_cost,
+)
 from data_agents.hooks.workflow_tracker import pre_track_workflow_events, track_workflow_events
 
 
@@ -322,6 +326,12 @@ def build_supervisor_options(
                 # Sem matcher → intercepta todas as tools.
                 HookMatcher(
                     hooks=[check_sql_cost],  # type: ignore[list-item]
+                ),
+                # block_sensitive_writes: denylist de caminhos críticos (.env, .git/,
+                # .github/workflows/, data_agents/**, credenciais). Sem matcher pelo
+                # mesmo motivo acima — o hook filtra Write/Edit/NotebookEdit por dentro.
+                HookMatcher(
+                    hooks=[block_sensitive_writes],  # type: ignore[list-item]
                 ),
                 # pre_track: emite agent_start / tool_call para callbacks de progresso
                 # registrados pelo CLI e UI — feedback visual em tempo real.

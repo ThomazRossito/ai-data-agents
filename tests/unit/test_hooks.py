@@ -724,3 +724,87 @@ class TestSQLInspectionBypass:
             context=None,
         )
         assert result == {}
+
+
+class TestSensitiveWriteGuardrail:
+    """
+    `Write` estava na allowlist do Supervisor sem NENHUM HookMatcher PreToolUse:
+    escrita em qualquer caminho era livre. Denylist adicionada em 2026-09-13.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "path",
+        [
+            ".env",
+            "/repo/.env.local",
+            "data_agents/agents/supervisor.py",
+            ".github/workflows/ci.yml",
+            ".git/config",
+            ".claude/CLAUDE.md",
+            "/home/user/.ssh/id_rsa",
+            "/home/user/.databrickscfg",
+        ],
+    )
+    async def test_blocks_protected_paths(self, path):
+        from data_agents.hooks.security_hook import block_sensitive_writes
+
+        result = await block_sensitive_writes(
+            {"tool_name": "Write", "tool_input": {"file_path": path}},
+            tool_use_id="w-1",
+            context=None,
+        )
+        assert result["hookSpecificOutput"]["permissionDecision"] == "deny", (
+            f"caminho protegido não foi bloqueado: {path}"
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "output/migration/ddl/gold_tables.sql",
+            "output/specs/spec_pipeline.md",
+            "logs/relatorio.md",
+            "/tmp/scratch.py",
+            "notebooks/analise.ipynb",
+        ],
+    )
+    async def test_allows_legitimate_paths(self, path):
+        """Denylist, não allowlist: geração de artefato não pode ser travada."""
+        from data_agents.hooks.security_hook import block_sensitive_writes
+
+        result = await block_sensitive_writes(
+            {"tool_name": "Write", "tool_input": {"file_path": path}},
+            tool_use_id="w-2",
+            context=None,
+        )
+        assert result == {}, f"caminho legítimo foi bloqueado: {path}"
+
+    @pytest.mark.asyncio
+    async def test_covers_edit_and_notebook_edit(self):
+        from data_agents.hooks.security_hook import block_sensitive_writes
+
+        for tool, field in (("Edit", "file_path"), ("NotebookEdit", "notebook_path")):
+            result = await block_sensitive_writes(
+                {"tool_name": tool, "tool_input": {field: "data_agents/cli.py"}},
+                tool_use_id="w-3",
+                context=None,
+            )
+            assert result["hookSpecificOutput"]["permissionDecision"] == "deny", tool
+
+    @pytest.mark.asyncio
+    async def test_ignores_non_write_tools(self):
+        from data_agents.hooks.security_hook import block_sensitive_writes
+
+        result = await block_sensitive_writes(
+            {"tool_name": "Read", "tool_input": {"file_path": ".env"}},
+            tool_use_id="w-4",
+            context=None,
+        )
+        assert result == {}, "leitura não deve ser bloqueada por este hook"
+
+    @pytest.mark.asyncio
+    async def test_handles_none_input(self):
+        from data_agents.hooks.security_hook import block_sensitive_writes
+
+        assert await block_sensitive_writes(None, tool_use_id=None, context=None) == {}

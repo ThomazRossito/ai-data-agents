@@ -91,7 +91,7 @@ data_agents/mcp_servers/
   tavily/         ← Busca web para LLMs (free: 1k créditos/mês)
   github/         ← GitHub: repos, issues, PRs (free via PAT)
   firecrawl/      ← Web scraping estruturado (free: 500 créditos/mês)
-  postgres/       ← Queries readonly em PostgreSQL (free, open source)
+  postgres/       ← Postgres MCP Pro (crystaldba, MIT) — schema, planos, tuning, health
   memory_mcp/     ← Knowledge graph de entidades (free, sem credenciais)
   migration_source/ ← MCP customizado: DDL/schema extraction de SQL Server/PostgreSQL
   fabric_ontology/ ← MCP customizado: CRUD completo do Fabric IQ Ontology (Azure CLI auth)
@@ -242,7 +242,8 @@ Use estes aliases no frontmatter `tools:` dos agentes em vez de listar cada tool
 | `github_all` | Acesso completo: repos, issues, PRs |
 | `github_readonly` | GitHub só leitura |
 | `firecrawl_all` | Scrape, crawl, search, extract |
-| `postgres_all` | query (SELECT readonly) |
+| `postgres_all` | Postgres MCP Pro: schema, execute_sql (read-only), explain, index tuning, health |
+| `postgres_readonly` | Só inspeção — exclui `execute_sql` |
 | `memory_mcp_all` | Knowledge graph: leitura + escrita |
 | `memory_mcp_readonly` | Knowledge graph: só leitura |
 | `fabric_semantic_all` | Fabric Semantic Models: introspecção TMDL, DAX, RLS |
@@ -512,7 +513,7 @@ Cada subdiretório: `__init__.py` + `server_config.py` (+ `server.py` para MCPs 
 | `tavily/` | Público (uvx) | `tavily-search`, `tavily-extract` |
 | `github/` | Público (uvx) | Repos, issues, PRs, commits |
 | `firecrawl/` | Público (uvx) | Scrape, crawl, search, extract |
-| `postgres/` | Público (npx) | Queries SELECT readonly |
+| `postgres/` | Postgres MCP Pro (uvx, MIT) | `list_schemas`, `execute_sql` (read-only), `explain_query`, `analyze_db_health` |
 | `memory_mcp/` | Público (npx) | Knowledge graph persistente — sem credenciais |
 | `migration_source/` | Customizado (Python) | DDL + schema extraction de SQL Server/PostgreSQL |
 

@@ -142,6 +142,94 @@ _DESTRUCTIVE_SQL_PATTERNS: list[tuple[re.Pattern, str]] = [
 ]
 
 
+# ─── Escrita em caminhos sensíveis ───────────────────────────────
+
+#: Caminhos que um agente nunca deve sobrescrever.
+#:
+#: Denylist (não allowlist) por decisão: os agentes geram artefatos em muitos
+#: lugares legítimos, e restringir a `output/` quebraria fluxos válidos. Aqui
+#: bloqueamos só o que não tem motivo nenhum para ser reescrito por um agente
+#: no meio de uma sessão.
+#:
+#: Adicionado pela auditoria 2026-09-13: `Write` estava na allowlist do
+#: Supervisor e não havia NENHUM HookMatcher de PreToolUse para ele — escrita
+#: em qualquer caminho era livre.
+_PROTECTED_WRITE_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (
+        re.compile(r"(^|/)\.env(\.|$)"),
+        "arquivo de credenciais (.env) — edite manualmente; segredos nunca "
+        "devem ser escritos por um agente (viola S5).",
+    ),
+    (
+        re.compile(r"(^|/)\.git/"),
+        "diretório interno do Git — sobrescrever corrompe o repositório.",
+    ),
+    (
+        re.compile(r"(^|/)\.github/workflows/"),
+        "workflow de CI/CD — alterar o pipeline de validação a partir de um "
+        "agente remove a própria rede de segurança. Edite via PR revisada.",
+    ),
+    (
+        re.compile(r"(^|/)data_agents/"),
+        "código-fonte do framework — o agente deve gerar artefatos em `output/`, "
+        "não reescrever o sistema que o executa.",
+    ),
+    (
+        re.compile(r"(^|/)\.claude/"),
+        "configuração do Claude Code — alteração deve ser deliberada e revisada.",
+    ),
+    (
+        re.compile(r"(^|/)(id_rsa|id_ed25519|\.ssh/|\.aws/credentials|\.databrickscfg)"),
+        "credencial de sistema — nunca deve ser escrita por um agente (viola S5).",
+    ),
+]
+
+#: Tools que escrevem em disco e devem ser inspecionadas.
+_WRITE_TOOLS = frozenset({"Write", "Edit", "NotebookEdit"})
+
+#: Campos de tool_input que carregam o caminho de destino.
+_PATH_FIELDS = ("file_path", "path", "notebook_path", "filename")
+
+
+def _detect_protected_write(path: str) -> tuple[bool, str]:
+    """Verifica se um caminho de escrita cai em área protegida."""
+    normalized = path.replace("\\", "/")
+    for pattern, reason in _PROTECTED_WRITE_PATTERNS:
+        if pattern.search(normalized):
+            return True, reason
+    return False, ""
+
+
+async def block_sensitive_writes(
+    input_data: dict[str, Any],
+    tool_use_id: str | None,
+    context: Any,
+) -> dict[str, Any]:
+    """
+    Bloqueia escrita em caminhos críticos (PreToolUse em Write/Edit/NotebookEdit).
+
+    Denylist deliberada — ver ``_PROTECTED_WRITE_PATTERNS``. Tools que não
+    escrevem em disco passam sem interferência.
+    """
+    if not input_data or not isinstance(input_data, dict):
+        return {}
+
+    if input_data.get("tool_name") not in _WRITE_TOOLS:
+        return {}
+
+    tool_input: dict = input_data.get("tool_input", {}) or {}
+
+    for field in _PATH_FIELDS:
+        value = tool_input.get(field)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        blocked, reason = _detect_protected_write(value)
+        if blocked:
+            return _deny(f"Escrita bloqueada em '{value}' — {reason}")
+
+    return {}
+
+
 def _detect_destructive_sql(sql: str) -> tuple[bool, str]:
     """
     Verifica se uma string SQL contém DDL/DML destrutivo.
