@@ -45,7 +45,8 @@ Usuário → data_agents/cli.py / data_agents/ui/chainlit_app.py
         │   ├─► ssas-to-databricks   [T1] — Migração de modelos tabulares SSAS (.bim/.vpax): DAX → Metric Views, RLS → UC
         │   ├─► hadoop-to-databricks [T1] — Migração de ecossistema Hadoop: HDFS/Hive/Impala/Oozie/Ranger → Databricks
         │   ├─► teradata-to-databricks [T1] — Migração de Teradata Vantage: BTEQ/TPT, PRIMARY INDEX/PPI, TASM → Databricks
-        │   └─► python-expert        [T1] — Python puro: pacotes, APIs, CLIs, testes
+        │   ├─► python-expert        [T1] — Python puro: pacotes, APIs, CLIs, testes
+        │   └─► azure-devops-engineer [T1] — Azure DevOps: repos, PRs, pipelines YAML, work items
         ├─► Tier 2 — Specialized
         │   ├─► dbt-expert           [T2] — dbt Core: models, testes, snapshots
         │   ├─► data-quality-steward [T2] — qualidade cross-platform: expectations, profiling, SLA
@@ -56,7 +57,9 @@ Usuário → data_agents/cli.py / data_agents/ui/chainlit_app.py
         │   ├─► fabric-ontology      [T2] — OWL 2, RDF, SPARQL, Fabric IQ Ontology (/ontology)
         │   ├─► azure-cost-calculator [T2] — FinOps Azure: custo conversacional, PAYG vs Reserved/Savings, TCO, USD↔BRL
         │   ├─► databricks-cost-calculator [T2] — FinOps Databricks: DBU/instance cost, PAYG vs DBCU, Photon ROI, TCO
-        │   └─► azure-analytics-auditor [T2] — Auditoria de prontidão Analytics on Azure Specialization (Módulo B)
+        │   ├─► azure-analytics-auditor [T2] — Auditoria de prontidão Analytics on Azure Specialization (Módulo B)
+        │   ├─► foundry-engineer     [T2] — Microsoft Foundry: design de agentes, hosted agents, A2A, evals
+        │   └─► task-architect       [T2] — Decomposição e análise de tarefas (multi-dimensional)
         └─► Tier 3 — Conversational & Intake
             ├─► business-analyst     [T3] — intake de requisitos, /brief
             └─► geral                [T0] — perguntas conceituais, zero MCP (Haiku)
@@ -92,6 +95,13 @@ data_agents/mcp_servers/
   memory_mcp/     ← Knowledge graph de entidades (free, sem credenciais)
   migration_source/ ← MCP customizado: DDL/schema extraction de SQL Server/PostgreSQL
   fabric_ontology/ ← MCP customizado: CRUD completo do Fabric IQ Ontology (Azure CLI auth)
+  fabric_notebook/ ← MCP customizado: execução/gestão de notebooks Fabric
+  fabric_onelake/ ← MCP customizado: OneLake (substitui o oficial @microsoft/fabric-mcp)
+  azure_devops/   ← MCP oficial Azure DevOps (npx @azure-devops/mcp): repos, PRs, pipelines
+  azure_pricing/  ← MCP customizado: preços Azure (FinOps)
+  databricks_pricing/ ← MCP customizado: preços Databricks (DBU)
+  databricks_billing/ ← MCP customizado: billing Databricks (mock por default)
+  fabric_semantic/ ← MCP customizado: Semantic Models (TMDL, DAX, RLS)
   _template/      ← Template para novos MCPs
 
 data_agents/config/
@@ -268,6 +278,9 @@ Use estes aliases no frontmatter `tools:` dos agentes em vez de listar cada tool
 | azure-cost-calculator | azure_pricing |
 | databricks-cost-calculator | databricks_pricing, databricks_billing, context7, databricks, tavily, memory_mcp |
 | azure-analytics-auditor | *(nenhum — leitura/escrita local de arquivos, sem MCP)* |
+| foundry-engineer | context7, tavily |
+| task-architect | context7 |
+| azure-devops-engineer | azure_devops, context7 |
 | business-analyst | tavily, firecrawl |
 | geral | *(nenhum — resposta direta sem MCP)* |
 
@@ -288,11 +301,11 @@ Use estes aliases no frontmatter `tools:` dos agentes em vez de listar cada tool
 | `security_hook.py` | PreToolUse (all) | Detecta SELECT * sem WHERE/LIMIT |
 | `audit_hook.py` | PostToolUse | Loga todas as tool calls no JSONL de auditoria (6 categorias de erro) |
 | `workflow_tracker.py` | PostToolUse | Rastreia delegações de agentes e Clarity Checkpoint |
-| `cost_guard_hook.py` | PostToolUse | Classifica operações HIGH/MEDIUM/LOW e alerta após 5 HIGH |
+| `cost_guard_hook.py` | PostToolUse | Classifica operações HIGH/MEDIUM/LOW e alerta ao acumular 100 HIGH na sessão |
 | `output_compressor_hook.py` | PostToolUse | Comprime outputs verbosos antes de enviar ao modelo |
 | `session_logger.py` | PostToolUse | Registra métricas finais de custo/turns/duração por sessão |
 | `memory_hook.py` | PostToolUse | Captura contexto da sessão para memória persistente |
-| `context_budget_hook.py` | PostToolUse | Monitora tokens acumulados; avisa a 80% e 95% do limite |
+| `context_budget_hook.py` | PostToolUse | 70% avisa · **80% compacta** (gera summary e reinicia a janela) · 95% erro (safety net) |
 | `checkpoint.py` | — | Save/restore do estado da sessão para retomada |
 | `session_lifecycle.py` | SessionStart/End | Injeção de memórias, config snapshot e flush ao encerrar |
 
@@ -510,11 +523,11 @@ Cada subdiretório: `__init__.py` + `server_config.py` (+ `server.py` para MCPs 
 | `security_hook.py` | PreToolUse | `block_destructive_commands()` | Bloqueia 22 padrões (rm -rf, DROP TABLE, git reset --hard, etc.) |
 | `security_hook.py` | PreToolUse | `check_sql_cost()` | Detecta SELECT * sem WHERE/LIMIT em qualquer tool |
 | `audit_hook.py` | PostToolUse | `audit_tool_usage()` | Loga em `logs/audit.jsonl`: agente, tool, status, duração |
-| `cost_guard_hook.py` | PostToolUse | `log_cost_generating_operations()` | HIGH/MEDIUM/LOW; alerta após 5 HIGH consecutivos |
+| `cost_guard_hook.py` | PostToolUse | `log_cost_generating_operations()` | HIGH/MEDIUM/LOW; alerta ao acumular 100 HIGH (`cost_guard_hook.py:110`) |
 | `output_compressor_hook.py` | PostToolUse | `compress_tool_output()` | Reduz outputs acima do threshold antes de enviar ao modelo |
 | `workflow_tracker.py` | Pre+Post | `pre_track_workflow_events()`, `track_workflow_events()` | Rastreia delegações, Clarity Checkpoint, progress callbacks |
 | `memory_hook.py` | PostToolUse | `capture_session_context()` | Acumula fatos da sessão; flush ao encerrar |
-| `context_budget_hook.py` | PostToolUse | `track_context_budget()` | Avisa a 80% e ERROR a 95% do context window |
+| `context_budget_hook.py` | PostToolUse | `track_context_budget()` | 70% WARNING · 80% dispara compactação autônoma · 95% ERROR |
 | `session_logger.py` | PostToolUse | `log_session_metrics()` | Custo, turns, duração por sessão em `logs/sessions.jsonl` |
 | `session_lifecycle.py` | SessionStart/End | `on_session_start()`, `on_session_end()` | Injeta memórias no início; config snapshot; flush ao encerrar |
 | `checkpoint.py` | — | `save_checkpoint()`, `load_checkpoint()` | Serializa/restaura estado da sessão |

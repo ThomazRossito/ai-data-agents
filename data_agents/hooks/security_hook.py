@@ -76,8 +76,45 @@ _SQL_IN_BASH = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
-#: Ferramenta cujo tool_input pode conter campos SQL diretos
-_SQL_TOOL_FIELDS = ("query", "sql", "statement")
+#: Campos de tool_input que podem carregar SQL — direto ou embutido em código.
+#:
+#: IMPORTANTE: inclui ``code``/``script``/``source`` porque tools de execução de
+#: código (ex.: ``mcp__databricks__execute_code``) recebem o SQL dentro de um
+#: programa (``spark.sql("DROP TABLE ...")``). Sem esses campos, essas tools
+#: escapavam de TODA inspeção: ``block_destructive_commands`` só olha Bash e
+#: ``check_sql_cost`` só olhava ``query``/``sql``/``statement``.
+_SQL_TOOL_FIELDS = (
+    "query",
+    "sql",
+    "statement",
+    "statements",
+    "sql_query",
+    "code",
+    "script",
+    "source",
+)
+
+
+def _collect_sql_candidates(tool_input: dict) -> list[str]:
+    """
+    Coleta TODOS os valores inspecionáveis de ``tool_input``.
+
+    Difere da versão anterior em dois pontos que eram bypass:
+
+    1. **Varre todos os campos** em vez de parar no primeiro não-vazio. Uma tool
+       pode receber ``sql`` benigno e ``statements`` destrutivo no mesmo payload.
+    2. **Aceita listas/tuplas** de strings, não só ``str``. Valores não-string
+       eram silenciosamente ignorados.
+    """
+    candidates: list[str] = []
+    for field in _SQL_TOOL_FIELDS:
+        value = tool_input.get(field)
+        if isinstance(value, str):
+            if value.strip():
+                candidates.append(value)
+        elif isinstance(value, (list, tuple)):
+            candidates.extend(item for item in value if isinstance(item, str) and item.strip())
+    return candidates
 
 
 # ─── DDL destrutivo em tools SQL (MCP / direto) ─────────────────
@@ -244,32 +281,30 @@ async def check_sql_cost(
     tool_name: str = input_data.get("tool_name", "")
     tool_input: dict = input_data.get("tool_input", {}) or {}
 
-    sql_candidate = ""
+    sql_candidates: list[str] = []
 
     if tool_name == "Bash":
         command: str = tool_input.get("command", "")
         m = _SQL_IN_BASH.search(command)
         if m:
-            sql_candidate = m.group("q").strip("'\"")
+            sql_candidates = [m.group("q").strip("'\"")]
     else:
-        for field in _SQL_TOOL_FIELDS:
-            value = tool_input.get(field, "")
-            if value and isinstance(value, str):
-                sql_candidate = value
-                break
+        sql_candidates = _collect_sql_candidates(tool_input)
 
-    if not sql_candidate:
+    if not sql_candidates:
         return {}
 
-    # 1. DDL destrutivo — bloqueia antes de verificar custo (prioridade máxima)
-    blocked, reason = _detect_destructive_sql(sql_candidate)
-    if blocked:
-        return _deny(f"SQL bloqueado — operação destrutiva detectada: {reason}")
+    # Cada candidato é inspecionado: basta UM ser destrutivo/caro para negar.
+    for sql_candidate in sql_candidates:
+        # 1. DDL destrutivo — bloqueia antes de verificar custo (prioridade máxima)
+        blocked, reason = _detect_destructive_sql(sql_candidate)
+        if blocked:
+            return _deny(f"SQL bloqueado — operação destrutiva detectada: {reason}")
 
-    # 2. SELECT de alto custo
-    blocked, reason = _detect_expensive_sql(sql_candidate)
-    if blocked:
-        return _deny(f"Query bloqueada — alto custo detectado: {reason}")
+        # 2. SELECT de alto custo
+        blocked, reason = _detect_expensive_sql(sql_candidate)
+        if blocked:
+            return _deny(f"Query bloqueada — alto custo detectado: {reason}")
 
     return {}
 

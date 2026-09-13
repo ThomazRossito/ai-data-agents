@@ -16,6 +16,28 @@ Servidor: @modelcontextprotocol/server-postgres (via npx)
 Protocolo: stdio
 Autenticação: POSTGRES_URL (connection string completa, obrigatório)
 
+⚠️ DEPRECADO E VULNERÁVEL — SUBSTITUIR (auditoria 2026-09-13)
+------------------------------------------------------------
+Este pacote foi **arquivado pela Anthropic em maio/2025** e movido para
+`modelcontextprotocol/servers-archived`. O motivo foi uma **SQL injection**
+divulgada pelo Datadog Security Labs: a sequência `COMMIT; DROP SCHEMA public
+CASCADE` **contorna o modo read-only** — ou seja, a promessa de "somente
+leitura" declarada acima NÃO se sustenta.
+
+Exposição atual neste projeto: **condicional**. O MCP só é ativado quando
+`POSTGRES_URL` está preenchido (`settings.py:154`). Com a variável vazia, não
+há superfície de ataque. Cinco agentes declaram o alias `postgres_*`.
+
+Alternativas mantidas (decisão pendente do dono do projeto):
+  - `crystaldba/postgres-mcp` — favorito da comunidade; 9 tools; explain plans,
+    index tuning, health checks, execução segura de SQL
+  - `mcp-server-pg` — posicionado como substituto direto do arquivado
+  - Postgres MCP Hardened (Rust) — reimplementação endurecida
+  - pgEdge Postgres MCP Server — expõe PL/pgSQL como tools
+
+Impacto da troca: BAIXO — este config declara **1 tool**
+(`mcp__postgres__query`), então o remapeamento de nomes é mínimo.
+
 Formato da connection string:
   postgresql://usuario:senha@host:5432/banco
   postgresql://usuario:senha@host:5432/banco?sslmode=require  (para ambientes cloud)

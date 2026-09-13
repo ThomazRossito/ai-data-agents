@@ -2,10 +2,10 @@
 Evals runner — executa queries canônicas e pontua com rubric determinística.
 
 Uso:
-    python -m evals.runner                      # roda todas
-    python -m evals.runner --domain conceptual  # filtra por domain
-    python -m evals.runner --id medallion-architecture  # uma query
-    python -m evals.runner --limit 3            # primeiras N queries
+    python -m data_agents.evals.runner                      # roda todas
+    python -m data_agents.evals.runner --domain conceptual  # filtra por domain
+    python -m data_agents.evals.runner --id medallion-architecture  # uma query
+    python -m data_agents.evals.runner --limit 3            # primeiras N queries
 
     make evals
 

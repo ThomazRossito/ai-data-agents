@@ -10,7 +10,7 @@ name: CI — Lint, Type-check, Tests & Audit
 on:
   workflow_dispatch:
   push:
-    branches: ["main", "develop", "refactor/v3.0"]
+    branches: ["main", "dev"]
     paths:
       - "**.py"
       - "pyproject.toml"
@@ -21,7 +21,7 @@ on:
       - "*.sh"
       - "Makefile"
   pull_request:
-    branches: ["main", "develop", "refactor/v3.0"]
+    branches: ["main", "dev"]
     paths:
       - "**.py"
       - "pyproject.toml"
@@ -366,7 +366,7 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────────────
   # Job 5b: Integration tests (Phase 6 — tocam SQLite/JSONL local, ~1-10s cada)
-  # Roda em PR e push em main/develop/refactor branches.
+  # Roda em PR e push em main/dev.
   # NÃO contribui para o coverage gate (gate vive em test-unit).
   # ─────────────────────────────────────────────────────────────────────────
   test-integration:
