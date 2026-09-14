@@ -95,7 +95,10 @@ from data_agents.mcp_servers.migration_source.server_config import (
     MIGRATION_SOURCE_MCP_TOOLS,
     MIGRATION_SOURCE_MCP_READONLY_TOOLS,
 )
-from data_agents.mcp_servers.postgres.server_config import POSTGRES_MCP_TOOLS
+from data_agents.mcp_servers.postgres.server_config import (
+    POSTGRES_MCP_READONLY_TOOLS,
+    POSTGRES_MCP_TOOLS,
+)
 from data_agents.mcp_servers.tavily.server_config import TAVILY_MCP_TOOLS
 
 logger = logging.getLogger("data_agents.loader")
@@ -165,8 +168,11 @@ MCP_TOOL_SETS: dict[str, list[str]] = {
     "github_readonly": GITHUB_MCP_READONLY_TOOLS,
     # firecrawl: web scraping e crawling estruturado
     "firecrawl_all": FIRECRAWL_MCP_TOOLS,
-    # postgres: queries somente leitura em PostgreSQL
+    # postgres: Postgres MCP Pro — schema, execução read-only, planos,
+    # tuning de índices e health checks (modo --access-mode=restricted)
     "postgres_all": POSTGRES_MCP_TOOLS,
+    # postgres_readonly: só inspeção — exclui `execute_sql` (SQL arbitrário)
+    "postgres_readonly": POSTGRES_MCP_READONLY_TOOLS,
     # memory_mcp: knowledge graph persistente de entidades e relações
     "memory_mcp_all": MEMORY_MCP_TOOLS,
     "memory_mcp_readonly": MEMORY_MCP_READONLY_TOOLS,

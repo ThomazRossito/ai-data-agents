@@ -598,6 +598,50 @@ def cross_check_escalation_targets(
     return issues
 
 
+def cross_check_supervisor_prompt(agent_names: list[str]) -> list[Issue]:
+    """Every registry agent must be named in SUPERVISOR_SYSTEM_PROMPT.
+
+    The CLAUDE.md recipe for adding an agent lists this as step 1, but nothing
+    enforced it: an agent absent from the prompt loads fine and is simply never
+    delegated to — a silent no-op that costs a whole build.
+
+    Added by the 2026-09-13 audit, which found three agents (azure-devops-engineer,
+    foundry-engineer, task-architect) present in the registry and absent from the
+    docs. `gen_inventory --check` did not catch it because it validates counts,
+    not names.
+    """
+    issues: list[Issue] = []
+    prompt_path = PROJECT_ROOT / "data_agents" / "agents" / "prompts" / "supervisor_prompt.py"
+
+    try:
+        prompt_src = prompt_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [
+            Issue(
+                Severity.ERROR,
+                "-",
+                "supervisor-prompt-unreadable",
+                f"could not read {prompt_path.name}: {exc}",
+                prompt_path,
+            )
+        ]
+
+    for name in agent_names:
+        if name not in prompt_src:
+            issues.append(
+                Issue(
+                    Severity.ERROR,
+                    name,
+                    "agent-missing-in-supervisor-prompt",
+                    f"'{name}' is in the registry but never named in "
+                    f"SUPERVISOR_SYSTEM_PROMPT — the supervisor cannot delegate "
+                    f"to it. Add it to {prompt_path.name}.",
+                    prompt_path,
+                )
+            )
+    return issues
+
+
 def cross_check_kb_vs_agents(
     agent_metadata: dict[str, dict[str, Any]],
     valid_kbs: set[str],
@@ -805,6 +849,8 @@ def main(argv: list[str] | None = None) -> int:
     for issue in cross_check_kb_vs_agents(agent_metadata, valid_kbs):
         report.add(issue)
     for issue in cross_check_escalation_targets(agent_metadata):
+        report.add(issue)
+    for issue in cross_check_supervisor_prompt(agent_names):
         report.add(issue)
 
     # Output

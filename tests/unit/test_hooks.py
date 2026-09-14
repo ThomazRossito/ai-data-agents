@@ -616,3 +616,195 @@ class TestMigrationGateHook:
             {"tool_name": "Bash", "tool_input": {"command": "ls"}}, "b1", None
         )
         assert result == {}
+
+
+# ─── Regressão: bypass de inspeção SQL (auditoria 2026-09-13) ──────
+
+
+class TestSQLInspectionBypass:
+    """
+    Fecha o bypass em que tools de execução de código escapavam de TODA inspeção.
+
+    Contexto: ``block_destructive_commands`` só olha ``Bash`` e ``check_sql_cost``
+    só olhava ``query``/``sql``/``statement``. Como o parâmetro de
+    ``mcp__databricks__execute_code`` é ``code``, um ``spark.sql("DROP TABLE ...")``
+    não era inspecionado por nenhum dos dois hooks.
+    """
+
+    @pytest.mark.asyncio
+    async def test_blocks_drop_inside_execute_code(self):
+        """O caso que motivou a correção: DROP dentro do campo `code`."""
+        result = await check_sql_cost(
+            {
+                "tool_name": "mcp__databricks__execute_code",
+                "tool_input": {
+                    "code": 'spark.sql("DROP TABLE prod.gold.fact_sales")',
+                },
+            },
+            tool_use_id="bypass-1",
+            context=None,
+        )
+        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+        assert "destrutiva" in result["hookSpecificOutput"]["permissionDecisionReason"]
+
+    @pytest.mark.asyncio
+    async def test_blocks_expensive_select_inside_execute_code(self):
+        result = await check_sql_cost(
+            {
+                "tool_name": "mcp__databricks__execute_code",
+                "tool_input": {"code": 'df = spark.sql("SELECT * FROM big_table")'},
+            },
+            tool_use_id="bypass-2",
+            context=None,
+        )
+        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    @pytest.mark.asyncio
+    async def test_scans_all_fields_not_just_the_first(self):
+        """
+        Antes havia `break` no primeiro campo não-vazio: um `sql` benigno
+        mascarava um `statement` destrutivo no mesmo payload.
+        """
+        result = await check_sql_cost(
+            {
+                "tool_name": "run_statement",
+                "tool_input": {
+                    "sql": "SELECT nome FROM dim_cliente WHERE id = 1",
+                    "statement": "DROP TABLE prod.gold.fact_sales",
+                },
+            },
+            tool_use_id="bypass-3",
+            context=None,
+        )
+        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+        assert "destrutiva" in result["hookSpecificOutput"]["permissionDecisionReason"]
+
+    @pytest.mark.asyncio
+    async def test_inspects_list_values(self):
+        """Valores não-string eram ignorados por completo."""
+        result = await check_sql_cost(
+            {
+                "tool_name": "execute_sql_multi",
+                "tool_input": {
+                    "statements": [
+                        "SELECT nome FROM dim_cliente WHERE id = 1",
+                        "TRUNCATE TABLE prod.gold.fact_sales",
+                    ]
+                },
+            },
+            tool_use_id="bypass-4",
+            context=None,
+        )
+        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    @pytest.mark.asyncio
+    async def test_allows_benign_python_code(self):
+        """Código sem SQL não deve ser afetado (evita falso positivo)."""
+        result = await check_sql_cost(
+            {
+                "tool_name": "mcp__databricks__execute_code",
+                "tool_input": {"code": "import pandas as pd\nprint(pd.__version__)"},
+            },
+            tool_use_id="bypass-5",
+            context=None,
+        )
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_allows_safe_sql_inside_execute_code(self):
+        """SQL filtrado dentro de código continua permitido."""
+        result = await check_sql_cost(
+            {
+                "tool_name": "mcp__databricks__execute_code",
+                "tool_input": {
+                    "code": "df = spark.sql(\"SELECT id FROM t WHERE dt = '2026-01-01' LIMIT 10\")"
+                },
+            },
+            tool_use_id="bypass-6",
+            context=None,
+        )
+        assert result == {}
+
+
+class TestSensitiveWriteGuardrail:
+    """
+    `Write` estava na allowlist do Supervisor sem NENHUM HookMatcher PreToolUse:
+    escrita em qualquer caminho era livre. Denylist adicionada em 2026-09-13.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "path",
+        [
+            ".env",
+            "/repo/.env.local",
+            "data_agents/agents/supervisor.py",
+            ".github/workflows/ci.yml",
+            ".git/config",
+            ".claude/CLAUDE.md",
+            "/home/user/.ssh/id_rsa",
+            "/home/user/.databrickscfg",
+        ],
+    )
+    async def test_blocks_protected_paths(self, path):
+        from data_agents.hooks.security_hook import block_sensitive_writes
+
+        result = await block_sensitive_writes(
+            {"tool_name": "Write", "tool_input": {"file_path": path}},
+            tool_use_id="w-1",
+            context=None,
+        )
+        assert result["hookSpecificOutput"]["permissionDecision"] == "deny", (
+            f"caminho protegido não foi bloqueado: {path}"
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "output/migration/ddl/gold_tables.sql",
+            "output/specs/spec_pipeline.md",
+            "logs/relatorio.md",
+            "/tmp/scratch.py",
+            "notebooks/analise.ipynb",
+        ],
+    )
+    async def test_allows_legitimate_paths(self, path):
+        """Denylist, não allowlist: geração de artefato não pode ser travada."""
+        from data_agents.hooks.security_hook import block_sensitive_writes
+
+        result = await block_sensitive_writes(
+            {"tool_name": "Write", "tool_input": {"file_path": path}},
+            tool_use_id="w-2",
+            context=None,
+        )
+        assert result == {}, f"caminho legítimo foi bloqueado: {path}"
+
+    @pytest.mark.asyncio
+    async def test_covers_edit_and_notebook_edit(self):
+        from data_agents.hooks.security_hook import block_sensitive_writes
+
+        for tool, field in (("Edit", "file_path"), ("NotebookEdit", "notebook_path")):
+            result = await block_sensitive_writes(
+                {"tool_name": tool, "tool_input": {field: "data_agents/cli.py"}},
+                tool_use_id="w-3",
+                context=None,
+            )
+            assert result["hookSpecificOutput"]["permissionDecision"] == "deny", tool
+
+    @pytest.mark.asyncio
+    async def test_ignores_non_write_tools(self):
+        from data_agents.hooks.security_hook import block_sensitive_writes
+
+        result = await block_sensitive_writes(
+            {"tool_name": "Read", "tool_input": {"file_path": ".env"}},
+            tool_use_id="w-4",
+            context=None,
+        )
+        assert result == {}, "leitura não deve ser bloqueada por este hook"
+
+    @pytest.mark.asyncio
+    async def test_handles_none_input(self):
+        from data_agents.hooks.security_hook import block_sensitive_writes
+
+        assert await block_sensitive_writes(None, tool_use_id=None, context=None) == {}

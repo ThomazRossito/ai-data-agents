@@ -19,7 +19,13 @@ dependencies = [
 
     # MCP framework — declarado explicitamente para garantir versão mínima compatível
     # com fabric_ontology e demais MCPs customizados (FastMCP requer >=1.27.0).
-    "mcp[cli]>=1.27.0",
+    # Teto em <2 é OBRIGATÓRIO (auditoria 2026-09-13): o mcp 2.x renomeou
+    # `FastMCP` -> `MCPServer` e removeu o módulo `mcp.server.fastmcp`, que os
+    # 10 MCP servers customizados deste projeto importam. Sem o teto, um
+    # `pip install -e .` limpo resolve para 2.x e TODOS eles quebram no import.
+    # A própria mensagem de erro do 2.x recomenda `pin 'mcp<2'`.
+    # Remover o teto só junto da migração para a API v2 (ver plano de ondas).
+    "mcp[cli]>=1.27.0,<2",
 
     # MCP Servers
     "databricks-mcp-server>=0.4.4",

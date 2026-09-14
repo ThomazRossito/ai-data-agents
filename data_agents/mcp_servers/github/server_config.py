@@ -13,6 +13,27 @@ Servidor: @modelcontextprotocol/server-github (via npx)
 Protocolo: stdio
 Autenticação: GITHUB_PERSONAL_ACCESS_TOKEN (obrigatório)
 
+⚠️ DESCONTINUADO — SUBSTITUIR (auditoria 2026-09-13)
+----------------------------------------------------
+O pacote npm `@modelcontextprotocol/server-github` **não é mais suportado
+desde abril/2025** e foi movido para `modelcontextprotocol/servers-archived`.
+O desenvolvimento migrou para o servidor **oficial do GitHub**:
+`github/github-mcp-server` (escrito em Go).
+
+Não há mais caminho via `npx`. As opções de instalação são:
+  - **Docker** (recomendado pela doc oficial):
+      `docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN ghcr.io/github/github-mcp-server`
+  - **Binário local (stdio)**: `github-mcp-server stdio`, com
+      `GITHUB_PERSONAL_ACCESS_TOKEN` no ambiente
+  - **Servidor remoto** hospedado pelo GitHub
+
+Impacto da troca: MÉDIO — este config declara **35 tools** cujos nomes precisam
+ser reconciliados com os do servidor oficial, além de `MCP_READONLY_TOOLS`, os
+aliases `github_all`/`github_readonly` em `loader.py` e o agente que os consome
+(`databricks-engineer`, hoje só com `github_readonly`).
+
+Decisão pendente do dono do projeto: Docker, binário local ou remoto.
+
 Como criar o token:
   GitHub → Settings → Developer Settings → Personal Access Tokens → Tokens (classic)
   Escopos necessários: repo, read:org (para repos privados)

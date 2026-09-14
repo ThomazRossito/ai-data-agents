@@ -34,7 +34,7 @@ demo: ## Executa query canônica (/geral) — smoke test end-to-end
 	python scripts/demo.py
 
 evals: ## Roda queries canônicas (~$$0.08) e gera scoreboard
-	python -m evals.runner
+	python -m data_agents.evals.runner
 
 # ─── Quality ──────────────────────────────────────────────────────
 
@@ -104,19 +104,19 @@ security-review: ## Audit completo: bandit + pip-audit + secrets scan (Phase 10)
 # Each linter validates a specific structural invariant. Run individually
 # during development; run lint-all in CI to gate the whole bundle.
 
-lint-registry: ## Valida frontmatter dos 15 agentes + referências
+lint-registry: ## Valida frontmatter dos 25 agentes + referências
 	python scripts/lint_registry.py
 
-lint-kb: ## Valida estrutura das 16 KBs + cross-refs com agentes
+lint-kb: ## Valida estrutura das 28 KBs + cross-refs com agentes
 	python scripts/lint_kb.py
 
-lint-skills: ## Valida 48 SKILL.md + name/description + orphan domains
+lint-skills: ## Valida 60 SKILL.md + name/description + orphan domains
 	python scripts/lint_skills.py
 
 lint-mcp: ## Valida MCP server_configs + aliases no loader
 	python scripts/lint_mcp_configs.py
 
-lint-commands: ## Valida config/commands.yaml (39 slash commands)
+lint-commands: ## Valida config/commands.yaml (50 slash commands)
 	python scripts/lint_commands.py
 
 lint-all: lint lint-registry lint-kb lint-skills lint-mcp lint-commands sync-docs-check ## ruff + 5 lints + doc sync (CI gate)

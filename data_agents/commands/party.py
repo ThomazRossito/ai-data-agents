@@ -197,11 +197,32 @@ def parse_party_args(user_input: str) -> tuple[list[str], str]:
     if not rest:
         return PARTY_GROUPS["default"], ""
 
-    # Flag de grupo
-    for flag, group_key in [("--quality", "quality"), ("--arch", "arch"), ("--full", "full")]:
+    # Flag de grupo — derivada de PARTY_GROUPS para não dessincronizar.
+    #
+    # CORREÇÃO (auditoria 2026-09-13): a lista era fixa com 3 flags
+    # (--quality/--arch/--full) enquanto PARTY_GROUPS já tinha 6 grupos e o
+    # commands.yaml anunciava --engineering e --migration. As duas caíam no
+    # grupo default **em silêncio** — o usuário pedia migração e recebia o core.
+    #
+    # Ordenado por tamanho decrescente para que uma chave que seja prefixo de
+    # outra não roube o match.
+    for group_key in sorted(PARTY_GROUPS, key=len, reverse=True):
+        if group_key == "default":
+            continue
+        flag = f"--{group_key}"
         if rest.startswith(flag):
             query = rest[len(flag) :].strip()
             return PARTY_GROUPS[group_key], query
+
+    # Flag desconhecida: antes seguia silenciosamente para o default.
+    if rest.startswith("--"):
+        unknown = rest.split(maxsplit=1)[0]
+        disponiveis = ", ".join(f"--{k}" for k in PARTY_GROUPS if k != "default")
+        logger.warning(
+            "Flag desconhecida em /party: %s — usando o grupo default. Disponíveis: %s",
+            unknown,
+            disponiveis,
+        )
 
     # Agentes explícitos: cada token que bate com um agente conhecido
     known_agents = set(AGENT_PERSONAS.keys())

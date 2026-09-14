@@ -76,20 +76,40 @@ jobs:
           echo "count=${CHANGED_FILES}" >> $GITHUB_OUTPUT
           git diff --name-only skills/ | head -30
 
-      - name: Commit updated skills
+      # Abre PR em vez de empurrar direto para `dev`.
+      # Antes: `git push origin dev` — commit automático entrava sem review e,
+      # como `dev` não estava nos gatilhos do CI, também sem nenhuma validação.
+      - name: Open PR with updated skills
         if: steps.changes.outputs.changed == 'true' && inputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+          BRANCH="chore/refresh-skills-$(date -u +%Y%m%d-%H%M%S)"
+          DOMAINS="${{ inputs.domains || 'databricks,fabric' }}"
+          COUNT="${{ steps.changes.outputs.count }}"
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${BRANCH}"
           git add skills/
-          git commit -m "chore(skills): refresh automático de skills [${{ inputs.domains || 'databricks,fabric' }}] — ${{ steps.changes.outputs.count }} arquivo(s) atualizado(s)
+          git commit -m "chore(skills): refresh automático [${DOMAINS}] — ${COUNT} arquivo(s)
 
           Executado via GitHub Actions (schedule/workflow_dispatch).
           Upstream: databricks-solutions/ai-dev-kit"
+          git push origin "${BRANCH}"
 
-      - name: Push to dev
-        if: steps.changes.outputs.changed == 'true' && inputs.dry_run != 'true'
-        run: git push origin dev
+          gh pr create \
+            --base dev \
+            --head "${BRANCH}" \
+            --title "chore(skills): refresh automático [${DOMAINS}] — ${COUNT} arquivo(s)" \
+            --body "Refresh automático de skills gerado pelo workflow \`refresh-skills\`.
+
+          - **Domínios:** \`${DOMAINS}\`
+          - **Arquivos alterados:** ${COUNT}
+          - **Gatilho:** \`${{ github.event_name }}\`
+
+          Revise o diff antes de mergear — o conteúdo vem de upstream externo."
 
       - name: Summary
         run: |

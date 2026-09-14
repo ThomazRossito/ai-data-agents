@@ -35,29 +35,77 @@ ROOT = Path(__file__).parent.parent.parent
 # TESTE 1 — DOMA Renaming: nenhum "BMAD" em arquivos Python do projeto
 # ══════════════════════════════════════════════════════════════════════════════
 class TestDOMARenamingNoBMADInCode:
-    """BMAD não deve mais existir em nenhum arquivo .py do projeto."""
+    """
+    O vocabulário do projeto é DOMA — o nome de origem não deve aparecer no código.
 
-    PY_FILES_TO_CHECK = [
-        "data_agents/commands/parser.py",
-        "data_agents/commands/party.py",
-        "data_agents/cli.py",
-        "data_agents/agents/supervisor.py",
-        "data_agents/agents/prompts/supervisor_prompt.py",
-        "data_agents/ui/chainlit_app.py",
-        "data_agents/hooks/cost_guard_hook.py",
-        "data_agents/monitoring/app.py",
-        "tests/test_commands.py",
-    ]
+    Há também razão jurídica: a licença do projeto de origem é MIT, mas reivindica
+    a marca "em todas as grafias e variações". Copiar padrões é permitido; usar o
+    nome, não.
 
-    @pytest.mark.parametrize("rel_path", PY_FILES_TO_CHECK)
-    def test_no_bmad_string_in_file(self, rel_path):
-        """Arquivo não deve conter a string 'BMAD' (case-sensitive)."""
-        path = ROOT / rel_path
-        if not path.exists():
-            pytest.skip(f"Arquivo não encontrado: {rel_path}")
-        content = path.read_text(encoding="utf-8")
-        occurrences = [i for i, line in enumerate(content.splitlines(), 1) if "BMAD" in line]
-        assert not occurrences, f"'{rel_path}' ainda contém 'BMAD' nas linhas: {occurrences[:5]}"
+    CORREÇÃO (auditoria 2026-09-13) — esta classe dava **falso verde**:
+    era uma allowlist de 9 caminhos fixos com ``pytest.skip`` quando o arquivo não
+    existia. Duas consequências reais:
+
+    1. ``tests/test_commands.py`` migrou para ``tests/unit/`` e a entrada passou a
+       skipar em silêncio — teste "verde" sem verificar nada.
+    2. ``data_agents/workflow/declarative/loader.py`` **contém** o termo e nunca
+       esteve na lista.
+
+    Agora é varredura real do pacote, com exceções explícitas e auditadas.
+    """
+
+    _FORBIDDEN = "BMAD"
+
+    #: Uso nominativo permitido: atribuição de proveniência em comentário/docstring.
+    #: Cada entrada é uma DECISÃO documentada — não um acidente. Referenciar um
+    #: projeto de terceiro pelo nome, para creditar origem, é uso legítimo.
+    PROVENANCE_EXCEPTIONS: dict[str, str] = {
+        "data_agents/workflow/declarative/loader.py": (
+            "Docstring credita a origem do padrão de workflows-como-dado "
+            "(auditoria 2026-07-26). Atribuição, não vocabulário de produto."
+        ),
+    }
+
+    def test_no_forbidden_vocabulary_in_package(self):
+        """Varre TODO o pacote ``data_agents/`` — não uma lista fixa de arquivos."""
+        pkg = ROOT / "data_agents"
+        assert pkg.is_dir(), "pacote data_agents/ não encontrado — ROOT está errado?"
+
+        violations: list[str] = []
+        scanned = 0
+
+        for path in sorted(pkg.rglob("*.py")):
+            scanned += 1
+            rel = path.relative_to(ROOT).as_posix()
+            hits = [
+                i
+                for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+                if self._FORBIDDEN in line
+            ]
+            if not hits or rel in self.PROVENANCE_EXCEPTIONS:
+                continue
+            violations.append(f"{rel}: linhas {hits[:5]}")
+
+        # Guarda contra glob quebrado: um teste que não varre nada passa por engano.
+        assert scanned > 0, "nenhum .py varrido — o glob quebrou"
+        assert not violations, (
+            "vocabulário de origem encontrado em código (use DOMA):\n  " + "\n  ".join(violations)
+        )
+
+    def test_provenance_exceptions_are_not_stale(self):
+        """
+        Exceção que não é mais necessária deve ser removida.
+
+        Sem isto a lista de exceções vira lixo acumulado que mascara regressão —
+        exatamente o defeito que esta classe tinha antes.
+        """
+        for rel, motivo in self.PROVENANCE_EXCEPTIONS.items():
+            path = ROOT / rel
+            assert path.exists(), f"exceção aponta para arquivo inexistente: {rel}"
+            assert self._FORBIDDEN in path.read_text(encoding="utf-8"), (
+                f"exceção obsoleta: '{rel}' não contém mais o termo — "
+                f"remova a entrada de PROVENANCE_EXCEPTIONS. (motivo registrado: {motivo})"
+            )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -149,6 +197,63 @@ class TestPartyModeArgParsing:
         assert "databricks-engineer" in agents
         assert "databricks-ai" in agents
         assert "analise este schema" in query
+
+    # ── Regressão: flags anunciadas mas não parseadas (auditoria 2026-09-13) ──
+    #
+    # O commands.yaml anunciava --engineering e --migration e PARTY_GROUPS já as
+    # definia, mas o parser tinha uma lista fixa de 3 flags. As duas caíam no
+    # grupo default EM SILÊNCIO: o usuário pedia migração e recebia o core.
+
+    def test_engineering_flag(self):
+        from data_agents.commands.party import parse_party_args, PARTY_GROUPS
+
+        agents, query = parse_party_args("/party --engineering otimizar o pipeline")
+        assert agents == PARTY_GROUPS["engineering"]
+        assert query == "otimizar o pipeline"
+
+    def test_migration_flag(self):
+        from data_agents.commands.party import parse_party_args, PARTY_GROUPS
+
+        agents, query = parse_party_args("/party --migration migrar pacotes SSIS")
+        assert agents == PARTY_GROUPS["migration"]
+        assert query == "migrar pacotes SSIS"
+
+    def test_every_group_has_a_working_flag(self):
+        """
+        Invariante anti-drift: todo grupo de PARTY_GROUPS (exceto `default`)
+        precisa ser alcançável por `--<grupo>`. Impede que um grupo novo seja
+        adicionado sem virar flag.
+        """
+        from data_agents.commands.party import parse_party_args, PARTY_GROUPS
+
+        for group_key in PARTY_GROUPS:
+            if group_key == "default":
+                continue
+            agents, query = parse_party_args(f"/party --{group_key} pergunta qualquer")
+            assert agents == PARTY_GROUPS[group_key], (
+                f"grupo '{group_key}' não é alcançável por --{group_key} — caiu em {agents}"
+            )
+            assert query == "pergunta qualquer"
+
+    def test_flags_announced_in_commands_yaml_are_parseable(self):
+        """
+        A descrição do /party no commands.yaml não pode anunciar flag que o
+        parser não reconhece — foi exatamente esse o drift encontrado.
+        """
+        import re
+
+        import yaml
+
+        from data_agents.commands.party import PARTY_GROUPS
+
+        cfg = yaml.safe_load((ROOT / "data_agents/config/commands.yaml").read_text())
+        descricao = cfg["commands"]["party"]["description"]
+
+        anunciadas = set(re.findall(r"--([a-z][a-z-]*)", descricao))
+        conhecidas = {k for k in PARTY_GROUPS if k != "default"}
+
+        orfas = anunciadas - conhecidas
+        assert not orfas, f"commands.yaml anuncia flags que o parser não conhece: {sorted(orfas)}"
 
     def test_empty_query_returns_empty_string(self):
         from data_agents.commands.party import parse_party_args

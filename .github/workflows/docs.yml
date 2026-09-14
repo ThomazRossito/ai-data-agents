@@ -1,7 +1,7 @@
 name: Docs — Build + deploy MkDocs site to GitHub Pages
 
 # Phase 11 (ADR-010): docs site built with MkDocs Material, deployed via
-# GitHub Pages on every push to main or refactor/v3.0.
+# GitHub Pages on every push to main or dev.
 #
 # Triggers narrowly — only when docs source actually changes, otherwise we
 # skip the build to save runner minutes.
@@ -13,7 +13,7 @@ name: Docs — Build + deploy MkDocs site to GitHub Pages
 on:
   workflow_dispatch:
   push:
-    branches: ["main", "refactor/v3.0"]
+    branches: ["main", "dev"]
     paths:
       - "docs/site/**"
       - "docs/ARCHITECTURE.md"
@@ -23,7 +23,7 @@ on:
       - "pyproject.toml"
       - ".github/workflows/docs.yml"
   pull_request:
-    branches: ["main", "refactor/v3.0"]
+    branches: ["main", "dev"]
     paths:
       - "docs/site/**"
       - "mkdocs.yml"
@@ -84,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [build]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/refactor/v3.0')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write  # required to push to gh-pages branch
 

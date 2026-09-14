@@ -76,8 +76,45 @@ _SQL_IN_BASH = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
-#: Ferramenta cujo tool_input pode conter campos SQL diretos
-_SQL_TOOL_FIELDS = ("query", "sql", "statement")
+#: Campos de tool_input que podem carregar SQL — direto ou embutido em código.
+#:
+#: IMPORTANTE: inclui ``code``/``script``/``source`` porque tools de execução de
+#: código (ex.: ``mcp__databricks__execute_code``) recebem o SQL dentro de um
+#: programa (``spark.sql("DROP TABLE ...")``). Sem esses campos, essas tools
+#: escapavam de TODA inspeção: ``block_destructive_commands`` só olha Bash e
+#: ``check_sql_cost`` só olhava ``query``/``sql``/``statement``.
+_SQL_TOOL_FIELDS = (
+    "query",
+    "sql",
+    "statement",
+    "statements",
+    "sql_query",
+    "code",
+    "script",
+    "source",
+)
+
+
+def _collect_sql_candidates(tool_input: dict) -> list[str]:
+    """
+    Coleta TODOS os valores inspecionáveis de ``tool_input``.
+
+    Difere da versão anterior em dois pontos que eram bypass:
+
+    1. **Varre todos os campos** em vez de parar no primeiro não-vazio. Uma tool
+       pode receber ``sql`` benigno e ``statements`` destrutivo no mesmo payload.
+    2. **Aceita listas/tuplas** de strings, não só ``str``. Valores não-string
+       eram silenciosamente ignorados.
+    """
+    candidates: list[str] = []
+    for field in _SQL_TOOL_FIELDS:
+        value = tool_input.get(field)
+        if isinstance(value, str):
+            if value.strip():
+                candidates.append(value)
+        elif isinstance(value, (list, tuple)):
+            candidates.extend(item for item in value if isinstance(item, str) and item.strip())
+    return candidates
 
 
 # ─── DDL destrutivo em tools SQL (MCP / direto) ─────────────────
@@ -103,6 +140,94 @@ _DESTRUCTIVE_SQL_PATTERNS: list[tuple[re.Pattern, str]] = [
         "ALTER TABLE DROP detectado — remoção de coluna ou partição é irreversível. Confirme com o usuário.",
     ),
 ]
+
+
+# ─── Escrita em caminhos sensíveis ───────────────────────────────
+
+#: Caminhos que um agente nunca deve sobrescrever.
+#:
+#: Denylist (não allowlist) por decisão: os agentes geram artefatos em muitos
+#: lugares legítimos, e restringir a `output/` quebraria fluxos válidos. Aqui
+#: bloqueamos só o que não tem motivo nenhum para ser reescrito por um agente
+#: no meio de uma sessão.
+#:
+#: Adicionado pela auditoria 2026-09-13: `Write` estava na allowlist do
+#: Supervisor e não havia NENHUM HookMatcher de PreToolUse para ele — escrita
+#: em qualquer caminho era livre.
+_PROTECTED_WRITE_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (
+        re.compile(r"(^|/)\.env(\.|$)"),
+        "arquivo de credenciais (.env) — edite manualmente; segredos nunca "
+        "devem ser escritos por um agente (viola S5).",
+    ),
+    (
+        re.compile(r"(^|/)\.git/"),
+        "diretório interno do Git — sobrescrever corrompe o repositório.",
+    ),
+    (
+        re.compile(r"(^|/)\.github/workflows/"),
+        "workflow de CI/CD — alterar o pipeline de validação a partir de um "
+        "agente remove a própria rede de segurança. Edite via PR revisada.",
+    ),
+    (
+        re.compile(r"(^|/)data_agents/"),
+        "código-fonte do framework — o agente deve gerar artefatos em `output/`, "
+        "não reescrever o sistema que o executa.",
+    ),
+    (
+        re.compile(r"(^|/)\.claude/"),
+        "configuração do Claude Code — alteração deve ser deliberada e revisada.",
+    ),
+    (
+        re.compile(r"(^|/)(id_rsa|id_ed25519|\.ssh/|\.aws/credentials|\.databrickscfg)"),
+        "credencial de sistema — nunca deve ser escrita por um agente (viola S5).",
+    ),
+]
+
+#: Tools que escrevem em disco e devem ser inspecionadas.
+_WRITE_TOOLS = frozenset({"Write", "Edit", "NotebookEdit"})
+
+#: Campos de tool_input que carregam o caminho de destino.
+_PATH_FIELDS = ("file_path", "path", "notebook_path", "filename")
+
+
+def _detect_protected_write(path: str) -> tuple[bool, str]:
+    """Verifica se um caminho de escrita cai em área protegida."""
+    normalized = path.replace("\\", "/")
+    for pattern, reason in _PROTECTED_WRITE_PATTERNS:
+        if pattern.search(normalized):
+            return True, reason
+    return False, ""
+
+
+async def block_sensitive_writes(
+    input_data: dict[str, Any],
+    tool_use_id: str | None,
+    context: Any,
+) -> dict[str, Any]:
+    """
+    Bloqueia escrita em caminhos críticos (PreToolUse em Write/Edit/NotebookEdit).
+
+    Denylist deliberada — ver ``_PROTECTED_WRITE_PATTERNS``. Tools que não
+    escrevem em disco passam sem interferência.
+    """
+    if not input_data or not isinstance(input_data, dict):
+        return {}
+
+    if input_data.get("tool_name") not in _WRITE_TOOLS:
+        return {}
+
+    tool_input: dict = input_data.get("tool_input", {}) or {}
+
+    for field in _PATH_FIELDS:
+        value = tool_input.get(field)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        blocked, reason = _detect_protected_write(value)
+        if blocked:
+            return _deny(f"Escrita bloqueada em '{value}' — {reason}")
+
+    return {}
 
 
 def _detect_destructive_sql(sql: str) -> tuple[bool, str]:
@@ -244,32 +369,30 @@ async def check_sql_cost(
     tool_name: str = input_data.get("tool_name", "")
     tool_input: dict = input_data.get("tool_input", {}) or {}
 
-    sql_candidate = ""
+    sql_candidates: list[str] = []
 
     if tool_name == "Bash":
         command: str = tool_input.get("command", "")
         m = _SQL_IN_BASH.search(command)
         if m:
-            sql_candidate = m.group("q").strip("'\"")
+            sql_candidates = [m.group("q").strip("'\"")]
     else:
-        for field in _SQL_TOOL_FIELDS:
-            value = tool_input.get(field, "")
-            if value and isinstance(value, str):
-                sql_candidate = value
-                break
+        sql_candidates = _collect_sql_candidates(tool_input)
 
-    if not sql_candidate:
+    if not sql_candidates:
         return {}
 
-    # 1. DDL destrutivo — bloqueia antes de verificar custo (prioridade máxima)
-    blocked, reason = _detect_destructive_sql(sql_candidate)
-    if blocked:
-        return _deny(f"SQL bloqueado — operação destrutiva detectada: {reason}")
+    # Cada candidato é inspecionado: basta UM ser destrutivo/caro para negar.
+    for sql_candidate in sql_candidates:
+        # 1. DDL destrutivo — bloqueia antes de verificar custo (prioridade máxima)
+        blocked, reason = _detect_destructive_sql(sql_candidate)
+        if blocked:
+            return _deny(f"SQL bloqueado — operação destrutiva detectada: {reason}")
 
-    # 2. SELECT de alto custo
-    blocked, reason = _detect_expensive_sql(sql_candidate)
-    if blocked:
-        return _deny(f"Query bloqueada — alto custo detectado: {reason}")
+        # 2. SELECT de alto custo
+        blocked, reason = _detect_expensive_sql(sql_candidate)
+        if blocked:
+            return _deny(f"Query bloqueada — alto custo detectado: {reason}")
 
     return {}
 
