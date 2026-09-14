@@ -172,11 +172,53 @@ schema/DDL (generic, PostgreSQL, or Fabric destination) → `migration-expert`.
 
 ## Step 0.9 — Spec-First (DOMA with 3+ agents, 2+ platforms, or new infrastructure)
 
-Consult `kb/collaboration-workflows.md` for WF-01..WF-06. Choose a template from `templates/`
-(`pipeline-spec.md`, `star-schema-spec.md`, `cross-platform-spec.md`), fill it in,
-save to `output/specs/spec_<name>.md`. Reference spec in each agent's prompt.
 Skip if: single-agent path, simple query, Express Mode — **UNLESS Step 0.6(A) applies** (migrations,
 production writes, new infra): then the Spec is REQUIRED even on the single-agent path.
+
+### 0.9.a — LOOK BEFORE YOU WRITE (mandatory, do this first)
+
+**Never create a spec before checking whether one already exists.** On 2026-07-26 this
+system wrote the same spec three times in under two hours, and renamed it in the process
+(`spec_ssas_comercial_brf.md` → `spec_ssas_brf_comercial.md`), losing the earlier work.
+
+1. Derive the `spec_id`: kebab-case, from the *subject* of the work, not from the phrasing
+   of the request. "Migração SSAS Comercial BRF" → `ssas-comercial-brf`.
+2. Search for it: `Grep` pattern `spec_id:` in `output/specs/`. Read the candidates and
+   match on the `spec_id` **field**, never on the filename — the filename is unreliable
+   and is exactly what drifted before.
+3. Found → go to 0.9.c and ROUTE BY STATUS. Not found → go to 0.9.b and create.
+
+### 0.9.b — Creating a new spec
+
+Consult `kb/collaboration-workflows.md` for WF-01..WF-06. Choose a template from `templates/`
+(`pipeline-spec.md`, `star-schema-spec.md`, `cross-platform-spec.md`), fill it in, save to
+`output/specs/spec_<spec_id>.md`. Reference the spec in each agent's prompt.
+
+Fill the frontmatter honestly: `status: rascunho`, a `trilha`, `iteracao_revisao: 0`.
+Write the user's own words into `<intencao-congelada>` — that block is the anchor everything
+else is checked against.
+
+### 0.9.c — Routing an existing spec (read `status`, then do ONLY that)
+
+| `status` | What you do |
+|---|---|
+| `rascunho` | Continue the investigation where it stopped. Do NOT rewrite what is there. When the investigation answers the open questions, set `status: investigado` and decide the `trilha` (Step 0.7). |
+| `investigado` | Present it for approval (Step 2). On an explicit human "yes", set `status: pronto`. |
+| `pronto` | Delegate (Step 3). Set `status: em-execucao` when the first agent starts. |
+| `em-execucao` | Resume from the last completed section — read the spec to find out what is done. When the artifact exists, set `status: em-revisao`. |
+| `em-revisao` | Review. Accepted → `concluido`. Changes needed → `em-execucao` and increment `iteracao_revisao`. At `iteracao_revisao: 3`, STOP and escalate to the human instead of looping again. |
+| `concluido` / `cancelado` | Finished. Do NOT reopen and do NOT edit. If the user wants more, that is a NEW spec with a NEW `spec_id`. |
+
+**Transitions are a state machine, not a text field.** The legal edges are exactly
+`rascunho → investigado → pronto → em-execucao → em-revisao → concluido`, plus
+`em-revisao → em-execucao` (bounded) and `em-execucao → concluido` *only* on
+`trilha: direta`. Anything else — jumping straight to `concluido`, going back to
+`rascunho`, cancelling — is not yours to do. See `data_agents/spec/state.py`.
+
+**`<intencao-congelada>` belongs to the human.** Read it, work inside it, never rewrite it,
+not even to "improve the wording". If your investigation shows the stated intent is
+unachievable or wrong, SAY SO to the user and stop — do not silently adjust the intent to
+match what you can deliver. Reopening a spec is the human's call.
 
 **Artifact Dependency Check (mandatory before any multi-agent delegation):**
 Does agent B need output produced by agent A?
