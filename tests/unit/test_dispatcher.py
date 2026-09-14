@@ -360,3 +360,92 @@ class TestConstants:
     def test_neighbor_agents_are_quality_and_governance(self):
         assert "data-quality-steward" in _NEIGHBOR_AGENTS
         assert "governance-auditor" in _NEIGHBOR_AGENTS
+
+
+# ─── Regressão: bloco `thinking` quebrava o dispatcher (auditoria 2026-09-13) ──
+
+
+class TestDispatcherThinkingBlocks:
+    """
+    O dispatcher falhava em TODA query, silenciosamente.
+
+    O Kimi K2.6 raciocina por padrão. Numa execução real observada, a resposta
+    veio com `content = [{"type": "thinking", ...}]`, `stop_reason = max_tokens`
+    e `thinking_tokens = 255` de um orçamento de 256 — o modelo gastou tudo
+    pensando e nunca emitiu o texto. O parse antigo fazia `content[0]["text"]`,
+    levantava KeyError e caía no fallback que carrega TODOS os agentes,
+    anulando o two-stage routing (o prompt voltava de ~25K para ~80K).
+
+    Correção em duas frentes: `thinking=disabled` no payload (causa) e varredura
+    dos blocos procurando o de texto (robustez).
+    """
+
+    def _mock_response(self, payload_dict: dict):
+        body = json.dumps(payload_dict).encode("utf-8")
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = body
+        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        return mock_resp
+
+    @pytest.mark.asyncio
+    async def test_skips_thinking_block_and_finds_text(self):
+        """Com thinking + text, deve achar o texto — não parar no content[0]."""
+        available = _make_available("databricks-engineer", "fabric-engineer", "geral")
+        mock_api = self._mock_response(
+            {
+                "content": [
+                    {"type": "thinking", "thinking": "O usuário perguntou sobre catálogos..."},
+                    {
+                        "type": "text",
+                        "text": json.dumps(
+                            {
+                                "agents": ["databricks-engineer"],
+                                "confidence": 0.95,
+                                "reason": "Unity Catalog",
+                            }
+                        ),
+                    },
+                ]
+            }
+        )
+        with patch("urllib.request.urlopen", return_value=mock_api):
+            agents, conf, reason = await select_agents("liste os catálogos", available)
+
+        assert agents == ["databricks-engineer"], (
+            "o bloco thinking veio primeiro e o parse deve puxar o bloco de texto"
+        )
+        assert conf == pytest.approx(0.95)
+
+    @pytest.mark.asyncio
+    async def test_only_thinking_block_falls_back_cleanly(self):
+        """Cenário real observado: só thinking, sem texto. Fallback, sem exceção."""
+        available = _make_available("databricks-engineer", "fabric-engineer", "geral")
+        mock_api = self._mock_response(
+            {
+                "content": [{"type": "thinking", "thinking": "raciocinando..."}],
+                "stop_reason": "max_tokens",
+                "usage": {"output_tokens": 256, "output_tokens_details": {"thinking_tokens": 255}},
+            }
+        )
+        with patch("urllib.request.urlopen", return_value=mock_api):
+            agents, conf, reason = await select_agents("liste os catálogos", available)
+
+        assert reason == "no_content"
+        assert conf == 0.0
+        assert len(agents) > 1, "fallback deve carregar os agentes delegáveis"
+
+    def test_payload_disables_thinking_and_is_deterministic(self):
+        """
+        A causa raiz: sem `thinking=disabled`, o modelo gasta o orçamento
+        pensando. E `temperature: 0` torna o roteamento reprodutível.
+        """
+        import inspect
+
+        from data_agents.agents import dispatcher
+
+        src = inspect.getsource(dispatcher.select_agents)
+        assert '"thinking": {"type": "disabled"}' in src, (
+            "o payload do dispatcher deve desabilitar thinking explicitamente"
+        )
+        assert '"temperature": 0' in src, "roteamento deve ser determinístico"
