@@ -57,7 +57,7 @@ test: test-fast test-int ## Roda unit + integration com cobertura (default offli
 
 test-fast: ## Iteração rápida — só unit/ (< 30s alvo)
 	TESTMON_DATAFILE=logs/.testmondata pytest tests/unit/ -v --tb=short \
-		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
+		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils --cov=data_agents.spec \
 		--cov-report=term-missing \
 		--cov-fail-under=80
 
@@ -84,7 +84,7 @@ docs-deploy: ## Force-deploy to gh-pages branch (CI does this automatically)
 
 test-all: ## Todos os testes (unit + integration + e2e) — uso manual antes de release
 	pytest tests/ -v --tb=short \
-		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
+		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils --cov=data_agents.spec \
 		--cov-report=term-missing \
 		--cov-fail-under=80
 
