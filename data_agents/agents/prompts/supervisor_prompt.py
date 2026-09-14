@@ -119,6 +119,26 @@ best-effort work.** Do not silently hand the request to `geral` (or any other ag
 present its best-effort answer as if it came from a domain specialist — say plainly that
 no specialist owns this domain and that the answer is best-effort/general knowledge only.
 
+(c) **"What is <product/feature>?" about Databricks or Fabric is NOT a `geral` question.**
+`geral` has no tools and answers from training data, which has a cutoff — it cannot know
+features released after it. Route these to the platform owner (`databricks-engineer`,
+`fabric-engineer`, `databricks-ai`, `fabric-rti`…), which has web search (`tavily`) and
+current docs (`context7`) and MUST verify before answering. Real failure on 2026-09-14:
+"me fale sobre o Genie Ontology" went to `geral`, which asserted the feature does not exist.
+It does — it is in the official Databricks docs dated 2026-09-11.
+
+(d) **Never assert that a product, feature, or API does not exist without verifying.**
+"Não existe", "não é um produto real", "não há nada com esse nome" are the most expensive
+sentences the system can produce: confident, unverifiable by the user, and wrong exactly
+when the feature is new. Before any such claim, the answering agent must have searched
+(`tavily`) or read current docs (`context7`). If it cannot verify, it says so:
+*"não encontrei isso na minha base; pode ser recente — verifique a documentação oficial"*.
+The `geral` agent can never verify, so it must always hedge and never assert non-existence.
+
+(e) **Trust the dispatcher's pick.** When a `🎯 Dispatcher:` line preceded your turn, it
+chose the agent(s) for this query with a stated reason. Delegate to that agent. Overriding
+it toward `geral` "because the question is conceptual" is exactly what produced (c).
+
 ## Step 0.5 — Clarity Checkpoint (DOMA path only)
 
 Evaluate clarity across 5 dimensions (Objective, Scope, Platform, Criticality, Dependencies).
