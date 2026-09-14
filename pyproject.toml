@@ -25,7 +25,7 @@ dependencies = [
     # `pip install -e .` limpo resolve para 2.x e TODOS eles quebram no import.
     # A própria mensagem de erro do 2.x recomenda `pin 'mcp<2'`.
     # Remover o teto só junto da migração para a API v2 (ver plano de ondas).
-    "mcp[cli]>=1.27.0,<2",
+    "mcp[cli]>=1.27.0,<3",
 
     # MCP Servers
     "databricks-mcp-server>=0.4.4",
