@@ -330,3 +330,97 @@ def test_dataclass_aceita_construcao_direta() -> None:
     s = Spec(spec_id="x", titulo="X")
     assert s.status is SpecStatus.RASCUNHO
     assert not s.e_final
+
+
+# ─── Os templates de verdade do repositório ──────────────────────────────────
+
+_REPO = Path(__file__).resolve().parents[2]
+
+#: Convenção: todo template de spec termina em `-spec.md`. `backlog.md` (saída
+#: do business-analyst) e `README.md` não são specs e ficam de fora.
+_TEMPLATES_SPEC = sorted((_REPO / "templates").glob("*-spec.md"))
+
+
+class TestTemplatesDoRepo:
+    """Gate contra o template e o módulo saírem de sincronia.
+
+    Sem isto, alguém adiciona um template novo sem frontmatter, o Supervisor o
+    preenche, e o `load()` estoura só na hora de retomar o trabalho — no pior
+    momento possível.
+    """
+
+    def test_existe_pelo_menos_um(self) -> None:
+        assert _TEMPLATES_SPEC, "nenhum templates/*-spec.md encontrado"
+
+    @pytest.mark.parametrize("caminho", _TEMPLATES_SPEC, ids=lambda p: p.name)
+    def test_frontmatter_parseia(self, caminho: Path) -> None:
+        from data_agents.utils.frontmatter import parse_yaml_frontmatter
+
+        meta, corpo = parse_yaml_frontmatter(caminho.read_text(encoding="utf-8"))
+        assert isinstance(meta, dict) and meta, f"{caminho.name}: frontmatter vazio"
+        assert corpo.strip(), f"{caminho.name}: corpo vazio"
+
+    @pytest.mark.parametrize("caminho", _TEMPLATES_SPEC, ids=lambda p: p.name)
+    def test_tem_os_campos_da_maquina_de_estados(self, caminho: Path) -> None:
+        from data_agents.utils.frontmatter import parse_yaml_frontmatter
+
+        meta, _ = parse_yaml_frontmatter(caminho.read_text(encoding="utf-8"))
+        obrigatorios = {"spec_id", "titulo", "status", "trilha", "iteracao_revisao"}
+        faltando = sorted(obrigatorios - set(meta))
+        assert not faltando, f"{caminho.name}: frontmatter sem {faltando}"
+
+    @pytest.mark.parametrize("caminho", _TEMPLATES_SPEC, ids=lambda p: p.name)
+    def test_nasce_em_rascunho_com_trilha_valida(self, caminho: Path) -> None:
+        from data_agents.spec.state import parse_status, parse_trilha
+        from data_agents.utils.frontmatter import parse_yaml_frontmatter
+
+        meta, _ = parse_yaml_frontmatter(caminho.read_text(encoding="utf-8"))
+        assert parse_status(meta["status"]) is SpecStatus.RASCUNHO, (
+            f"{caminho.name}: template tem que nascer em 'rascunho' — qualquer "
+            "outro estado inicial pularia etapas da máquina"
+        )
+        parse_trilha(meta["trilha"])  # levanta se inválida
+        assert meta["iteracao_revisao"] == 0
+
+    @pytest.mark.parametrize("caminho", _TEMPLATES_SPEC, ids=lambda p: p.name)
+    def test_tem_bloco_de_intencao_congelada(self, caminho: Path) -> None:
+        texto = caminho.read_text(encoding="utf-8")
+        assert "<intencao-congelada>" in texto and "</intencao-congelada>" in texto, (
+            f"{caminho.name}: sem o bloco <intencao-congelada> não existe âncora "
+            "verificável do que o humano pediu"
+        )
+
+    @pytest.mark.parametrize("caminho", _TEMPLATES_SPEC, ids=lambda p: p.name)
+    def test_template_preenchido_carrega_de_ponta_a_ponta(
+        self, caminho: Path, specs_dir: Path
+    ) -> None:
+        """O teste que vale: simula o Supervisor preenchendo e o /resume relendo.
+
+        Verificar só que as chaves existem não prova que o documento resultante
+        é utilizável. Aqui o template real é preenchido, gravado e recarregado
+        pelo `load()` — o mesmo caminho que o Supervisor vai percorrer.
+        """
+        texto = caminho.read_text(encoding="utf-8")
+        preenchido = (
+            texto.replace('"[PREENCHER — kebab-case, ex: pipeline-vendas-gold]"', "teste-id")
+            .replace('"[PREENCHER — kebab-case, ex: star-schema-vendas]"', "teste-id")
+            .replace('"[PREENCHER — kebab-case, ex: sync-databricks-fabric-vendas]"', "teste-id")
+            .replace('"[PREENCHER]"', "Título de Teste")
+            .replace('"[PREENCHER — hash curto do repo quando o spec nasceu]"', "abc1234")
+            .replace('"[PREENCHER — AAAA-MM-DD]"', "2026-09-14")
+        )
+        destino = specs_dir / f"spec_{caminho.stem}.md"
+        destino.write_text(preenchido, encoding="utf-8")
+
+        spec = load(destino)
+        assert spec.spec_id == "teste-id", (
+            f"{caminho.name}: o placeholder de spec_id não bateu com o esperado — "
+            "se o texto do placeholder mudou, atualize este teste junto"
+        )
+        assert spec.status is SpecStatus.RASCUNHO
+        assert spec.baseline_commit == "abc1234"
+        assert spec.intencao_congelada, "o bloco veio vazio depois do parse"
+
+        # E o round-trip completo: gravar de volta não perde nada.
+        save(spec, por_humano=True, specs_dir=specs_dir)
+        assert load(destino).spec_id == "teste-id"

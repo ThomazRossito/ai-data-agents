@@ -34,3 +34,57 @@ Passo 0 (KB-First) → Passo 0.5 (Clarity) → Passo 0.9 (Spec-First)
 ```
 
 O spec é salvo em `output/specs/` e referenciado no prompt de delegação de cada agente.
+
+---
+
+## Máquina de Estados (Onda 2.1)
+
+Desde set/2026 todo `*-spec.md` carrega frontmatter YAML e o spec deixa de ser
+documento solto: vira objeto com ciclo de vida, gerido por
+[`data_agents/spec/`](../data_agents/spec/).
+
+```
+rascunho → investigado → pronto → em-execucao → em-revisao → concluido
+                                       ↑____________|
+                                    (máx. 3 voltas, depois escala)
+
+qualquer não-final → rascunho | cancelado     ← só o humano
+```
+
+`rascunho → concluido` **não existe**. Transição fora da tabela levanta
+`TransicaoInvalida` — não é campo de texto livre.
+
+### Por que isso apareceu
+
+O `logs/audit.jsonl` deste repositório registra **6 escritas de spec para 3
+specs reais**. O Supervisor regenerava do zero porque não tinha como saber que
+já havia trabalho em andamento — e o nome do arquivo derivava no caminho
+(`spec_ssas_comercial_brf.md` → `spec_ssas_brf_comercial.md`), de modo que nem
+procurando dava para reencontrar.
+
+### As duas regras que importam
+
+**`spec_id` nunca muda.** É a identidade. `find_by_id()` procura por ele
+*dentro* do arquivo; o nome do arquivo é cosmético. Renomeie à vontade — o
+spec continua sendo achado.
+
+**`<intencao-congelada>` pertence a você.** Agentes leem e trabalham dentro do
+bloco; não o reescrevem. `save()` compara com o disco e levanta
+`IntencaoCongeladaViolada` se um agente tentar. Se a intenção mudou de verdade,
+quem edita é você, e o spec volta a `rascunho`.
+
+### Uso
+
+```python
+from data_agents.spec import SpecStatus, Trilha
+from data_agents.spec.store import criar, find_by_id, transicionar
+
+spec = find_by_id("migracao-ssas-brf")     # None se não existir
+if spec is None:
+    spec = criar("Migração SSAS BRF", trilha=Trilha.PLATAFORMA)
+
+transicionar(spec, SpecStatus.INVESTIGADO)  # valida antes de gravar
+```
+
+O `status` é o que permite ao Supervisor **continuar** em vez de recomeçar, e
+ao `/resume` retomar sem reler o transcript inteiro.

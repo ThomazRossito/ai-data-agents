@@ -1,3 +1,34 @@
+---
+spec_id: "[PREENCHER — kebab-case, ex: star-schema-vendas]"
+titulo: "[PREENCHER]"
+status: rascunho
+trilha: pipeline
+iteracao_revisao: 0
+baseline_commit: "[PREENCHER — hash curto do repo quando o spec nasceu]"
+criado_em: "[PREENCHER — AAAA-MM-DD]"
+atualizado_em: "[PREENCHER — AAAA-MM-DD]"
+---
+
+<!--
+O `spec_id` é a IDENTIDADE do documento e NUNCA muda — nem se o arquivo for
+renomeado, nem se o título mudar. `data_agents/spec/store.py::find_by_id()`
+procura por ele dentro do arquivo, jamais pelo nome.
+
+`status` é uma máquina de estados de verdade — ver data_agents/spec/state.py.
+Pular etapa levanta exceção; não é campo de texto livre.
+-->
+
+<intencao-congelada>
+[PREENCHER — o que você quer, em 1 a 3 frases. Escreva o RESULTADO desejado e
+as restrições inegociáveis, não a solução técnica.]
+</intencao-congelada>
+
+<!--
+O bloco acima pertence ao humano. Agentes leem e trabalham dentro dele; não o
+reescrevem. `save()` levanta `IntencaoCongeladaViolada` se um agente tentar.
+Se a intenção mudou de verdade, quem edita é você — e o spec volta a `rascunho`.
+-->
+
 # Star Schema Spec — {{NOME_DO_MODELO}}
 
 > **Template Spec-First:** Especificação completa para design de camada Gold com Star Schema.
