@@ -55,6 +55,24 @@ updates:
       - dependency-name: "pydantic-settings"
         update-types: ["version-update:semver-major"]
 
+      # ruff: o pyproject pina versão EXATA de propósito. O formatter do ruff
+      # muda de estilo entre minors (0.16.x passou a formatar blocos de código
+      # Markdown por padrão), o que quebrava `ruff format --check` no CI com
+      # centenas de arquivos. Patches dentro do 0.15.x continuam chegando;
+      # subir de minor/major é decisão manual, acompanhada de reformatação
+      # do repo inteiro e do bump do rev no .pre-commit-config.yaml.
+      # Contexto: auditoria 2026-09-13 (PR #39 ficou vermelha por isto).
+      - dependency-name: "ruff"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-major"
+
+      # mcp: o 2.x renomeou FastMCP -> MCPServer e removeu mcp.server.fastmcp,
+      # que os 10 MCP servers customizados importam. O pyproject tem teto <2.
+      # Só subir junto da migração para a API v2.
+      - dependency-name: "mcp"
+        update-types: ["version-update:semver-major"]
+
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"

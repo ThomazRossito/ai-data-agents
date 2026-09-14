@@ -808,3 +808,98 @@ class TestSensitiveWriteGuardrail:
         from data_agents.hooks.security_hook import block_sensitive_writes
 
         assert await block_sensitive_writes(None, tool_use_id=None, context=None) == {}
+
+
+class TestDestructiveActionGuard:
+    """
+    Compensação obrigatória para tools `action-dispatch` (auditoria 2026-09-13).
+
+    MCP servers modernos consolidam operações num argumento `action`. Como o
+    `allowed_tools` do SDK filtra por NOME de tool — e `manage_pipeline` é um
+    nome benigno — a granularidade de permissão desaparece sem este hook.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "acao", ["delete", "drop", "destroy", "remove", "purge", "truncate", "revoke"]
+    )
+    async def test_blocks_destructive_actions(self, acao):
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        result = await check_destructive_action(
+            {
+                "tool_name": "mcp__databricks__manage_pipeline",
+                "tool_input": {"action": acao, "name": "prod_pipeline"},
+            },
+            tool_use_id="act-1",
+            context=None,
+        )
+        assert result["hookSpecificOutput"]["permissionDecision"] == "deny", acao
+        motivo = result["hookSpecificOutput"]["permissionDecisionReason"]
+        assert acao in motivo
+        assert "prod_pipeline" in motivo, "a mensagem deve nomear o alvo"
+
+    @pytest.mark.asyncio
+    async def test_case_insensitive(self):
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        result = await check_destructive_action(
+            {
+                "tool_name": "mcp__databricks__manage_uc_objects",
+                "tool_input": {"action": "  DROP  "},
+            },
+            tool_use_id="act-2",
+            context=None,
+        )
+        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("acao", ["list", "get", "create", "update", "download", "mkdir"])
+    async def test_allows_non_destructive_actions(self, acao):
+        """Não pode travar a operação normal — só o irreversível."""
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        result = await check_destructive_action(
+            {
+                "tool_name": "mcp__databricks__manage_jobs",
+                "tool_input": {"action": acao},
+            },
+            tool_use_id="act-3",
+            context=None,
+        )
+        assert result == {}, f"ação legítima foi bloqueada: {acao}"
+
+    @pytest.mark.asyncio
+    async def test_covers_alternative_field_names(self):
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        for campo in ("operation", "op", "mode"):
+            result = await check_destructive_action(
+                {"tool_name": "some_tool", "tool_input": {campo: "delete"}},
+                tool_use_id="act-4",
+                context=None,
+            )
+            assert result["hookSpecificOutput"]["permissionDecision"] == "deny", campo
+
+    @pytest.mark.asyncio
+    async def test_ignores_tools_without_action(self):
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        result = await check_destructive_action(
+            {"tool_name": "Read", "tool_input": {"file_path": "/tmp/x.md"}},
+            tool_use_id="act-5",
+            context=None,
+        )
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_handles_none_and_malformed_input(self):
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        assert await check_destructive_action(None, tool_use_id=None, context=None) == {}
+        assert (
+            await check_destructive_action(
+                {"tool_name": "x", "tool_input": "não é dict"}, tool_use_id=None, context=None
+            )
+            == {}
+        )

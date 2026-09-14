@@ -119,7 +119,10 @@ lint-mcp: ## Valida MCP server_configs + aliases no loader
 lint-commands: ## Valida config/commands.yaml (50 slash commands)
 	python scripts/lint_commands.py
 
-lint-all: lint lint-registry lint-kb lint-skills lint-mcp lint-commands sync-docs-check ## ruff + 5 lints + doc sync (CI gate)
+lint-bundle: ## Valida databricks.yml (offline, sem credenciais)
+	python scripts/lint_bundle.py
+
+lint-all: lint lint-registry lint-kb lint-skills lint-mcp lint-commands lint-bundle sync-docs-check ## ruff + 6 lints + doc sync (CI gate)
 
 # ─── Inventory sync ─────────────────────────────────────────────────
 # README/PRODUCT/CLAUDE.md declare auto-managed counts via

@@ -46,6 +46,7 @@ from data_agents.hooks.output_compressor_hook import compress_tool_output
 from data_agents.hooks.security_hook import (
     block_destructive_commands,
     block_sensitive_writes,
+    check_destructive_action,
     check_sql_cost,
 )
 from data_agents.hooks.workflow_tracker import pre_track_workflow_events, track_workflow_events
@@ -332,6 +333,13 @@ def build_supervisor_options(
                 # mesmo motivo acima — o hook filtra Write/Edit/NotebookEdit por dentro.
                 HookMatcher(
                     hooks=[block_sensitive_writes],  # type: ignore[list-item]
+                ),
+                # check_destructive_action: tools "action-dispatch" (ex.:
+                # manage_pipeline(action="delete")) escondem a operação num
+                # argumento, e o allowed_tools do SDK só filtra por NOME de tool.
+                # Este hook devolve a granularidade inspecionando `action`.
+                HookMatcher(
+                    hooks=[check_destructive_action],  # type: ignore[list-item]
                 ),
                 # pre_track: emite agent_start / tool_call para callbacks de progresso
                 # registrados pelo CLI e UI — feedback visual em tempo real.
