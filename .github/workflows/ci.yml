@@ -345,7 +345,7 @@ jobs:
           DATABRICKS_TOKEN: "test-token"
         run: |
           pytest tests/unit/ --testmon -v --tb=short \
-            --cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
+            --cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils --cov=data_agents.spec \
             --cov-report=xml \
             --cov-report=term
 
@@ -358,7 +358,7 @@ jobs:
           DATABRICKS_TOKEN: "test-token"
         run: |
           pytest tests/unit/ -v --tb=short \
-            --cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
+            --cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils --cov=data_agents.spec \
             --cov-report=xml \
             --cov-report=term \
             --cov-fail-under=80
