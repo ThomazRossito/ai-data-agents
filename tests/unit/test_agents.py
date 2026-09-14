@@ -256,12 +256,20 @@ class TestDatabricksAi:
 class TestDataQualitySteward:
     """Testes específicos para o data-quality-steward."""
 
-    def test_data_quality_steward_has_execute_sql(self):
-        """Data Quality Steward precisa de execute_sql para profiling."""
+    def test_data_quality_steward_can_query_data(self):
+        """
+        Precisa conseguir consultar dados para fazer profiling.
+
+        Antes este teste exigia `mcp__databricks__execute_sql` — a tool COM
+        capacidade de escrita. Profiling é leitura pura, então o requisito real
+        é "consegue executar SELECT", não "tem a tool que também escreve".
+        Migrado para a tool do MCP gerenciado, cujo contrato read-only é imposto
+        pelo servidor (auditoria 2026-09-13).
+        """
         agents = load_all_agents()
         agent = agents["data-quality-steward"]
-        assert "mcp__databricks__execute_sql" in (agent.tools or []), (
-            "Data Quality Steward deve ter execute_sql para profiling"
+        assert "mcp__databricks_sql__execute_sql_read_only" in (agent.tools or []), (
+            "Data Quality Steward deve conseguir executar SELECT para profiling"
         )
 
     def test_data_quality_steward_has_no_write_mcp(self):
@@ -306,12 +314,19 @@ class TestGovernanceAuditor:
             f"Governance Auditor não deve ter tools de escrita RTI: {rti_write}"
         )
 
-    def test_governance_auditor_has_execute_sql(self):
-        """Governance Auditor precisa de execute_sql para consultar System Tables."""
+    def test_governance_auditor_can_query_system_tables(self):
+        """
+        Precisa conseguir consultar as System Tables de auditoria.
+
+        Mesma correção do data-quality-steward: consultar System Tables é
+        leitura, então o requisito é SELECT — não a tool que também escreve.
+        Um agente de governança com capacidade de DDL era, em si, um problema
+        de governança (auditoria 2026-09-13).
+        """
         agents = load_all_agents()
         agent = agents["governance-auditor"]
-        assert "mcp__databricks__execute_sql" in (agent.tools or []), (
-            "Governance Auditor deve ter execute_sql para System Tables de auditoria"
+        assert "mcp__databricks_sql__execute_sql_read_only" in (agent.tools or []), (
+            "Governance Auditor deve conseguir consultar System Tables"
         )
 
 
@@ -1142,4 +1157,85 @@ class TestSsasToDatabricks:
         kb_domains = meta.get("kb_domains", [])
         assert "ssas-migration" in kb_domains, (
             "ssas-to-databricks deve ter 'ssas-migration' em kb_domains"
+        )
+
+
+# ─── Invariante: agentes de auditoria não escrevem (auditoria 2026-09-13) ─────
+
+
+class TestReadOnlyAgentsCannotWriteSQL:
+    """
+    Agentes cuja função é auditar/validar não podem ter tool de SQL com escrita.
+
+    O problema encontrado: `data-quality-steward`, `governance-auditor` e
+    `data-contracts-engineer` declaravam `databricks_readonly` E TAMBÉM
+    `mcp__databricks__execute_sql` — a tool com capacidade de DDL/DML, concedida
+    explicitamente. A postura "somente leitura" deles dependia inteiramente da
+    regex do `check_sql_cost`.
+
+    Passaram a usar `mcp__databricks_sql__execute_sql_read_only`, do MCP
+    gerenciado, cujo contrato de leitura é imposto pelo SERVIDOR da Databricks
+    (anotado `readOnlyHint`) e cuja permissão é aplicada pelo Unity Catalog.
+
+    Este teste impede a reintrodução silenciosa da capacidade de escrita.
+    """
+
+    #: Agentes cuja função é ler/auditar — nunca escrever no Lakehouse.
+    #: `databricks-engineer` NÃO entra aqui: ele legitimamente cria tabelas,
+    #: pipelines e jobs, e mantém `execute_sql` via alias `databricks_all`.
+    READ_ONLY_AGENTS = [
+        "data-quality-steward",
+        "governance-auditor",
+        "data-contracts-engineer",
+    ]
+
+    #: Tools de SQL que permitem DDL/DML no Databricks.
+    WRITE_CAPABLE_SQL_TOOLS = {
+        "mcp__databricks__execute_sql",
+        "mcp__databricks__execute_sql_multi",
+        "mcp__databricks_sql__execute_sql",
+    }
+
+    @pytest.mark.parametrize("agent_name", READ_ONLY_AGENTS)
+    def test_read_only_agent_has_no_write_sql_tool(self, agent_name):
+        from data_agents.agents.loader import load_all_agents
+
+        agents = load_all_agents()
+        agent = agents.get(agent_name)
+        assert agent is not None, f"agente '{agent_name}' não carregou"
+
+        tools = set(getattr(agent, "tools", []) or [])
+        violacoes = tools & self.WRITE_CAPABLE_SQL_TOOLS
+        assert not violacoes, (
+            f"'{agent_name}' é um agente de leitura/auditoria mas recebeu tool "
+            f"com capacidade de escrita: {sorted(violacoes)}. "
+            f"Use `databricks_sql_readonly` — o contrato read-only é imposto "
+            f"pelo servidor da Databricks, não pela nossa regex."
+        )
+
+    @pytest.mark.parametrize("agent_name", READ_ONLY_AGENTS)
+    def test_read_only_agent_can_still_read_sql(self, agent_name):
+        """Tirar a escrita não pode ter tirado a capacidade de ler."""
+        from data_agents.agents.loader import load_all_agents
+
+        agents = load_all_agents()
+        tools = set(getattr(agents[agent_name], "tools", []) or [])
+        assert "mcp__databricks_sql__execute_sql_read_only" in tools, (
+            f"'{agent_name}' perdeu a capacidade de ler dados — precisa do alias "
+            f"`databricks_sql_readonly`"
+        )
+
+    def test_engineering_agent_keeps_write_capability(self):
+        """
+        Contraprova: o `databricks-engineer` DEVE manter escrita. Se este teste
+        falhar, a restrição foi aplicada larga demais e quebrou a engenharia.
+        """
+        from data_agents.agents.loader import load_all_agents
+
+        tools = set(getattr(load_all_agents()["databricks-engineer"], "tools", []) or [])
+        assert tools & self.WRITE_CAPABLE_SQL_TOOLS, (
+            "databricks-engineer precisa de SQL com escrita (cria tabelas, pipelines)"
+        )
+        assert "mcp__databricks_sql__execute_sql_read_only" in tools, (
+            "databricks-engineer também deve ter a tool read-only, para preferi-la em leituras"
         )
