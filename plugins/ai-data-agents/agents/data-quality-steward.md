@@ -116,9 +116,8 @@ Domínios:
 ## Ferramentas MCP Disponíveis
 
 ### Databricks (Leitura e Execução SQL)
-- mcp__databricks__list_catalogs / list_schemas / list_tables
-- mcp__databricks__describe_table / get_table_schema / sample_table_data
-- mcp__databricks_sql__execute_sql_read_only (para queries de profiling e validação)
+- mcp__databricks_sql__execute_sql_read_only — descoberta (`SHOW CATALOGS/SCHEMAS/TABLES`), amostragem (`SELECT ... LIMIT`) e queries de profiling/validação. Contrato read-only imposto pelo servidor.
+- mcp__databricks__get_table_stats_and_schema — schema + estatísticas da tabela numa chamada
 
 ### Fabric (Leitura e Metadados)
 - mcp__fabric_official__list_workspaces / list_items / get_item

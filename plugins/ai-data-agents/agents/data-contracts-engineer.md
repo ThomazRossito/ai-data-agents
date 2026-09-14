@@ -144,9 +144,8 @@ Antes de qualquer resposta técnica:
 ## Ferramentas MCP Disponíveis
 
 ### Databricks (Unity Catalog)
-- `mcp__databricks__list_catalogs` / `list_schemas` / `list_tables` — descoberta de ativos
-- `mcp__databricks__describe_table` / `get_table_schema` — schema atual para validar contrato
-- `mcp__databricks__execute_sql` — queries em `information_schema` e system tables de qualidade
+- `mcp__databricks_sql__execute_sql_read_only` — descoberta de ativos (`SHOW CATALOGS`, `SHOW SCHEMAS IN <c>`, `SHOW TABLES IN <c>.<s>`) e queries em `information_schema` / system tables. Contrato read-only imposto pelo servidor.
+- `mcp__databricks__get_table_stats_and_schema` — schema atual + estatísticas para validar o contrato
 
 ### Fabric SQL (Schema Discovery)
 - `mcp__fabric_sql__fabric_sql_list_schemas` — schemas disponíveis no Fabric

@@ -27,6 +27,20 @@ install: ## Instala dependências de produção
 dev: ## Instala dependências de desenvolvimento + UI
 	pip install -e ".[dev,ui,monitoring]"
 
+# Servidor MCP do ai-dev-kit sem compilar plutoprint (C++/meson/ICU). O pacote
+# `databricks-tools-core` declara plutoprint como dependência dura, mas só a tool
+# `generate_and_upload_pdf` usa — e ela NÃO está na lista de tools oferecida aos
+# agentes (ver server_config.py). Instalamos com --no-deps e listamos as deps
+# reais à mão. Alternativa completa (compila): pip install -e ".[databricks-admin]"
+AI_DEV_KIT_SHA := b059fd017a2c5743c31a0ff30dc8a618723aae4f
+AI_DEV_KIT_GIT := git+https://github.com/databricks-solutions/ai-dev-kit@$(AI_DEV_KIT_SHA)
+
+install-databricks-admin: ## Instala o MCP admin do Databricks (ai-dev-kit) pulando o build C++ do plutoprint
+	pip install "databricks-sdk>=0.81.0" "sqlglot>=20.0.0" "sqlfluff>=3.0.0" "fastmcp>=3.2.4,<4" "pydantic>=2" "pyyaml>=6" "requests>=2.31"
+	pip install --no-deps "databricks-tools-core @ $(AI_DEV_KIT_GIT)#subdirectory=databricks-tools-core"
+	pip install --no-deps "databricks-mcp-server @ $(AI_DEV_KIT_GIT)#subdirectory=databricks-mcp-server"
+	@python -c "from databricks_mcp_server.server import mcp; print('✓ databricks_mcp_server importável —', len(__import__('asyncio').run(mcp.get_tools())), 'tools')"
+
 bootstrap: ## Wizard interativo para criar .env mínimo (primeira vez)
 	python scripts/bootstrap.py
 

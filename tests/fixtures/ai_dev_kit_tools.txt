@@ -1,0 +1,48 @@
+# Tools do servidor MCP do ai-dev-kit (databricks-solutions), extraídas do fonte.
+# Gerado por scripts/snapshot_ai_dev_kit_tools.py — NÃO edite à mão.
+# commit: b059fd017a2c5743c31a0ff30dc8a618723aae4f
+# total: 44
+ask_genie
+delete_tracked_resource
+execute_code
+execute_sql
+execute_sql_multi
+generate_and_upload_pdf
+generate_lakebase_credential
+get_current_user
+get_table_stats_and_schema
+get_volume_folder_details
+list_compute
+list_tracked_resources
+manage_app
+manage_cluster
+manage_dashboard
+manage_genie
+manage_job_runs
+manage_jobs
+manage_ka
+manage_lakebase_branch
+manage_lakebase_database
+manage_lakebase_sync
+manage_mas
+manage_metric_views
+manage_pipeline
+manage_pipeline_run
+manage_serving_endpoint
+manage_sql_warehouse
+manage_uc_connections
+manage_uc_grants
+manage_uc_monitors
+manage_uc_objects
+manage_uc_security_policies
+manage_uc_sharing
+manage_uc_storage
+manage_uc_tags
+manage_volume_files
+manage_vs_data
+manage_vs_endpoint
+manage_vs_index
+manage_warehouse
+manage_workspace
+manage_workspace_files
+query_vs_index

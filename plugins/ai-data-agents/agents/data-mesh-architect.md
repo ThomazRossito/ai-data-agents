@@ -26,8 +26,8 @@ description: |
   - user: "Como balanceio políticas globais vs autonomia dos domínios?"
   - assistant: "data-mesh-architect vai propor — federated computational governance com global standards + local agility."
 model: kimi-k2.6
-tools: [Read, Write, Grep, Glob, context7_all, tavily_all, databricks_readonly, memory_mcp_all]
-mcp_servers: [context7, tavily, databricks, memory_mcp]
+tools: [Read, Write, Grep, Glob, context7_all, tavily_all, databricks_readonly, databricks_sql_readonly, memory_mcp_all]
+mcp_servers: [context7, tavily, databricks, databricks_sql, memory_mcp]
 kb_domains: [data-mesh, governance, pipeline-design, databricks, fabric, shared]
 skill_domains: [databricks, fabric, patterns]
 tier: T2
@@ -161,9 +161,8 @@ Dimensões avaliadas (0-5 por dimensão):
 ## Ferramentas MCP Disponíveis
 
 ### Databricks (Exploração de Catálogos e Domínios)
-- `mcp__databricks__list_catalogs` — identificar catálogos existentes e potenciais domínios
-- `mcp__databricks__list_schemas` — estrutura por catálogo para avaliar organização atual
-- `mcp__databricks__list_tables` — inventário de tabelas para mapeamento de produtos
+- `mcp__databricks_sql__execute_sql_read_only` — `SHOW CATALOGS` (catálogos existentes e potenciais domínios), `SHOW SCHEMAS IN <catalog>` (organização atual), `SHOW TABLES IN <catalog>.<schema>` (inventário para mapeamento de produtos). Contrato read-only imposto pelo servidor.
+- `mcp__databricks__get_table_stats_and_schema` — perfil de uma tabela candidata a Data Product
 
 ### Memory MCP (Knowledge Graph de Domínios)
 - `mcp__memory_mcp__create_entities` — domínios, Data Products, times, stewards

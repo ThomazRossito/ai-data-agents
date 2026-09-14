@@ -157,7 +157,21 @@ _DESTRUCTIVE_SQL_PATTERNS: list[tuple[re.Pattern, str]] = [
 #: pipeline de produção sem que nenhum hook visse.
 #:
 #: Este hook devolve a granularidade, inspecionando o valor de ``action``.
-_DESTRUCTIVE_ACTIONS: frozenset[str] = frozenset(
+#:
+#: CASAMENTO POR VERBO, NÃO POR STRING EXATA (correção 2026-09-14)
+#: A primeira versão comparava ``action in _DESTRUCTIVE_ACTIONS`` — string
+#: exata. Ao adotar o servidor do ai-dev-kit e ler o vocabulário REAL de actions
+#: no fonte dele, apareceram estes, que passavam ilesos:
+#:
+#:     manage_uc_security_policies  drop_column_mask, drop_row_filter
+#:     manage_uc_sharing            remove_table, revoke_from_recipient, rotate_token
+#:     manage_cluster               terminate
+#:
+#: A regra agora é: o **primeiro token** da action (antes do primeiro ``_``) é o
+#: verbo, e é ele que se compara. ``drop_column_mask`` → ``drop`` → bloqueado.
+#: A action inteira também é comparada, para verbos sem sufixo e para os que
+#: não são prefixo (``rotate_token`` é destrutivo para o token antigo).
+_DESTRUCTIVE_VERBS: frozenset[str] = frozenset(
     {
         "delete",
         "drop",
@@ -166,8 +180,34 @@ _DESTRUCTIVE_ACTIONS: frozenset[str] = frozenset(
         "purge",
         "truncate",
         "revoke",
+        # Cluster em execução: mata trabalho em andamento. `stop` de pipeline
+        # NÃO entra — parar um pipeline descontrolado é ação de segurança
+        # legítima e reiniciável; bloquear seria pior que permitir.
+        "terminate",
     }
 )
+
+#: Actions destrutivas cujo verbo NÃO é o primeiro token.
+_DESTRUCTIVE_EXACT: frozenset[str] = frozenset(
+    {
+        "rotate_token",  # invalida o token vigente de um recipient Delta Sharing
+    }
+)
+
+#: Mantido por compatibilidade com testes e leitores antigos — é a união.
+_DESTRUCTIVE_ACTIONS: frozenset[str] = _DESTRUCTIVE_VERBS | _DESTRUCTIVE_EXACT
+
+
+def _action_is_destructive(action: str) -> bool:
+    """True se a action, ou seu verbo-prefixo, for destrutiva."""
+    verbo_completo = action.strip().lower()
+    if not verbo_completo:
+        return False
+    if verbo_completo in _DESTRUCTIVE_EXACT or verbo_completo in _DESTRUCTIVE_VERBS:
+        return True
+    prefixo = verbo_completo.split("_", 1)[0]
+    return prefixo in _DESTRUCTIVE_VERBS
+
 
 #: Campos que carregam o verbo da operação em tools action-dispatch.
 _ACTION_FIELDS = ("action", "operation", "op", "mode")
@@ -199,7 +239,7 @@ async def check_destructive_action(
         if not isinstance(value, str):
             continue
         verbo = value.strip().lower()
-        if verbo in _DESTRUCTIVE_ACTIONS:
+        if _action_is_destructive(verbo):
             alvo = (
                 tool_input.get("name")
                 or tool_input.get("full_name")
