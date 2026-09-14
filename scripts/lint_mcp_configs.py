@@ -9,7 +9,11 @@ in agent delegations:
       ERROR    — server_config.py missing
       ERROR    — function get_<n>_mcp_config() missing (with documented exceptions)
       ERROR    — function raises on import or call (settings missing? circular import?)
-      ERROR    — returned dict has wrong shape: must be {server_key: {type, command, args, env}}
+      ERROR    — returned dict has wrong shape. Valid shapes (claude_agent_sdk
+                 McpServerConfig): stdio  {type, command, args, env}
+                                   http   {type, url, headers}
+                                   sse    {type, url, headers}
+                 Only the 'type' key is enforced here; the SDK validates the rest.
       ERROR    — declared tools list missing (e.g. <NAME>_MCP_TOOLS not exported)
       ERROR    — tool entries not prefixed with mcp__<key>__ for their declared server
       ERROR    — duplicate tool name within the same TOOLS list
