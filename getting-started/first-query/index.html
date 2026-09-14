@@ -1490,7 +1490,7 @@
 </span></code></pre></div>
 <p>See the <a href="../../reference/security/">Security threat model</a> for what each credential touches.</p>
 <h2 id="2-run-a-query">2. Run a query<a class="headerlink" href="#2-run-a-query" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>ai-data-agents<span class="w"> </span><span class="s2">&quot;liste as tabelas do schema silver no catálogo main&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>ai-data-agents<span class="w"> </span><span class="s2">"liste as tabelas do schema silver no catálogo main"</span>
 </span></code></pre></div>
 <p>What happens:</p>
 <ol>
@@ -1555,13 +1555,13 @@
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>ai-data-agents
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Single query</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>ai-data-agents<span class="w"> </span><span class="s2">&quot;your prompt&quot;</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>ai-data-agents<span class="w"> </span><span class="s2">"your prompt"</span>
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Slash command (skip Supervisor for known intent)</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>ai-data-agents<span class="w"> </span><span class="s2">&quot;/sql SELECT count(*) FROM main.silver.orders&quot;</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>ai-data-agents<span class="w"> </span><span class="s2">"/sql SELECT count(*) FROM main.silver.orders"</span>
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="c1"># Conceptual question (no MCP, ~95% cheaper, runs on geral agent)</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>ai-data-agents<span class="w"> </span><span class="s2">&quot;/geral qual a diferença entre Lakehouse e Data Warehouse?&quot;</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>ai-data-agents<span class="w"> </span><span class="s2">"/geral qual a diferença entre Lakehouse e Data Warehouse?"</span>
 </span></code></pre></div>
 <p>→ <strong><a href="../slash-commands/">Slash Commands</a></strong> for the full reference of <code>/sql</code>, <code>/fabric</code>, <code>/migrate</code>, <code>/quality</code>, <code>/governance</code>, etc.</p>
 

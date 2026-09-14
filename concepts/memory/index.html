@@ -1569,7 +1569,7 @@
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="na">MEMORY_CAPTURE_ENABLED</span><span class="o">=</span><span class="s">true</span><span class="w">      </span><span class="c1"># extract memories from sessions</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="na">LEDGER_ENABLED</span><span class="o">=</span><span class="s">false</span><span class="w">             </span><span class="c1"># opt-in HMAC chain</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="na">SHORT_TERM_TTL_DAYS</span><span class="o">=</span><span class="s">3</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="na">PROJECT_ID</span><span class="o">=</span><span class="s">auto</span><span class="w">                  </span><span class="c1"># &#39;auto&#39; → uses cwd().name; or set explicitly</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="na">PROJECT_ID</span><span class="o">=</span><span class="s">auto</span><span class="w">                  </span><span class="c1"># 'auto' → uses cwd().name; or set explicitly</span>
 </span></code></pre></div>
 <p><code>PROJECT_ID</code> is critical: it suffixes the DB filenames (<code>long_term__&lt;project_id&gt;.db</code>) so multiple projects on the same filesystem don't share memory.</p>
 <h2 id="anti-patterns">Anti-patterns<a class="headerlink" href="#anti-patterns" title="Permanent link">&para;</a></h2>

@@ -1715,7 +1715,7 @@
 <p>If you try to use a feature without its extra, you get a clean <code>ImportError</code> telling you the right <code>pip install</code> command. Example:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">data_agents.ui.exporter</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_html</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="ne">ImportError</span><span class="p">:</span> <span class="n">markdown2</span> <span class="n">não</span> <span class="n">instalado</span><span class="o">.</span> <span class="n">Para</span> <span class="n">habilitar</span> <span class="n">export</span> <span class="n">HTML</span> <span class="n">de</span> <span class="n">conversas</span><span class="p">:</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  <span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">e</span> <span class="s2">&quot;.[ui]&quot;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  <span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">e</span> <span class="s2">".[ui]"</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  <span class="n">ou</span><span class="p">:</span> <span class="n">pip</span> <span class="n">install</span> <span class="n">markdown2</span><span class="o">&gt;=</span><span class="mf">2.4</span>
 </span></code></pre></div>
 <h3 id="4-memory-paths">4. Memory paths<a class="headerlink" href="#4-memory-paths" title="Permanent link">&para;</a></h3>
@@ -1732,36 +1732,36 @@
 </ul>
 <h2 id="automated-import-rewrite">Automated import rewrite<a class="headerlink" href="#automated-import-rewrite" title="Permanent link">&para;</a></h2>
 <p>If you have your own code that imports from this project, run this Python snippet from your project root:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python3<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;&#39;EOF&#39;</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="s">&quot;&quot;&quot;Rewrite imports from v2 to v3 namespace.&quot;&quot;&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python3<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;'EOF'</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="s">"""Rewrite imports from v2 to v3 namespace."""</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="s">import re</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="s">from pathlib import Path</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="s">PKGS = &quot;agents config hooks commands memory compression workflow utils mcp_servers evals ui visualization monitoring&quot;.split()</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="s">PKGS_RE = &quot;|&quot;.join(PKGS)</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="s">PKGS = "agents config hooks commands memory compression workflow utils mcp_servers evals ui visualization monitoring".split()</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="s">PKGS_RE = "|".join(PKGS)</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="s">for f in Path(&quot;.&quot;).rglob(&quot;*.py&quot;):</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="s">for f in Path(".").rglob("*.py"):</span>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="s">    # Skip your own venv / cache</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="s">    if any(p in f.parts for p in [&quot;.venv&quot;, &quot;venv&quot;, &quot;__pycache__&quot;, &quot;.cache&quot;, &quot;build&quot;, &quot;dist&quot;]):</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="s">    if any(p in f.parts for p in [".venv", "venv", "__pycache__", ".cache", "build", "dist"]):</span>
 </span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="s">        continue</span>
 </span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="s">    text = f.read_text(encoding=&quot;utf-8&quot;)</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="s">    text = f.read_text(encoding="utf-8")</span>
 </span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="s">    new_text = text</span>
 </span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="s">    for line in text.splitlines(keepends=True):</span>
 </span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="s">        s = line.lstrip()</span>
-</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="s">        if not (s.startswith(&quot;from &quot;) or s.startswith(&quot;import &quot;)):</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="s">        if not (s.startswith("from ") or s.startswith("import ")):</span>
 </span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="s">            continue</span>
-</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="s">        if &quot;data_agents.&quot; in line:</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="s">        if "data_agents." in line:</span>
 </span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="s">            continue</span>
-</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="s">        m = re.match(rf&quot;^(\s*)(from|import)\s+({PKGS_RE})(\.|\s|$)&quot;, line)</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="s">        m = re.match(rf"^(\s*)(from|import)\s+({PKGS_RE})(\.|\s|$)", line)</span>
 </span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="s">        if m:</span>
 </span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="s">            indent, kw, pkg, sep = m.groups()</span>
-</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="s">            new_line = line.replace(f&quot;{kw} {pkg}&quot;, f&quot;{kw} data_agents.{pkg}&quot;, 1)</span>
+</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="s">            new_line = line.replace(f"{kw} {pkg}", f"{kw} data_agents.{pkg}", 1)</span>
 </span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="s">            new_text = new_text.replace(line, new_line, 1)</span>
 </span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>
 </span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="s">    if new_text != text:</span>
-</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="s">        f.write_text(new_text, encoding=&quot;utf-8&quot;)</span>
-</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="s">        print(f&quot;updated: {f}&quot;)</span>
+</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="s">        f.write_text(new_text, encoding="utf-8")</span>
+</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="s">        print(f"updated: {f}")</span>
 </span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="s">EOF</span>
 </span></code></pre></div>
 <p>The script is <strong>idempotent</strong>: running it twice does nothing on the second pass (skips lines that already say <code>data_agents.</code>).</p>
@@ -1781,7 +1781,7 @@
 <li>Run the import rewrite script above on your own code.</li>
 <li>Run your tests — anything that still references <code>agents.X</code> from outside <code>data_agents/</code> will surface as <code>ModuleNotFoundError</code>.</li>
 <li>Verify the CLI works:
-    <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ai-data-agents<span class="w"> </span><span class="s2">&quot;/health&quot;</span><span class="w">   </span><span class="c1"># platform connectivity check</span>
+    <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ai-data-agents<span class="w"> </span><span class="s2">"/health"</span><span class="w">   </span><span class="c1"># platform connectivity check</span>
 </span></code></pre></div></li>
 <li>Check <code>data_agents/memory/data/</code> exists and the <code>&lt;project_id&gt;</code> subdir starts populating after your first session.</li>
 </ol>
