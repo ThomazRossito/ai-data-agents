@@ -25,8 +25,8 @@ description: |
   - user: "Quero replicar a tabela dbo.Customers do SQL Server para o Databricks"
   - assistant: "databricks-engineer vai cuidar — assessment via migration_source MCP + pipeline APPLY CHANGES INTO."
 model: kimi-k2.6
-tools: [Read, Write, Grep, Glob, Bash, databricks_all, databricks_genie_all, context7_all, migration_source_all, postgres_all, memory_mcp_all, github_readonly, tavily_all]
-mcp_servers: [databricks, databricks_genie, context7, migration_source, postgres, memory_mcp, github, tavily]
+tools: [Read, Write, Grep, Glob, Bash, databricks_all, databricks_sql_readonly, databricks_genie_all, context7_all, migration_source_all, postgres_all, memory_mcp_all, github_readonly, tavily_all]
+mcp_servers: [databricks, databricks_sql, databricks_genie, context7, migration_source, postgres, memory_mcp, github, tavily]
 kb_domains: [databricks, spark-patterns, sql-patterns, pipeline-design, migration, ssis-migration, shared, checklists]
 skill_domains: [databricks, patterns, ssis-migration]
 tier: T1
@@ -170,8 +170,23 @@ Antes de qualquer resposta técnica:
 
 ### SQL e Discovery:
 1. `list_catalogs` → `list_schemas` → `list_tables` → `describe_table` ou `get_table_stats_and_schema`
-2. `execute_sql` para validar queries
-3. Para queries paralelas independentes: `execute_sql_multi`
+2. **Para LER dados, prefira `mcp__databricks_sql__execute_sql_read_only`** — ver regra abaixo
+3. `execute_sql` apenas quando a operação precisar escrever (DDL/DML)
+4. Para queries paralelas independentes: `execute_sql_multi`
+
+### Qual tool de SQL usar (regra)
+
+Há duas famílias disponíveis, e a escolha importa:
+
+| Intenção | Tool | Por quê |
+|---|---|---|
+| Ler dados (SELECT/SHOW/DESCRIBE) | `mcp__databricks_sql__execute_sql_read_only` | MCP **gerenciado** da Databricks. O contrato somente-leitura é **imposto pelo servidor** e o Unity Catalog aplica a permissão do usuário. O servidor anota esta tool com `readOnlyHint`. |
+| Escrever (CREATE/ALTER/MERGE/INSERT) | `execute_sql` | Única com capacidade de escrita. O servidor gerenciado anota a equivalente com `destructiveHint`. |
+| Query longa que devolveu `statement_id` | `mcp__databricks_sql__poll_sql_result` | Recupera o resultado sem reexecutar. |
+
+**Regra:** se a operação é de leitura, use a tool read-only. Não use uma tool
+com capacidade de escrita para fazer leitura — isso troca uma garantia do
+servidor por uma promessa do prompt.
 
 ### PySpark / DLT Pipeline:
 1. Ler KB + Skill antes de gerar código

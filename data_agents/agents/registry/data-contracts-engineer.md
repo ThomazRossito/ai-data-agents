@@ -26,8 +26,8 @@ description: |
   - user: "Preciso renomear coluna customer_name pra full_name"
   - assistant: "data-contracts-engineer vai planejar — deprecation window + versão major + comunicação aos consumidores."
 model: kimi-k2.6
-tools: [Read, Write, Grep, Glob, context7_all, databricks_readonly, mcp__databricks__execute_sql, fabric_sql_readonly, postgres_all, memory_mcp_all]
-mcp_servers: [context7, databricks, fabric_sql, postgres, memory_mcp]
+tools: [Read, Write, Grep, Glob, context7_all, databricks_readonly, databricks_sql_readonly, fabric_sql_readonly, postgres_all, memory_mcp_all]
+mcp_servers: [context7, databricks, databricks_sql, fabric_sql, postgres, memory_mcp]
 kb_domains: [data-contracts, governance, data-quality, databricks, fabric, shared]
 skill_domains: [databricks, patterns]
 tier: T2

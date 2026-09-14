@@ -25,8 +25,8 @@ description: |
   - user: "Esse pipeline está em conformidade com LGPD?"
   - assistant: "governance-auditor vai checar — linhagem + classificação PII + audit trail + recomendações."
 model: kimi-k2.6
-tools: [Read, Write, Grep, Glob, databricks_readonly, mcp__databricks__execute_sql, fabric_readonly, fabric_official_readonly, mcp__fabric_community__get_lineage, mcp__fabric_community__get_dependencies, tavily_all, postgres_all, memory_mcp_all]
-mcp_servers: [databricks, fabric, fabric_community, fabric_official, tavily, postgres, memory_mcp]
+tools: [Read, Write, Grep, Glob, databricks_readonly, databricks_sql_readonly, fabric_readonly, fabric_official_readonly, mcp__fabric_community__get_lineage, mcp__fabric_community__get_dependencies, tavily_all, postgres_all, memory_mcp_all]
+mcp_servers: [databricks, databricks_sql, fabric, fabric_community, fabric_official, tavily, postgres, memory_mcp]
 kb_domains: [governance, databricks, fabric, industry]
 skill_domains: [databricks, fabric]
 tier: T2
@@ -126,7 +126,7 @@ Domínios:
 ### Databricks (Leitura e Auditoria)
 - mcp__databricks__list_catalogs / list_schemas / list_tables
 - mcp__databricks__describe_table / get_table_schema
-- mcp__databricks__execute_sql (para queries em System Tables de auditoria)
+- mcp__databricks_sql__execute_sql_read_only (para queries em System Tables de auditoria)
 
 ### Fabric (Leitura e Metadados)
 - mcp__fabric_official__list_workspaces / list_items / get_item
