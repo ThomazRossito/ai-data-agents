@@ -42,7 +42,7 @@ import re
 import tempfile
 import unicodedata
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -138,8 +138,8 @@ class Spec:
         }
         if self.baseline_commit:
             base["baseline_commit"] = self.baseline_commit
-        base["criado_em"] = self.criado_em or _hoje()
-        base["atualizado_em"] = self.atualizado_em or _hoje()
+        base["criado_em"] = self.criado_em or _agora()
+        base["atualizado_em"] = self.atualizado_em or _agora()
         base.update(self.extras)
         return base
 
@@ -147,8 +147,21 @@ class Spec:
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 
-def _hoje() -> str:
-    return date.today().isoformat()
+def _agora() -> str:
+    """Timestamp ISO-8601 UTC com segundos.
+
+    Era `date.today().isoformat()` (só AAAA-MM-DD) até um teste de ordenação do
+    `/resume` expor o furo: com granularidade de DIA, dois specs tocados na
+    mesma data empatam — e "mesma data" é o caso comum, não a exceção. O
+    `/resume` acabaria listando por ordem alfabética de arquivo em vez de por
+    "o que mexi por último", que é a única ordem útil ali.
+
+    Data pura continua sendo aceita na leitura (o campo é string livre e os
+    templates trazem AAAA-MM-DD): "2026-09-14" ordena antes de qualquer
+    timestamp do mesmo dia, que é o comportamento esperado para um valor
+    preenchido à mão.
+    """
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def slugify(texto: str) -> str:
@@ -309,7 +322,7 @@ def save(spec: Spec, *, por_humano: bool = False, specs_dir: Path | None = None)
                 "trabalha dentro da intenção, não a reescreve."
             )
 
-    spec.atualizado_em = _hoje()
+    spec.atualizado_em = _agora()
     if not spec.criado_em:
         spec.criado_em = spec.atualizado_em
 

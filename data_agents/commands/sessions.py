@@ -37,6 +37,18 @@ _DEFAULT_LIMIT = 20
 _RESUME_MAX_TURNS = 30
 _RESUME_MAX_CHARS_PER_TURN = 2000
 
+#: Orçamento reduzido de transcript quando existe spec aberto (Onda 2.1).
+#:
+#: O transcript é uma reconstrução cara e não-determinística do estado: 30 turns
+#: custam ~15k tokens e ainda deixam o Supervisor inferindo em que pé o trabalho
+#: parou. O frontmatter do spec responde isso em ~50 tokens e com autoridade —
+#: `status` é fato registrado, não dedução a partir de conversa.
+#:
+#: Não zeramos o transcript porque ele carrega o que o spec não carrega: o que
+#: o usuário disse de passagem, o que foi descartado e por quê, o tom da
+#: decisão. O spec passa a ser a fonte do ESTADO; o transcript, do CONTEXTO.
+_RESUME_MAX_TURNS_COM_SPEC = 10
+
 
 def list_all_sessions() -> list[dict[str, Any]]:
     """
@@ -196,6 +208,57 @@ def find_last_session_id() -> str | None:
     return sessions[0]["session_id"] if sessions else None
 
 
+def build_spec_context(specs_dir: Any = None) -> str:
+    """
+    Bloco de retomada baseado nos specs abertos — a fonte de verdade do estado.
+
+    Vazio quando não há spec aberto, e nesse caso o `/resume` se comporta
+    exatamente como antes. Specs `concluido` e `cancelado` ficam de fora: o
+    valor de `cancelado` existir no enum é justamente não oferecer retomada de
+    trabalho que alguém encerrou de propósito.
+
+    Falha em silêncio (devolve "") se o módulo de spec não puder ser lido. Um
+    `/resume` que estoura porque um spec está malformado é pior que um `/resume`
+    sem o bloco — o transcript ainda leva o usuário adiante.
+    """
+    try:
+        from data_agents.spec.store import specs_abertos
+    except Exception:  # noqa: BLE001 — /resume nunca pode quebrar por causa disto
+        return ""
+
+    try:
+        abertos = specs_abertos(specs_dir)
+    except Exception:  # noqa: BLE001
+        return ""
+
+    if not abertos:
+        return ""
+
+    linhas = [
+        "## Trabalho em aberto — specs (FONTE DE VERDADE do estado)",
+        "",
+        "| spec_id | título | status | trilha | rev | arquivo |",
+        "|---|---|---|---|---|---|",
+    ]
+    for s in sorted(abertos, key=lambda x: x.atualizado_em, reverse=True):
+        nome = s.caminho.name if s.caminho else "?"
+        linhas.append(
+            f"| `{s.spec_id}` | {s.titulo} | **{s.status.value}** | "
+            f"{s.trilha.value} | {s.iteracao_revisao} | `{nome}` |"
+        )
+
+    linhas += [
+        "",
+        "Retome pelo `status` de cada spec (Step 0.9.c) — **não recomece do zero**.",
+        "Case o spec pelo campo `spec_id`, nunca pelo nome do arquivo.",
+        "O bloco `<intencao-congelada>` de cada spec é do humano: leia, não reescreva.",
+        "",
+        "---",
+        "",
+    ]
+    return "\n".join(linhas)
+
+
 def build_resume_prompt_for_session(
     session_id: str,
     max_turns: int = _RESUME_MAX_TURNS,
@@ -204,31 +267,45 @@ def build_resume_prompt_for_session(
     """
     Constrói o prompt de retomada para uma sessão.
 
-    Prefere o transcript (T4.1) quando existe — reconstrói múltiplos turns do
-    histórico. Faz fallback para o checkpoint (hooks/checkpoint.py) quando o
-    transcript está vazio, garantindo compatibilidade com sessões legadas.
+    Ordem de precedência (Onda 2.1):
+
+      1. **Specs abertos** — o estado autoritativo. `status` é fato registrado;
+         o transcript é dedução a partir de conversa.
+      2. **Transcript** — o contexto que o spec não guarda (o que foi descartado
+         e por quê, o que o usuário disse de passagem). Quando há spec aberto, o
+         orçamento cai de 30 para 10 turns: o estado já veio do frontmatter.
+      3. **Checkpoint** — compatibilidade com sessões antigas, sem transcript.
 
     Args:
         session_id: ID da sessão.
-        max_turns: Número máximo de turns user+assistant a incluir do transcript.
-        max_chars_per_turn: Teto de caracteres por turno (respeita context budget).
+        max_turns: Teto de turns do transcript. Reduzido automaticamente para
+            `_RESUME_MAX_TURNS_COM_SPEC` quando há spec aberto — a menos que o
+            chamador tenha passado um valor menor de propósito.
+        max_chars_per_turn: Teto de caracteres por turno.
 
     Returns:
-        String com o prompt pronto para enviar ao Supervisor, ou None se não
-        houver dados da sessão (nem transcript nem checkpoint).
+        Prompt pronto para o Supervisor, ou None se não houver absolutamente
+        nada para retomar.
     """
+    bloco_spec = build_spec_context()
+
+    turns = min(max_turns, _RESUME_MAX_TURNS_COM_SPEC) if bloco_spec else max_turns
+
     prompt = build_resume_prompt_from_transcript(
-        session_id, max_turns=max_turns, max_chars_per_turn=max_chars_per_turn
+        session_id, max_turns=turns, max_chars_per_turn=max_chars_per_turn
     )
     if prompt:
-        return prompt
+        return bloco_spec + prompt
 
     # Fallback: checkpoint-based (sessão sem transcript)
     checkpoint = load_session_by_id(session_id)
     if checkpoint:
-        return build_resume_prompt(checkpoint)
+        return bloco_spec + build_resume_prompt(checkpoint)
 
-    return None
+    # Sem transcript e sem checkpoint: se ainda assim há spec aberto, ele sozinho
+    # já é motivo suficiente para retomar — é mais informativo que o transcript
+    # de uma sessão que não deixou rastro.
+    return bloco_spec or None
 
 
 def handle_sessions_command(user_input: str, console: Console) -> None:
