@@ -23,6 +23,10 @@ on:
       - "data_agents/agents/registry/**"
       - "skills/**"
       - "scripts/build_plugin.sh"
+      # build_plugin.sh virou wrapper fino em 2026-09-14 — a lógica de
+      # espelhamento e de propagação de VERSION mora aqui. Sem esta linha,
+      # editar só o .py não dispararia o gate que valida o que ele gera.
+      - "scripts/sync_plugin_mirror.py"
       - ".github/workflows/plugin-validate.yml"
   pull_request:
     branches: ["main", "dev"]
@@ -32,6 +36,10 @@ on:
       - "data_agents/agents/registry/**"
       - "skills/**"
       - "scripts/build_plugin.sh"
+      # build_plugin.sh virou wrapper fino em 2026-09-14 — a lógica de
+      # espelhamento e de propagação de VERSION mora aqui. Sem esta linha,
+      # editar só o .py não dispararia o gate que valida o que ele gera.
+      - "scripts/sync_plugin_mirror.py"
       - ".github/workflows/plugin-validate.yml"
 
 permissions:
