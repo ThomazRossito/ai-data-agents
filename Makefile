@@ -36,6 +36,9 @@ demo: ## Executa query canônica (/geral) — smoke test end-to-end
 evals: ## Roda queries canônicas (~$$0.08) e gera scoreboard
 	python -m data_agents.evals.runner
 
+eval-routing: ## Mede o dispatcher contra a API (~$$0.003) — gate routing_accuracy >= 90%
+	python -m data_agents.evals.routing
+
 # ─── Quality ──────────────────────────────────────────────────────
 
 # Phase 6 test split — categorias auto-marcadas pelos conftest.py de cada subdir:

@@ -57,6 +57,9 @@ _SKILL_COPY_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo", ".D
 
 _DESCRIPTION_COUNTS_RE = re.compile(r"\d+ specialist agents \+ \d+ skills")
 
+#: Nome do plugin dentro de .claude-plugin/marketplace.json cuja versão seguimos.
+_MARKETPLACE_PLUGIN_NAME = "ai-data-agents"
+
 
 class SkillNameCollisionError(RuntimeError):
     """Duas skills de origens diferentes achatariam para o mesmo nome no espelho."""
@@ -162,11 +165,55 @@ def update_plugin_manifest_counts(
     )
 
 
+def update_plugin_version(project_root: Path = _PROJECT_ROOT) -> str | None:
+    """Propaga o arquivo VERSION para plugin.json e marketplace.json.
+
+    VERSION é a fonte única da versão (Phase 9) e `plugin-validate.yml` reprova
+    se plugin.json divergir dela.
+
+    Isto vivia só no scripts/build_plugin.sh. Enquanto viveu, o repositório
+    tinha DOIS geradores do mesmo espelho com responsabilidades partidas —
+    o .sh cuidava da versão e ignorava as contagens, este script fazia o
+    inverso. Nenhum dos dois sozinho deixava o repo verde, e os dois gates de
+    CI mandavam rodar comandos diferentes para o mesmo problema. Trazer a
+    versão para cá torna qualquer um dos dois caminhos suficiente.
+
+    Returns:
+        A versão aplicada, ou None se não existir arquivo VERSION.
+    """
+    version_path = project_root / "VERSION"
+    if not version_path.is_file():
+        return None
+    version = version_path.read_text(encoding="utf-8").strip()
+    if not version:
+        return None
+
+    manifest_path = project_root / "plugins" / "ai-data-agents" / ".claude-plugin" / "plugin.json"
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    data["version"] = version
+    manifest_path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+
+    marketplace_path = project_root / ".claude-plugin" / "marketplace.json"
+    if marketplace_path.is_file():
+        market = json.loads(marketplace_path.read_text(encoding="utf-8"))
+        for plugin in market.get("plugins", []):
+            if plugin.get("name") == _MARKETPLACE_PLUGIN_NAME:
+                plugin["version"] = version
+        marketplace_path.write_text(
+            json.dumps(market, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+
+    return version
+
+
 def sync_plugin_mirror(project_root: Path = _PROJECT_ROOT) -> tuple[int, int]:
-    """Ponto de entrada programático: roda os três passos e retorna (agentes, skills)."""
+    """Ponto de entrada programático: roda os quatro passos e retorna (agentes, skills)."""
     agents_count = sync_agents(project_root)
     skills_count = sync_skills(project_root)
     update_plugin_manifest_counts(agents_count, skills_count, project_root)
+    update_plugin_version(project_root)
     return agents_count, skills_count
 
 
@@ -185,13 +232,28 @@ def main() -> int:
         print(f"manifesto do plugin não encontrado: {manifest_path}", file=sys.stderr)
         return 1
 
-    agents_count, skills_count = sync_plugin_mirror()
+    try:
+        agents_count, skills_count = sync_plugin_mirror()
+    except SkillNameCollisionError as e:
+        print(f"❌ {e}", file=sys.stderr)
+        print(
+            "   Resolução: renomeie uma das duas, ou mantenha o prefixo de domínio "
+            "no espelho (ex.: databricks__jobs).",
+            file=sys.stderr,
+        )
+        return 2
+
     print(f"✓ synced {agents_count} agents -> plugins/ai-data-agents/agents/")
     print(f"✓ synced {skills_count} skills -> plugins/ai-data-agents/skills/")
     print(
         f"✓ plugin.json description updated: {agents_count} specialist agents "
         f"+ {skills_count} skills"
     )
+    version = update_plugin_version()
+    if version:
+        print(f"✓ version {version} propagated to plugin.json + marketplace.json")
+    else:
+        print("· no VERSION file — version propagation skipped")
     return 0
 
 

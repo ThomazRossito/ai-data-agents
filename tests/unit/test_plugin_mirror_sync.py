@@ -32,6 +32,7 @@ from scripts.sync_plugin_mirror import (
     sync_plugin_mirror,
     sync_skills,
     update_plugin_manifest_counts,
+    update_plugin_version,
 )
 
 _REAL_PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -228,6 +229,67 @@ class TestUpdateManifestCounts:
         json.loads(manifest.read_text(encoding="utf-8"))  # não deve lançar
 
 
+# ─── update_plugin_version ──────────────────────────────────────────────────────
+
+
+class TestUpdatePluginVersion:
+    """A propagação de VERSION vivia só no scripts/build_plugin.sh.
+
+    Enquanto viveu, existiam dois geradores do mesmo espelho com
+    responsabilidades partidas e nenhum dos dois sozinho deixava o repo verde.
+    Estes testes existem para que a versão não escape de volta para o shell.
+    """
+
+    def _marketplace(self, root: Path, version: str = "0.0.0") -> Path:
+        path = root / ".claude-plugin" / "marketplace.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(
+                {"plugins": [{"name": "ai-data-agents", "version": version}, {"name": "outro"}]},
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        return path
+
+    def test_propaga_para_plugin_json_e_marketplace(self, fake_project: Path) -> None:
+        (fake_project / "VERSION").write_text("9.9.9\n", encoding="utf-8")
+        marketplace = self._marketplace(fake_project)
+
+        assert update_plugin_version(fake_project) == "9.9.9"
+
+        manifest = fake_project / "plugins" / "ai-data-agents" / ".claude-plugin" / "plugin.json"
+        assert json.loads(manifest.read_text(encoding="utf-8"))["version"] == "9.9.9"
+
+        entradas = json.loads(marketplace.read_text(encoding="utf-8"))["plugins"]
+        assert entradas[0]["version"] == "9.9.9"
+        assert "version" not in entradas[1], "só a entrada ai-data-agents deve ser tocada"
+
+    def test_sem_arquivo_version_nao_faz_nada(self, fake_project: Path) -> None:
+        manifest = fake_project / "plugins" / "ai-data-agents" / ".claude-plugin" / "plugin.json"
+        antes = manifest.read_text(encoding="utf-8")
+        assert update_plugin_version(fake_project) is None
+        assert manifest.read_text(encoding="utf-8") == antes
+
+    def test_version_vazio_nao_faz_nada(self, fake_project: Path) -> None:
+        (fake_project / "VERSION").write_text("   \n", encoding="utf-8")
+        assert update_plugin_version(fake_project) is None
+
+    def test_sem_marketplace_nao_quebra(self, fake_project: Path) -> None:
+        """marketplace.json é opcional — o projeto fake não tem um."""
+        (fake_project / "VERSION").write_text("1.2.3\n", encoding="utf-8")
+        assert update_plugin_version(fake_project) == "1.2.3"
+
+    def test_sync_completo_inclui_a_versao(self, fake_project: Path) -> None:
+        """sync_plugin_mirror() sozinho tem que deixar tudo em dia — contagens E versão."""
+        (fake_project / "VERSION").write_text("4.5.6\n", encoding="utf-8")
+        sync_plugin_mirror(fake_project)
+        manifest = fake_project / "plugins" / "ai-data-agents" / ".claude-plugin" / "plugin.json"
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        assert data["version"] == "4.5.6"
+        assert "2 specialist agents + 2 skills" in data["description"]
+
+
 # ─── sync_plugin_mirror fim-a-fim (fake project) ────────────────────────────────
 
 
@@ -337,4 +399,31 @@ class TestRealRepoDriftGuard:
         assert f"{expected_skills} skills" in description, (
             f"description do plugin.json não reflete as {expected_skills} skills "
             "reais — rode `python scripts/sync_plugin_mirror.py`"
+        )
+
+    def test_plugin_version_matches_version_file(self) -> None:
+        """Mesma checagem do job 1 do plugin-validate.yml, trazida para o `make test`.
+
+        Antes só a CI pegava divergência de versão, e só depois do push. Aqui
+        ela aparece antes do commit, junto com as outras checagens de espelho.
+        """
+        version_file = (_REAL_PROJECT_ROOT / "VERSION").read_text(encoding="utf-8").strip()
+        manifest = (
+            _REAL_PROJECT_ROOT / "plugins" / "ai-data-agents" / ".claude-plugin" / "plugin.json"
+        )
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        assert data["version"] == version_file, (
+            f"plugin.json diz versão {data['version']!r} mas VERSION diz "
+            f"{version_file!r} — rode `python scripts/sync_plugin_mirror.py`"
+        )
+
+    def test_marketplace_version_matches_version_file(self) -> None:
+        version_file = (_REAL_PROJECT_ROOT / "VERSION").read_text(encoding="utf-8").strip()
+        marketplace = _REAL_PROJECT_ROOT / ".claude-plugin" / "marketplace.json"
+        entradas = json.loads(marketplace.read_text(encoding="utf-8"))["plugins"]
+        alvo = [p for p in entradas if p.get("name") == "ai-data-agents"]
+        assert alvo, "entrada 'ai-data-agents' sumiu de .claude-plugin/marketplace.json"
+        assert alvo[0].get("version") == version_file, (
+            f"marketplace.json diz versão {alvo[0].get('version')!r} mas VERSION diz "
+            f"{version_file!r} — rode `python scripts/sync_plugin_mirror.py`"
         )
