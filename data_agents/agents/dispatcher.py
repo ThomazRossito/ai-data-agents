@@ -155,8 +155,25 @@ async def select_agents(
     #   2. max_tokens folgado — se um modelo futuro exigir thinking sempre-ligado
     #      (K3, K2.7-Code), ainda sobra orçamento para o texto sair.
     #
-    # `temperature: 0` torna o roteamento reprodutível: a mesma pergunta passa a
-    # selecionar os mesmos agentes entre execuções.
+    # `temperature: 0` reduz a variação, mas NÃO dá determinismo neste endpoint.
+    #
+    # CORREÇÃO (2026-09-14) — este comentário afirmava que temperature 0 tornava
+    # o roteamento reprodutível ("a mesma pergunta seleciona os mesmos agentes
+    # entre execuções"). Era suposição, não medição. Três rodadas do
+    # `make eval-routing` com o dataset idêntico mostraram:
+    #
+    #   conjunto de agentes idêntico nos 3 runs : 15/25 casos
+    #   conjunto variou                          : 10/25 casos
+    #
+    # A variação é sempre de MARGEM, nunca de núcleo: em 75/75 execuções de caso
+    # o agente esperado apareceu. O que oscila é o acompanhante adjacente
+    # (`fabric-rti` às vezes vem com `fabric-engineer`; `migracao-hadoop` trocou
+    # `migration-expert` por `databricks-cost-calculator` num run). A confidence
+    # também oscila: `ambiguo-plataforma-nova` deu 75% / 65% / 75%.
+    #
+    # Consequência prática: não trate o roteamento como cacheável por hash da
+    # query, e não aperte o gate de routing_accuracy só porque uma rodada deu
+    # 100% — o piso de ruído é real. Ver data_agents/evals/routing.py.
     payload = json.dumps(
         {
             "model": settings.default_model,

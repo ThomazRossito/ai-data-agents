@@ -34,6 +34,33 @@ avg_selected      largura média da seleção crua (proxy de foco).
 avg_final         largura média DEPOIS de apply_fallback_policy — este é o
                   número que vira tokens no system prompt do Supervisor.
 
+BASELINE OBSERVADO (2026-09-14, kimi-k2.6, 3 rodadas do dataset completo)
+-----------------------------------------------------------------------
+    routing_accuracy   100% · 100% · 100%
+    fallback_rate         0% ·   0% ·   0%
+    avg_selected         1.9 ·  1.8 ·  2.0   (de 25 agentes no registry)
+    avg_final            1.9 ·  1.9 ·  2.1
+
+Fica registrado aqui porque `logs/` é gitignored — sem isto, um clone novo não
+teria com o que comparar.
+
+O que as 3 rodadas ensinaram, e que uma só não mostraria:
+
+  1. `temperature: 0` NÃO dá determinismo neste endpoint. O conjunto de agentes
+     foi idêntico nos 3 runs em 15/25 casos; variou em 10/25. A variação é
+     sempre de margem — em 75/75 execuções de caso o agente esperado apareceu.
+     O que oscila é o acompanhante adjacente.
+
+  2. Por isso o gate segue em 0.90 e não foi apertado. Três rodadas a 100% com
+     10/25 casos móveis não sustentam 0.95: seria apertar contra ruído não
+     medido. Aperte só com histórico maior.
+
+  3. O caso a vigiar é `ambiguo-plataforma-nova`. Ele encosta nos dois limites
+     ao mesmo tempo: seleciona exatamente 5 agentes (= max_agents, um a mais
+     reprova) e a confidence caiu a 65% numa das rodadas. Abaixo de 60% o
+     `apply_fallback_policy` expande para o registry inteiro. É o canário: se
+     `avg_final` saltar, provavelmente foi ele.
+
 CRITÉRIO DE APROVAÇÃO (score_case)
 ----------------------------------
 Um caso passa quando as três condições valem sobre a seleção CRUA:
