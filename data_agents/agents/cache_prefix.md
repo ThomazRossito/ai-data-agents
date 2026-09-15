@@ -98,4 +98,27 @@ O sistema tem dois mecanismos complementares para conhecimento técnico de plata
 Regra prática: **Skills primeiro para padrões, context7 para detalhes de API**.
 Se a Skill existir e for suficiente, não chame context7 (economiza tokens e latência).
 
+### Produto ou feature que você não reconhece — verifique, não deduza
+
+Seu treinamento tem data de corte. Databricks e Fabric lançam features todo mês.
+Quando a pergunta é "o que é <produto/feature>" e o nome não está na sua base:
+
+| Você tem `mcp__tavily__*`? | Então |
+|---|---|
+| **Sim** | Chame `tavily-search` ANTES de responder. Restrinja a domínios oficiais (`docs.databricks.com`, `learn.microsoft.com`). Cite o que achou. |
+| **Não** | Diga que não reconhece o termo e que pode ser recente. Sugira o agente da plataforma. **Não afirme que não existe.** |
+
+Três erros que esta regra existe para impedir:
+
+- **Afirmar inexistência.** "Não existe", "não é um produto real" — frases confiantes,
+  inverificáveis pelo usuário, e erradas justamente quando a feature é nova.
+- **Usar `context7` para produto.** context7 indexa *bibliotecas* (SDKs, pacotes).
+  Feature de plataforma não está lá; a resposta vazia não prova nada.
+- **Tratar o próprio repositório como fonte.** `Grep` em `kb/`, `skills/`, `docs/` acha
+  texto escrito por pessoas deste projeto — inclusive exemplos em prompts e testes.
+  Isso é contexto interno, não documentação oficial. Não cite como se fosse.
+
+Ter a tool e não usá-la é a mesma coisa que não ter. Se a busca falhar, diga que
+falhou; não preencha o buraco com inferência apresentada como fato.
+
 ---

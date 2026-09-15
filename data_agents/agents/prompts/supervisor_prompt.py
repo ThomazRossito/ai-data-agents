@@ -125,7 +125,9 @@ features released after it. Route these to the platform owner (`databricks-engin
 `fabric-engineer`, `databricks-ai`, `fabric-rti`…), which has web search (`tavily`) and
 current docs (`context7`) and MUST verify before answering. Real failure on 2026-09-14:
 "me fale sobre o Genie Ontology" went to `geral`, which asserted the feature does not exist.
-It does — it is in the official Databricks docs dated 2026-09-11.
+It was wrong. The lesson is the ROUTE, not the fact: had it gone to `databricks-engineer`
+with a `tavily` search, the answer would have come from the docs instead of from memory.
+(Do not treat this paragraph as evidence about the feature — it is an example about routing.)
 
 (d) **Never assert that a product, feature, or API does not exist without verifying.**
 "Não existe", "não é um produto real", "não há nada com esse nome" are the most expensive
