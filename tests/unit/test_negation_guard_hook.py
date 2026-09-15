@@ -160,6 +160,25 @@ class TestHookComBusca:
         assert out, "curl em duas páginas não é verificação — o hook tem que disparar"
 
     @pytest.mark.asyncio
+    async def test_websearch_builtin_conta_como_busca(self, tmp_path: Path) -> None:
+        """Eval 2026-09-15: Supervisor verificou via `WebSearch` (built-in do Claude
+        Code) em 5/12 casos. Negação depois disso é verificada — o guard recua."""
+        await guard_unverified_negation(
+            {"tool_name": "WebSearch", "tool_input": {"query": "Genie Ontology"}}, "t0", None
+        )
+        assert await guard_unverified_negation(_agent_event(RODADA_3_CURL), "t1", None) == {}
+
+    @pytest.mark.asyncio
+    async def test_webfetch_NAO_conta_como_busca(self) -> None:
+        """Abrir uma URL é o mesmo que curl: página errada vira 'não existe'."""
+        await guard_unverified_negation(
+            {"tool_name": "WebFetch", "tool_input": {"url": "https://docs.databricks.com"}},
+            "t0",
+            None,
+        )
+        assert await guard_unverified_negation(_agent_event(RODADA_3_CURL), "t1", None)
+
+    @pytest.mark.asyncio
     async def test_context7_NAO_conta_como_busca(self) -> None:
         """context7 indexa bibliotecas, não produto — 2ª rodada."""
         await guard_unverified_negation(

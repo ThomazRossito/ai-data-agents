@@ -71,11 +71,16 @@ _WORKFLOWS_LOG = _PROJECT_ROOT / "logs" / "workflows.jsonl"
 
 #: Tools que contam como VERIFICAÇÃO na web. Curl via Bash não entra: foi o
 #: que falhou na 3ª rodada (índice sem o termo, páginas erradas abertas).
+#: `WebSearch` é a busca built-in do Claude Code — no eval de 2026-09-15 foi
+#: por ela que o Supervisor (e o general-purpose) verificaram em 5/12 casos;
+#: sem contá-la, o guard puniria uma negação que FOI verificada. `WebFetch`
+#: fica fora pelo mesmo motivo do curl: abrir uma página não é buscar.
 _WEB_SEARCH_TOOLS: tuple[str, ...] = (
     "mcp__tavily__tavily-search",
     "mcp__tavily__tavily-extract",
     "mcp__firecrawl__firecrawl_search",
     "mcp__firecrawl__firecrawl_scrape",
+    "WebSearch",
 )
 
 #: Negação categórica de existência — PT e EN. Casa a FORMA da afirmação, não o

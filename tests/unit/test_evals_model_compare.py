@@ -15,6 +15,7 @@ o eval não responde à pergunta que o motivou.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -219,6 +220,89 @@ class TestAtribuicaoPorLogs:
         assert web and who == ["databricks-engineer"] and tools == ["mcp__tavily__tavily-search"]
 
 
+class TestRunsConcorrentes:
+    """2º run real (2026-09-15 02:00–02:40): Kimi e Sonnet rodaram em paralelo em
+    dois terminais, escrevendo no MESMO audit.jsonl/workflows.jsonl. O recorte
+    por 'linhas novas' misturou os dois: SQL do especialista virou 'supervisor',
+    delegações do outro processo viraram off_dispatch, guard contado em dobro.
+    O filtro por tool_use_id (o mesmo id que chega no stream) é o que separa.
+    """
+
+    def test_filtra_linhas_de_outro_processo(self) -> None:
+        meus = {"toolu_01A", "toolu_01B"}
+        rows = [
+            {"tool_use_id": "toolu_01A", "tool_name": "Grep"},
+            {
+                "tool_use_id": "Agent_0_zzz",
+                "tool_name": "mcp__databricks_sql__execute_sql_read_only",
+            },
+            {"tool_use_id": "toolu_01B", "tool_name": "mcp__tavily__tavily-search"},
+            {"event": "sem_id"},  # linhas sem id ficam — não há como atribuir
+        ]
+        mine, foreign = mc.filter_rows_by_tool_use_ids(rows, meus)
+        assert [r.get("tool_name", r.get("event")) for r in mine] == [
+            "Grep",
+            "mcp__tavily__tavily-search",
+            "sem_id",
+        ]
+        assert foreign == 1
+
+    def test_sem_ids_do_stream_nada_e_descartado(self) -> None:
+        rows = [{"tool_use_id": "x", "tool_name": "Grep"}]
+        mine, foreign = mc.filter_rows_by_tool_use_ids(rows, set())
+        assert mine == [] and foreign == 1, (
+            "com ids vazios o chamador deve NEM chamar o filtro (cai no recorte por linhas); "
+            "se chamar, tudo é estranho — comportamento explícito, não silencioso"
+        )
+
+    def test_rodada_5_continua_igual_com_filtro(self) -> None:
+        ids = {"t1", "t2", "t3"} | {f"x{i}" for i in range(20)}
+        wf, _ = mc.filter_rows_by_tool_use_ids(RODADA_5_WORKFLOWS, ids)
+        # audit da rodada 5 não tem tool_use_id nos fixtures → passa inteiro
+        au, _ = mc.filter_rows_by_tool_use_ids(RODADA_5_AUDIT, ids)
+        by, attempted, completed = mc.attribute_tools_from_logs(au, wf)
+        assert by["general-purpose"][0] == "mcp__firecrawl__firecrawl_search"
+        assert attempted == ["databricks-engineer", "business-analyst", "general-purpose"]
+
+
+class TestAgenteSemTipo:
+    """`Agent` chamado sem `subagent_type` apareceu nos dois runs como 'unknown'
+    (tracker) e '?' (stream) — e foi ele que usou WebSearch/firecrawl. Um rótulo
+    só, descritivo, para os dois lados."""
+
+    def test_input_sem_tipo(self) -> None:
+        assert mc.agent_name_from_input({"prompt": "pesquise na web"}) == mc.AGENT_SEM_TIPO
+        assert mc.agent_name_from_input("string") == mc.AGENT_SEM_TIPO
+
+    @pytest.mark.parametrize("bruto", ["Unknown", "unknown", "?", ""])
+    def test_normaliza_rotulos_do_tracker(self, bruto: str) -> None:
+        assert mc.normalize_agent(bruto) == mc.AGENT_SEM_TIPO
+
+    def test_nao_toca_em_agente_real(self) -> None:
+        assert mc.normalize_agent("Databricks Engineer") == "databricks-engineer"
+
+    def test_logs_com_unknown_viram_o_mesmo_rotulo(self) -> None:
+        wf = [
+            _wf("00:00.000", "workflow_step", "Unknown", stage="started", tool_use_id="a"),
+            _wf("00:05.000", "agent_delegation", "Unknown", tool_use_id="a"),
+        ]
+        by, attempted, completed = mc.attribute_tools_from_logs(
+            [_audit("00:02.000", "WebSearch")], wf
+        )
+        assert by == {mc.AGENT_SEM_TIPO: ["WebSearch"]}
+        assert attempted == completed == [mc.AGENT_SEM_TIPO]
+
+
+class TestWebSearchBuiltin:
+    def test_websearch_conta_como_busca(self) -> None:
+        web, who, tools = mc.web_search_summary({mc.SUPERVISOR: ["ToolSearch", "WebSearch"]})
+        assert web and who == [mc.SUPERVISOR] and tools == ["WebSearch"]
+
+    def test_webfetch_nao_conta(self) -> None:
+        web, who, _ = mc.web_search_summary({mc.SUPERVISOR: ["WebFetch"]})
+        assert not web and who == []
+
+
 class TestMerge:
     def test_uniao_preserva_ordem_e_dedup(self) -> None:
         out = mc.merge_attribution(
@@ -244,8 +328,8 @@ class TestSlug:
     def test_agent_name_from_input(self) -> None:
         assert mc.agent_name_from_input({"subagent_type": "geral"}) == "geral"
         assert mc.agent_name_from_input({"name": "x"}) == "x"
-        assert mc.agent_name_from_input("não é dict") == "?"
-        assert mc.agent_name_from_input({}) == "?"
+        assert mc.agent_name_from_input("não é dict") == mc.AGENT_SEM_TIPO
+        assert mc.agent_name_from_input({}) == mc.AGENT_SEM_TIPO
 
 
 # ─── Sumário e --compare ─────────────────────────────────────────────────────
@@ -378,6 +462,68 @@ class TestCLI:
 
     def test_repeat_invalido_sai_2(self) -> None:
         assert mc.main(["--repeat", "0", "--id", "genie-ontology"]) == 2
+
+
+class TestAmbienteDoSubprocesso:
+    """1º run real (2026-09-15 01:56): 12/12 'Command failed with exit code 1'.
+
+    O dispatcher (Pydantic lê .env) funcionou; o subprocesso `claude` (Node, só
+    vê os.environ) morreu sem chave. Estes testes travam a paridade com cli.py.
+    """
+
+    def test_load_env_nao_sobrescreve_o_shell(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (tmp_path / ".env").write_text(
+            "ANTHROPIC_BASE_URL=https://api.moonshot.ai/anthropic\nX_SO_NO_ENV=1\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(mc, "REPO_ROOT", tmp_path)
+        monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+        monkeypatch.delenv("X_SO_NO_ENV", raising=False)
+        assert mc.load_env_file() is True
+        assert os.environ["ANTHROPIC_BASE_URL"] == "https://api.anthropic.com", (
+            "o shell tem que vencer o .env — é o que permite trocar de provedor sem editar arquivo"
+        )
+        assert os.environ["X_SO_NO_ENV"] == "1"
+
+    def test_provider_env_vem_do_settings(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from data_agents.config import settings as s
+
+        monkeypatch.setattr(s.settings, "anthropic_api_key", "sk-teste-123456789")
+        monkeypatch.setattr(s.settings, "anthropic_base_url", "https://api.moonshot.ai/anthropic")
+        env = mc.provider_env()
+        assert env == {
+            "ANTHROPIC_API_KEY": "sk-teste-123456789",
+            "ANTHROPIC_BASE_URL": "https://api.moonshot.ai/anthropic",
+        }
+
+    def test_provider_env_omite_vazios(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from data_agents.config import settings as s
+
+        monkeypatch.setattr(s.settings, "anthropic_api_key", "")
+        monkeypatch.setattr(s.settings, "anthropic_base_url", "")
+        assert mc.provider_env() == {}
+
+    def test_main_aborta_sem_chave_antes_de_gastar(
+        self, monkeypatch: pytest.MonkeyPatch, capsys
+    ) -> None:
+        monkeypatch.setattr(mc, "load_env_file", lambda: False)
+        monkeypatch.setattr(mc, "provider_env", lambda: {})
+        assert mc.main(["--id", "genie-ontology"]) == 2
+        assert "ANTHROPIC_API_KEY ausente" in capsys.readouterr().err
+
+    @pytest.mark.parametrize(
+        "bruto,esperado",
+        [
+            ("key sk-abcdef123456789 ok", "key sk-a… ok"),
+            ("token dapi0123456789abcdef", "token dapi…"),
+            ("TAVILY tvly-abcdefgh12", "TAVILY tvly…"),
+            ("sem segredo aqui", "sem segredo aqui"),
+        ],
+    )
+    def test_scrub_secrets(self, bruto: str, esperado: str) -> None:
+        assert mc.scrub_secrets(bruto) == esperado
 
 
 class TestFonteUnicaDeBuscaWeb:
