@@ -42,6 +42,7 @@ from data_agents.hooks.context_budget_hook import track_context_budget
 from data_agents.hooks.cost_guard_hook import log_cost_generating_operations
 from data_agents.hooks.memory_hook import capture_session_context, pre_track_lesson_timing
 from data_agents.hooks.migration_gate_hook import enforce_migration_gate
+from data_agents.hooks.negation_guard_hook import guard_unverified_negation
 from data_agents.hooks.output_compressor_hook import compress_tool_output
 from data_agents.hooks.security_hook import (
     block_destructive_commands,
@@ -324,6 +325,12 @@ def build_supervisor_options(
                 # Monitora tokens acumulados da sessão (Ch. 5 — Agent Loop).
                 # Emite WARNING a 80% e ERROR a 95% do limite do context window.
                 HookMatcher(hooks=[track_context_budget]),  # type: ignore[list-item]
+                # Negação categórica ("não existe") em retorno de subagente SEM busca
+                # web no turno → additionalContext ao Supervisor + evento medível.
+                # Três rodadas de prompt não mudaram o padrão (caso Genie Ontology,
+                # 2026-09-14/15); este é o freio determinístico. Antes do compressor,
+                # para inspecionar o texto original.
+                HookMatcher(hooks=[guard_unverified_negation]),  # type: ignore[list-item]
                 # RTK-style: comprime output verboso das tools antes de enviar ao modelo.
                 # Executado por último para que audit/cost_guard observem o output original.
                 HookMatcher(hooks=[compress_tool_output]),  # type: ignore[list-item]
