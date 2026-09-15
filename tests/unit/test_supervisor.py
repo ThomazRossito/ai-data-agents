@@ -195,14 +195,25 @@ class TestBuildSupervisorOptions:
                 hooks = captured_kwargs.get("hooks", {})
                 assert "PostToolUse" in hooks
                 assert "PreToolUse" in hooks
-                assert (
-                    len(hooks["PostToolUse"]) == 6
-                )  # audit + cost guard + workflow tracker + memory capture + context budget + output compressor
+                assert len(hooks["PostToolUse"]) == 7, (
+                    "audit + cost guard + workflow tracker + memory capture + context budget + "
+                    "negation guard + output compressor"
+                )
                 assert len(hooks["PreToolUse"]) == 7, (
                     "migration gate + destructive commands + sql cost + "
                     "sensitive writes + destructive action + progress tracker + "
                     "lesson timing"
                 )
+
+                # PostToolUse por nome: o negation guard tem que estar registrado
+                # e ANTES do compressor (inspeciona o texto original).
+                post_names = [
+                    fn.__name__ for matcher in hooks["PostToolUse"] for fn in matcher.hooks
+                ]
+                assert "guard_unverified_negation" in post_names
+                assert post_names.index("guard_unverified_negation") < post_names.index(
+                    "compress_tool_output"
+                ), "negation guard deve rodar antes do compressor para ver o texto original"
 
                 # Checagem por nome, não só por contagem: um hook pode ser
                 # removido e outro adicionado sem que o total mude.

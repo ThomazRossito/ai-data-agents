@@ -1298,8 +1298,10 @@ async def run_interactive() -> None:
                         # Novo turno do usuário → reseta o gate de migração (Step 0.6A),
                         # senão a delegação de GENERATE pós-aprovação seria bloqueada.
                         from data_agents.hooks.migration_gate_hook import reset_migration_gate
+                        from data_agents.hooks.negation_guard_hook import reset_negation_guard
 
                         reset_migration_gate()
+                        reset_negation_guard()
                     except asyncio.TimeoutError:
                         # Salvar checkpoint antes do reset por inatividade
                         if _session_state["last_prompt"]:
