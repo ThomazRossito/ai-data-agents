@@ -6,6 +6,11 @@ updates:
   # Python dependencies via pip (reads pyproject.toml)
   - package-ecosystem: "pip"
     directory: "/"
+    # Mira a `dev`, não a default (`main`). Sem isto, toda PR do Dependabot cai
+    # na `main` e a `dev` fica atrás — em 2026-09-14 a #48 entrou assim e a
+    # `dev` precisou de um ff-only manual para reconvergir. Com target-branch,
+    # o fluxo é um só: tudo entra pela `dev` e sobe para `main` na promoção.
+    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -76,6 +81,7 @@ updates:
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"
