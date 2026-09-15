@@ -1,37 +1,44 @@
 """
-Wrapper para o databricks-mcp-server que redireciona o log para logs/.
+Wrapper stdio para o servidor MCP do ai-dev-kit (Databricks, oficial).
 
-O pacote `databricks-mcp` hardcoda "databricks_mcp.log" como caminho relativo
-em main.py:setup_logging. Sem variável de ambiente para sobrescrever, o arquivo
-sempre cai no CWD (raiz do projeto). Este wrapper chama configure_logging com
-caminho absoluto antes de subir o servidor, interceptando o setup original.
+Por que um wrapper em vez de chamar o `run_server.py` do pacote
+---------------------------------------------------------------
+O ai-dev-kit distribui o entrypoint como script solto na raiz do
+`databricks-mcp-server/`, fora do módulo Python — instalando via pip/git ele não
+vem junto. O que vem é o objeto `databricks_mcp_server.server.mcp` (FastMCP), e
+é isso que este arquivo sobe.
+
+Até 2026-09-14 este wrapper importava `databricks_mcp` (pacote markov-kernel,
+comunidade) e existia para redirecionar o log dele para `logs/`. O servidor do
+ai-dev-kit loga em stderr e só quando `DATABRICKS_MCP_DEBUG` está setado, então
+o redirecionamento deixou de ser necessário.
+
+Falha rápida e legível
+----------------------
+Se o pacote não estiver instalado, o erro padrão seria um ModuleNotFoundError
+enterrado no log do SDK. Aqui ele vira uma mensagem que diz o que instalar.
 """
 
-import asyncio
-import logging
-from pathlib import Path
+from __future__ import annotations
 
-# Resolve caminho absoluto do projeto, independente de onde o processo foi iniciado
-# Phase 7: arquivo em data_agents/mcp_servers/databricks/run_server.py — 4 níveis acima.
-_project_root = Path(__file__).parent.parent.parent.parent
-_logs_dir = _project_root / "logs"
-_logs_dir.mkdir(exist_ok=True)
-_log_file = str(_logs_dir / "databricks_mcp.log")
-
-from databricks_mcp.core.config import settings as _dbc_settings  # noqa: E402
-from databricks_mcp.core.logging_utils import configure_logging  # noqa: E402
-
-configure_logging(level=_dbc_settings.LOG_LEVEL.upper(), log_file=_log_file)
-
-from databricks_mcp.server.databricks_mcp_server import DatabricksMCPServer  # noqa: E402
+import sys
 
 
-async def _run() -> None:
-    logger = logging.getLogger(__name__)
-    logger.info("Starting Databricks MCP server (log → %s)", _log_file)
-    server = DatabricksMCPServer()
-    await server.run_stdio_async()
+def _main() -> int:
+    try:
+        from databricks_mcp_server.server import mcp
+    except ModuleNotFoundError as exc:
+        sys.stderr.write(
+            "databricks MCP: pacote `databricks_mcp_server` (ai-dev-kit) não encontrado.\n"
+            "Instale as dependências do projeto — o pyproject.toml aponta para o git:\n"
+            "    pip install -e .\n"
+            f"Detalhe: {exc}\n"
+        )
+        return 1
+
+    mcp.run(transport="stdio")
+    return 0
 
 
 if __name__ == "__main__":
-    asyncio.run(_run())
+    sys.exit(_main())

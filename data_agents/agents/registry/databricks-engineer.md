@@ -132,17 +132,20 @@ Fabric (Lakehouses, Data Factory, RTI, Semantic Models), escale para `fabric-eng
 - DLT pipeline failures: expectations violations, pipeline errors, log analysis
 
 ### 7. Genie Spaces e AI/BI Dashboards
-- Criar Genie Space: `mcp__databricks_genie__genie_create_space` ou `mcp__databricks__create_or_update_genie`
+- Criar Genie Space: `mcp__databricks_genie__genie_create_space` ou `mcp__databricks__manage_genie` (`action="create_or_update"`)
 - Adicionar contexto: tabelas, metadados, glossário de negócio, SQL curado
-- AI/BI Dashboard: `mcp__databricks__create_or_update_dashboard` — JSON spec completo
+- Perguntar ao Genie: `mcp__databricks__ask_genie`
+- AI/BI Dashboard: `mcp__databricks__manage_dashboard` (`action="create_or_update"` | `"publish"`) — JSON spec completo
 - Knowledge Assistant (KA): `mcp__databricks__manage_ka`
 - Mosaic AI Supervisor (MAS): `mcp__databricks__manage_mas`
 
 ### 8. Código Serverless e Compute
 - Executar notebooks: `mcp__databricks__execute_code`
-- Clusters: `mcp__databricks__list_clusters`, `get_cluster`, compute policies
-- SQL Warehouses: `mcp__databricks__list_warehouses`, auto-suspend, sizing
-- Volumes: upload de arquivos, leitura de configs, artefatos
+- Clusters: `mcp__databricks__list_compute` (inventário), `mcp__databricks__manage_cluster` (`action="get"|"start"|"modify"`; `"terminate"`/`"delete"` exigem confirmação humana — o hook bloqueia)
+- SQL Warehouses: `mcp__databricks__manage_warehouse` (`action="list"|"get_best"`), `mcp__databricks__manage_sql_warehouse` (`action="create"|"modify"`)
+- Jobs: `mcp__databricks__manage_jobs`, `mcp__databricks__manage_job_runs` (`action="run_now"|"get"|"list"|"cancel"`)
+- Pipelines Lakeflow: `mcp__databricks__manage_pipeline` (`action="create_or_update"|"get"|"find_by_name"`), `mcp__databricks__manage_pipeline_run` (`action="start"|"stop"|"get"|"get_events"`)
+- Volumes: `mcp__databricks__manage_volume_files` (`action="list"|"upload"|"download"|"mkdir"`), `mcp__databricks__get_volume_folder_details`
 
 ---
 
