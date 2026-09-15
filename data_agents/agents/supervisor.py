@@ -252,6 +252,24 @@ def build_supervisor_options(
     return ClaudeAgentOptions(
         # --- Working Directory: âncora todos os agentes na raiz do projeto ---
         cwd=project_root,
+        # --- Isolamento do host (hotfix 2026-09-14) ---
+        # Com `setting_sources=None` (default) o subprocesso do SDK carrega TAMBÉM
+        # `~/.claude/settings.json` — e com ele qualquer plugin instalado no
+        # Claude Code do usuário. Este projeto publica a si mesmo como plugin
+        # (`plugins/ai-data-agents/`); com o plugin instalado no host, os 25
+        # agentes entravam na sessão como `ai-data-agents:<nome>`, POR FORA do
+        # `agents=` abaixo — o dispatcher escolhia 1 agente e o Supervisor via 26.
+        #
+        # Caso real: query "me fale sobre o Genie Ontology" → dispatcher escolheu
+        # databricks-engineer (95%, justificativa correta) → Supervisor delegou a
+        # `ai-data-agents:geral` (T0, zero tools) → resposta afirmou que a feature
+        # não existe (existe; doc oficial de 11/set/2026). Custo: 2 delegações e
+        # US$0,11 numa pergunta conceitual.
+        #
+        # `["project"]` carrega só `.claude/` do projeto — que inclui o CLAUDE.md
+        # (o SDK exige "project" para isso) e exclui user/local. Era o item 5.8
+        # do plano; virou hotfix porque anula o two-stage routing inteiro.
+        setting_sources=["project"],
         # --- Modelo e System Prompt ---
         # supervisor_model = settings.default_model (kimi-k2.6 por padrão).
         # Thinking é controlado via thinking_config, não trocando o modelo.
