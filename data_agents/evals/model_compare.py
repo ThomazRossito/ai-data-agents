@@ -26,8 +26,13 @@ Este runner roda o PIPELINE INTEIRO (dispatcher → Supervisor → subagente →
 tools), como `cli.py` faz, e mede por caso:
 
     correct              a resposta contém os grupos OR de `must_include`
-    web_search_by        QUEM chamou tavily/firecrawl no turno (por agente)
+    web_search_by        QUEM buscou na web no turno (tavily/firecrawl/WebSearch,
+                         por agente — mesma lista do negation guard)
     specialist_searched  o agente esperado (`agent_hint`) buscou na web
+    mcp_servers          status de conexão de cada MCP server no init do CLI
+                         (é aqui que aparece um server que nunca subiu)
+    foreign_log_rows     linhas de log de OUTRO processo descartadas (runs em
+                         paralelo compartilham audit.jsonl/workflows.jsonl)
     negations            trechos "não existe"/"não é um produto" no texto final
     unverified_negation  eventos do negation guard no turno
     off_dispatch         delegações a agentes FORA da seleção do dispatcher
@@ -210,6 +215,8 @@ class CaseResult:
     output_tokens: int
     cache_read_tokens: int
     thinking: str
+    mcp_servers: dict[str, str] = field(default_factory=dict)
+    foreign_log_rows: int = 0
     error: str | None = None
 
 
@@ -287,16 +294,62 @@ def slug_agent(name: str) -> str:
     return "-".join(str(name).strip().lower().split())
 
 
+#: Rótulo para `Agent` chamado SEM `subagent_type`. O tracker grava "unknown"
+#: nesse caso; aqui o nome diz o que aconteceu. Provavelmente o Claude Code
+#: executa o `general-purpose` built-in quando o tipo falta — observado (o
+#: agente sem tipo usou WebSearch/firecrawl, tools que nenhum agente do registry
+#: declara), mas NÃO confirmado na documentação. Por isso o rótulo é descritivo,
+#: não afirma qual agente rodou.
+AGENT_SEM_TIPO = "agent-sem-subagent_type"
+
+
 def agent_name_from_input(tool_input: Any) -> str:
     if not isinstance(tool_input, dict):
-        return "?"
+        return AGENT_SEM_TIPO
     return str(
         tool_input.get("subagent_type")
         or tool_input.get("agent_name")
         or tool_input.get("name")
         or tool_input.get("agent")
-        or "?"
+        or AGENT_SEM_TIPO
     )
+
+
+def normalize_agent(name: str) -> str:
+    """Slug + unifica os rótulos de 'sem tipo' do tracker ('unknown') e do stream."""
+    s = slug_agent(name)
+    return AGENT_SEM_TIPO if s in ("unknown", "?", "") else s
+
+
+def filter_rows_by_tool_use_ids(
+    rows: list[dict[str, Any]], ids: set[str]
+) -> tuple[list[dict[str, Any]], int]:
+    """
+    Mantém só as linhas cujo `tool_use_id` pertence a ESTE run.
+
+    Motivo (2026-09-15 02:00–02:40): os dois runs (Kimi e Sonnet) rodaram ao
+    mesmo tempo em dois terminais e escreveram no MESMO audit.jsonl /
+    workflows.jsonl. Recorte por "linhas novas desde o início do caso" trouxe
+    as tools do outro processo: `off_dispatch` inflado, guard contado em
+    dobro, SQL do especialista atribuído ao Supervisor. O `tool_use_id` que os
+    hooks gravam é o mesmo `ToolUseBlock.id` que chega no stream do SDK —
+    filtrar por ele é exato, sem depender de relógio nem de sessão.
+
+    Returns:
+        (linhas deste run, nº de linhas estranhas descartadas)
+    """
+    mine: list[dict[str, Any]] = []
+    foreign = 0
+    for r in rows:
+        tid = str(r.get("tool_use_id") or "")
+        if tid and tid in ids:
+            mine.append(r)
+        elif tid:
+            foreign += 1
+        else:
+            # Sem tool_use_id não há como atribuir — fica (raro; eventos antigos).
+            mine.append(r)
+    return mine, foreign
 
 
 def attribute_tools_from_logs(
@@ -317,7 +370,7 @@ def attribute_tools_from_logs(
     for r in workflow_rows:
         ev = r.get("event")
         ts = str(r.get("timestamp", ""))
-        agent = slug_agent(r.get("agent", "?"))
+        agent = normalize_agent(r.get("agent", "?"))
         if ev == "workflow_step" and r.get("stage") == "started":
             events.append((ts, 0, "start", agent))
         elif ev == "agent_delegation":
@@ -455,7 +508,14 @@ def _cost(result_msg: Any) -> tuple[float | None, float, str, int, int, int]:
 
 async def run_case(case: ConceptualCase, run_idx: int, timeout_s: float) -> CaseResult:
     """Roda UM caso pelo pipeline inteiro e pontua. Nunca levanta — erro vira campo."""
-    from claude_agent_sdk import AssistantMessage, ResultMessage, TextBlock, ToolUseBlock, query
+    from claude_agent_sdk import (
+        AssistantMessage,
+        ResultMessage,
+        SystemMessage,
+        TextBlock,
+        ToolUseBlock,
+        query,
+    )
 
     from data_agents.agents.dispatcher import apply_fallback_policy, select_agents
     from data_agents.agents.loader import preload_registry
@@ -480,6 +540,8 @@ async def run_case(case: ConceptualCase, run_idx: int, timeout_s: float) -> Case
     models: list[str] = []
     agent_calls: dict[str, str] = {}  # tool_use_id do Agent → nome do subagente
     sub_tools: dict[str, list[str]] = defaultdict(list)
+    all_tool_ids: set[str] = set()  # todo ToolUseBlock.id visto — chave do filtro dos logs
+    mcp_status: dict[str, str] = {}
     result_msg: Any = None
     error: str | None = None
 
@@ -495,13 +557,21 @@ async def run_case(case: ConceptualCase, run_idx: int, timeout_s: float) -> Case
                         if parent is None and b.text.strip():
                             texts.append(b.text)
                     elif isinstance(b, ToolUseBlock):
+                        all_tool_ids.add(str(b.id))
                         if parent is None:
                             if b.name == "Agent":
-                                agent_calls[b.id] = agent_name_from_input(b.input)
+                                agent_calls[b.id] = normalize_agent(agent_name_from_input(b.input))
                             else:
                                 sub_tools[SUPERVISOR].append(b.name)
                         else:
-                            sub_tools[agent_calls.get(parent, "?")].append(b.name)
+                            sub_tools[agent_calls.get(parent, AGENT_SEM_TIPO)].append(b.name)
+            elif isinstance(m, SystemMessage) and m.subtype == "init":
+                # O CLI lista os MCP servers e o status de conexão de cada um.
+                # Foi assim que se descobriu que `tavily` nunca subiu (uvx sem
+                # executável) — 5 rodadas de prompt mirando uma tool inexistente.
+                for srv in (m.data or {}).get("mcp_servers") or []:
+                    if isinstance(srv, dict) and srv.get("name"):
+                        mcp_status[str(srv["name"])] = str(srv.get("status", "?"))
             elif isinstance(m, ResultMessage):
                 result_msg = m
 
@@ -529,8 +599,17 @@ async def run_case(case: ConceptualCase, run_idx: int, timeout_s: float) -> Case
     duration = time.monotonic() - t0
     final_text = "\n\n".join(texts)
 
-    audit_rows = _read_new_rows(AUDIT_LOG, audit_before)
-    wf_rows = _read_new_rows(WORKFLOWS_LOG, wf_before)
+    # Logs: só as linhas cujo tool_use_id apareceu no stream DESTE run. Se o
+    # stream não trouxe nenhum id (SDK antigo / falha antes do 1º tool), cai no
+    # recorte por linhas novas — e avisa, porque aí outro processo pode vazar.
+    audit_new = _read_new_rows(AUDIT_LOG, audit_before)
+    wf_new = _read_new_rows(WORKFLOWS_LOG, wf_before)
+    if all_tool_ids:
+        audit_rows, foreign_a = filter_rows_by_tool_use_ids(audit_new, all_tool_ids)
+        wf_rows, foreign_w = filter_rows_by_tool_use_ids(wf_new, all_tool_ids)
+        foreign = foreign_a + foreign_w
+    else:
+        audit_rows, wf_rows, foreign = audit_new, wf_new, 0
     by_log, attempted_log, completed_log = attribute_tools_from_logs(audit_rows, wf_rows)
     by_stream = dict(sub_tools)
     by_all = merge_attribution(by_stream, by_log)
@@ -581,6 +660,8 @@ async def run_case(case: ConceptualCase, run_idx: int, timeout_s: float) -> Case
         output_tokens=out_t,
         cache_read_tokens=ca_t,
         thinking=thinking_repr,
+        mcp_servers=mcp_status,
+        foreign_log_rows=foreign,
         error=error,
     )
 
@@ -603,6 +684,14 @@ def _print_case_line(r: CaseResult, hint: str) -> None:
         f"      {status} {web}{neg}{ung}{off} · ${r.cost_usd:.4f} · {r.duration_s:.0f}s · "
         f"turns={r.num_turns} · dispatched={r.dispatched}{err}"
     )
+    failed_mcp = sorted(n for n, st in r.mcp_servers.items() if st not in ("connected", "?"))
+    if failed_mcp:
+        print(f"      ↳ MCP servers NÃO conectados: {failed_mcp}")
+    if r.foreign_log_rows:
+        print(
+            f"      ↳ {r.foreign_log_rows} linha(s) de log de OUTRO processo descartadas "
+            "(logs compartilhados — outro run em paralelo?)"
+        )
     if r.missing_groups:
         print(f"      ↳ faltou: {r.missing_groups}")
     for n in r.negations[:2]:
