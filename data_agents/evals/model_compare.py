@@ -18,7 +18,7 @@ Em 2026-09-14/15 a pergunta "me fale sobre o Genie Ontology" saiu errada
 quatro vezes seguidas, de quatro jeitos, apesar de três correções de prompt e
 um hook determinístico. Na quinta rodada saiu certa — mas quem buscou na web
 foi o `general-purpose` (subagente built-in do Claude Code), não o
-`databricks-engineer`, que tinha `tavily-search` disponível e não a usou em
+`databricks-engineer`, que tinha `tavily_search` disponível e não a usou em
 NENHUMA das cinco. A suspeita passou do harness para o modelo. Suspeita se
 resolve com medição, não com a sexta correção de prompt.
 
@@ -101,7 +101,11 @@ from urllib.parse import urlparse
 
 import yaml
 
-from data_agents.hooks.negation_guard_hook import _WEB_SEARCH_TOOLS, find_negations
+from data_agents.hooks.negation_guard_hook import (
+    _WEB_SEARCH_TOOLS,
+    find_negations,
+    is_web_search_tool,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 PACKAGE_DIR = Path(__file__).resolve().parent
@@ -416,7 +420,7 @@ def web_search_summary(tools_by_agent: dict[str, list[str]]) -> tuple[bool, list
     by: list[str] = []
     used: list[str] = []
     for agent, tools in tools_by_agent.items():
-        hits = [t for t in tools if t in WEB_SEARCH_TOOLS]
+        hits = [t for t in tools if is_web_search_tool(t)]
         if hits:
             by.append(agent)
             for h in hits:

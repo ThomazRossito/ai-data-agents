@@ -22,7 +22,7 @@ O QUE FAZ
 ---------
 PostToolUse em TODAS as tools (matcher vazio), dois deveres:
 
-  1. Registrar se houve **busca web** no turno (`mcp__tavily__tavily-search`,
+  1. Registrar se houve **busca web** no turno (`mcp__tavily__tavily_search`,
      `mcp__firecrawl__*search*`). Estado por turno, resetado por
      `reset_negation_guard()` — mesmo padrão do migration_gate_hook.
 
@@ -76,12 +76,26 @@ _WORKFLOWS_LOG = _PROJECT_ROOT / "logs" / "workflows.jsonl"
 #: sem contá-la, o guard puniria uma negação que FOI verificada. `WebFetch`
 #: fica fora pelo mesmo motivo do curl: abrir uma página não é buscar.
 _WEB_SEARCH_TOOLS: tuple[str, ...] = (
-    "mcp__tavily__tavily-search",
-    "mcp__tavily__tavily-extract",
+    "mcp__tavily__tavily_search",
+    "mcp__tavily__tavily_extract",
     "mcp__firecrawl__firecrawl_search",
     "mcp__firecrawl__firecrawl_scrape",
     "WebSearch",
 )
+
+#: Qualquer tool destes servidores é busca/leitura web. Casar por PREFIXO evita
+#: repetir o erro de 2026-09-15: o vocabulário dizia `tavily-search` (hífen), o
+#: servidor registra `tavily_search` (underscore), e o guard ficou cego para
+#: buscas que aconteceram de fato.
+_WEB_SEARCH_PREFIXES: tuple[str, ...] = ("mcp__tavily__",)
+
+
+def is_web_search_tool(tool_name: str) -> bool:
+    """True se a tool conta como verificação na web. Fonte única para hook e evals."""
+    if not tool_name:
+        return False
+    return tool_name in _WEB_SEARCH_TOOLS or tool_name.startswith(_WEB_SEARCH_PREFIXES)
+
 
 #: Negação categórica de existência — PT e EN. Casa a FORMA da afirmação, não o
 #: assunto: o hook não sabe qual é o produto, só que alguém disse que não existe.
@@ -198,7 +212,7 @@ async def guard_unverified_negation(
 
     tool_name: str = input_data.get("tool_name", "") or ""
 
-    if tool_name in _WEB_SEARCH_TOOLS:
+    if is_web_search_tool(tool_name):
         _turn_state["web_search"] = True
         _turn_state["web_search_tools"].append(tool_name)
         return {}
@@ -245,7 +259,7 @@ async def guard_unverified_negation(
                 "2. Diga que pode ser feature recente ou nome usado só em parte da documentação.\n"
                 "3. Ofereça verificar com busca web no termo exato antes de concluir.\n"
                 "Se o usuário insistir numa resposta definitiva, delegue de novo pedindo "
-                "explicitamente `tavily-search` com o termo entre aspas e domínio oficial."
+                "explicitamente `tavily_search` com o termo entre aspas e domínio oficial."
             ),
         }
     }

@@ -215,9 +215,9 @@ class TestAtribuicaoPorLogs:
 
     def test_tavily_conta(self) -> None:
         web, who, tools = mc.web_search_summary(
-            {"databricks-engineer": ["mcp__tavily__tavily-search"]}
+            {"databricks-engineer": ["mcp__tavily__tavily_search"]}
         )
-        assert web and who == ["databricks-engineer"] and tools == ["mcp__tavily__tavily-search"]
+        assert web and who == ["databricks-engineer"] and tools == ["mcp__tavily__tavily_search"]
 
 
 class TestRunsConcorrentes:
@@ -236,13 +236,13 @@ class TestRunsConcorrentes:
                 "tool_use_id": "Agent_0_zzz",
                 "tool_name": "mcp__databricks_sql__execute_sql_read_only",
             },
-            {"tool_use_id": "toolu_01B", "tool_name": "mcp__tavily__tavily-search"},
+            {"tool_use_id": "toolu_01B", "tool_name": "mcp__tavily__tavily_search"},
             {"event": "sem_id"},  # linhas sem id ficam — não há como atribuir
         ]
         mine, foreign = mc.filter_rows_by_tool_use_ids(rows, meus)
         assert [r.get("tool_name", r.get("event")) for r in mine] == [
             "Grep",
-            "mcp__tavily__tavily-search",
+            "mcp__tavily__tavily_search",
             "sem_id",
         ]
         assert foreign == 1
@@ -306,9 +306,9 @@ class TestWebSearchBuiltin:
 class TestMerge:
     def test_uniao_preserva_ordem_e_dedup(self) -> None:
         out = mc.merge_attribution(
-            {"a": ["Grep", "Read"]}, {"a": ["Read", "Bash"], "b": ["mcp__tavily__tavily-search"]}
+            {"a": ["Grep", "Read"]}, {"a": ["Read", "Bash"], "b": ["mcp__tavily__tavily_search"]}
         )
-        assert out == {"a": ["Grep", "Read", "Bash"], "b": ["mcp__tavily__tavily-search"]}
+        assert out == {"a": ["Grep", "Read", "Bash"], "b": ["mcp__tavily__tavily_search"]}
 
 
 class TestSlug:
@@ -532,5 +532,5 @@ class TestFonteUnicaDeBuscaWeb:
         from data_agents.hooks import negation_guard_hook as ng
 
         assert mc.WEB_SEARCH_TOOLS == frozenset(ng._WEB_SEARCH_TOOLS)
-        assert "mcp__tavily__tavily-search" in mc.WEB_SEARCH_TOOLS
+        assert "mcp__tavily__tavily_search" in mc.WEB_SEARCH_TOOLS
         assert "Bash" not in mc.WEB_SEARCH_TOOLS and "WebFetch" not in mc.WEB_SEARCH_TOOLS

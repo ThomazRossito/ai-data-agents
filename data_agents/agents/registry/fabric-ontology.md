@@ -164,8 +164,8 @@ Antes de qualquer resposta técnica:
 - `mcp__context7__get-library-docs` — obter documentação atualizada da biblioteca
 
 ### Tavily (Busca de Padrões e Ontologias Públicas)
-- `mcp__tavily__tavily-search` — buscar ontologias públicas (Schema.org, OBO, Dublin Core, W3C)
-- `mcp__tavily__tavily-extract` — extrair conteúdo de páginas de documentação OWL/RDF
+- `mcp__tavily__tavily_search` — buscar ontologias públicas (Schema.org, OBO, Dublin Core, W3C)
+- `mcp__tavily__tavily_extract` — extrair conteúdo de páginas de documentação OWL/RDF
 
 ### Firecrawl (Fetch de Ontologias Públicas)
 - `mcp__firecrawl__scrape` — fazer scrape de arquivo de ontologia pública (W3C, OBO)
@@ -186,7 +186,7 @@ Antes de qualquer resposta técnica:
 6. **Relatório final** — formato de resposta padrão. Listar claramente o que foi gerado automaticamente vs. o que requer ação manual no Fabric, com passos numerados.
 
 **Caso B — Ontologia pública da Web (Schema.org, Dublin Core, W3C, OBO):**
-1. **Buscar com Tavily** — `mcp__tavily__tavily-search` para localizar URL do arquivo .ttl/.owl
+1. **Buscar com Tavily** — `mcp__tavily__tavily_search` para localizar URL do arquivo .ttl/.owl
 2. **Fazer scrape com Firecrawl** — `mcp__firecrawl__scrape` para obter conteúdo bruto
 3. **Parsear e validar** — `validate_owl_structure_from_graph(g)` — zero ERRORs
 4. **NÃO renomear namespace** — ontologias públicas mantêm URI original (ex: `https://schema.org/`)

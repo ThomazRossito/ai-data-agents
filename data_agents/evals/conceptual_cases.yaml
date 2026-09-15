@@ -4,7 +4,7 @@
 # ---------------------------
 # Em 2026-09-14/15 a pergunta "me fale sobre o Genie Ontology" foi respondida
 # errado QUATRO vezes, de quatro jeitos, apesar de três correções de prompt e um
-# hook. O especialista Databricks tinha `tavily-search` disponível e não a usou
+# hook. O especialista Databricks tinha `tavily_search` disponível e não a usou
 # em nenhuma das quatro. A suspeita passou do harness para o modelo — e suspeita
 # se resolve com medição, não com a quinta correção de prompt.
 #

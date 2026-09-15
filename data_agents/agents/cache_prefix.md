@@ -105,7 +105,7 @@ Quando a pergunta é "o que é <produto/feature>" e o nome não está na sua bas
 
 | Você tem `mcp__tavily__*`? | Então |
 |---|---|
-| **Sim** | Chame `tavily-search` ANTES de responder. Restrinja a domínios oficiais (`docs.databricks.com`, `learn.microsoft.com`). Cite o que achou. |
+| **Sim** | Chame `tavily_search` ANTES de responder. Restrinja a domínios oficiais (`docs.databricks.com`, `learn.microsoft.com`). Cite o que achou. |
 | **Não** | Diga que não reconhece o termo e que pode ser recente. Sugira o agente da plataforma. **Não afirme que não existe.** |
 
 Três erros que esta regra existe para impedir:

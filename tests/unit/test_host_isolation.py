@@ -156,7 +156,7 @@ class TestRegraDeVerificacaoNoAgente:
         return (_REPO / "data_agents" / "agents" / "cache_prefix.md").read_text(encoding="utf-8")
 
     def test_manda_usar_tavily_antes_de_responder(self, prefixo: str) -> None:
-        assert "tavily-search" in prefixo and "ANTES de responder" in prefixo
+        assert "tavily_search" in prefixo and "ANTES de responder" in prefixo
 
     def test_diz_que_context7_nao_e_para_produto(self, prefixo: str) -> None:
         assert "context7 indexa *bibliotecas*" in prefixo

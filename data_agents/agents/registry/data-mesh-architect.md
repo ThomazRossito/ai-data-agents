@@ -172,7 +172,7 @@ Dimensões avaliadas (0-5 por dimensão):
 
 ### Context7 + Tavily
 - Documentação oficial Data Mesh (Zhamak Dehghani), padrões ODCS, exemplos de implementação
-- `mcp__tavily__tavily-search` — casos reais de Data Mesh em Databricks/Fabric, maturidade models
+- `mcp__tavily__tavily_search` — casos reais de Data Mesh em Databricks/Fabric, maturidade models
 
 ---
 

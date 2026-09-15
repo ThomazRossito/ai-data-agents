@@ -431,7 +431,7 @@ print(f"Exportado: {output_path}")
 
 ```python
 # PASSO 1 — Descobrir a ontologia pública com Tavily
-# results = mcp__tavily__tavily-search(
+# results = mcp__tavily__tavily_search(
 #     query = "schema.org ontology turtle download filetype:ttl"
 # )
 # Inspecionar results para identificar URL do arquivo .ttl ou .owl
