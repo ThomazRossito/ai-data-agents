@@ -275,3 +275,38 @@ class TestAgentesCitamToolsReais:
             "agentes citam tools `mcp__databricks__*` que não existem no servidor "
             "(ver LEGACY_TOOL_MAP em server_config.py para o equivalente):\n" + "\n".join(problemas)
         )
+
+
+class TestPyprojectAceitaReferenciaDireta:
+    """`pkg @ git+...` no pyproject exige `tool.hatch.metadata.allow-direct-references`.
+
+    Sem a chave, hatchling recusa a metadata e `pip install -e .` falha para TODO
+    MUNDO — inclusive quem nunca vai instalar o extra. Derrubou 4 jobs na PR #52.
+    Este teste dá a mensagem certa antes da CI dar a errada.
+    """
+
+    def test_chave_presente_quando_ha_referencia_direta(self) -> None:
+        try:
+            import tomllib  # 3.11+ (o projeto exige >=3.11; o sandbox local é 3.10)
+        except ModuleNotFoundError:  # pragma: no cover
+            import tomli as tomllib  # type: ignore[no-redef]
+
+        texto = (_REPO / "pyproject.toml").read_text(encoding="utf-8")
+        dados = tomllib.loads(texto)
+        deps = list(dados["project"].get("dependencies", []))
+        for extra in dados["project"].get("optional-dependencies", {}).values():
+            deps.extend(extra)
+        diretas = [d for d in deps if " @ " in d]
+        if not diretas:
+            pytest.skip("nenhuma referência direta no pyproject")
+        permitido = (
+            dados.get("tool", {})
+            .get("hatch", {})
+            .get("metadata", {})
+            .get("allow-direct-references")
+        )
+        assert permitido is True, (
+            f"{len(diretas)} dependência(s) por referência direta "
+            f"({diretas[0][:50]}...), mas `[tool.hatch.metadata] allow-direct-references` "
+            "não é true — hatchling vai recusar a metadata e o `pip install -e .` falha"
+        )

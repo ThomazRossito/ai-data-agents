@@ -210,6 +210,14 @@ databricks-billing-mcp = "data_agents.mcp_servers.databricks_billing.server:main
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.metadata]
+# O extra `databricks-admin` aponta para o git (`pkg @ git+https://...`) porque o
+# ai-dev-kit não publica no PyPI. Hatchling REJEITA referências diretas por padrão
+# — sem esta chave, `pip install -e .` falha na metadata para TODO MUNDO, inclusive
+# quem nunca vai instalar o extra. Foi o que derrubou 4 jobs na PR #52.
+# PyPI também recusa uploads com referências diretas; este pacote não é publicado.
+allow-direct-references = true
+
 [tool.hatch.build.targets.wheel]
 # Phase 7: empacotar somente o namespace data_agents/
 packages = ["data_agents"]
