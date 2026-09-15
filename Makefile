@@ -3,7 +3,7 @@
 # Automação de tarefas comuns de desenvolvimento e deploy
 # ═══════════════════════════════════════════════════════════════════
 
-.PHONY: help install dev bootstrap demo evals test test-fast test-int test-e2e test-all lint format type-check security clean run health-databricks health-fabric fabric-env deploy-staging deploy-prod refresh-skills refresh-skills-dry refresh-skills-force
+.PHONY: help install dev bootstrap demo evals eval-routing eval-model-compare test test-fast test-int test-e2e test-all lint format type-check security clean run health-databricks health-fabric fabric-env deploy-staging deploy-prod refresh-skills refresh-skills-dry refresh-skills-force
 
 # Cores para output
 CYAN := \033[36m
@@ -52,6 +52,9 @@ evals: ## Roda queries canônicas (~$$0.08) e gera scoreboard
 
 eval-routing: ## Mede o dispatcher contra a API (~$$0.003) — gate routing_accuracy >= 90%
 	python -m data_agents.evals.routing
+
+eval-model-compare: ## Pipeline inteiro em casos conceituais (~$$0.2/caso). LABEL=kimi-k2.6 REPEAT=1
+	python -m data_agents.evals.model_compare --label "$(or $(LABEL),$(DEFAULT_MODEL))" --repeat $(or $(REPEAT),1)
 
 # ─── Quality ──────────────────────────────────────────────────────
 
