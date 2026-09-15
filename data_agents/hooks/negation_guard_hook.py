@@ -133,7 +133,7 @@ def find_negations(text: str) -> list[str]:
     return achados
 
 
-def _log_event(agent: str, snippets: list[str]) -> None:
+def _log_event(agent: str, snippets: list[str], tool_use_id: str | None) -> None:
     try:
         _WORKFLOWS_LOG.parent.mkdir(parents=True, exist_ok=True)
         with open(_WORKFLOWS_LOG, "a", encoding="utf-8") as f:
@@ -142,7 +142,11 @@ def _log_event(agent: str, snippets: list[str]) -> None:
                     {
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                         "event": "unverified_negation",
-                        "agent": agent,
+                        # Campos canônicos do LOGGING_CONTRACT (Phase 10) — permitem
+                        # JOIN com audit.jsonl / sessions.jsonl / transcript.
+                        "session_id": _session_id() or None,
+                        "agent_name": agent,
+                        "tool_use_id": tool_use_id,
                         "web_search_in_turn": False,
                         "snippets": snippets[:3],
                     },
@@ -152,6 +156,16 @@ def _log_event(agent: str, snippets: list[str]) -> None:
             )
     except OSError as exc:  # pragma: no cover — log nunca derruba o hook
         logger.warning("negation_guard: falha ao gravar evento: %s", exc)
+
+
+def _session_id() -> str:
+    """Mesmo session_id que o audit_hook usa — fonte única, import tardio (evita ciclo)."""
+    try:
+        from data_agents.hooks import audit_hook
+
+        return str(getattr(audit_hook, "_current_session_id", "") or "")
+    except Exception:  # noqa: BLE001 — log nunca derruba o hook
+        return ""
 
 
 def _agent_name(tool_input: dict[str, Any]) -> str:
@@ -202,7 +216,7 @@ async def guard_unverified_negation(
 
     tool_input = input_data.get("tool_input", {}) or {}
     agente = _agent_name(tool_input if isinstance(tool_input, dict) else {})
-    _log_event(agente, negacoes)
+    _log_event(agente, negacoes, tool_use_id)
     logger.warning(
         "negation_guard: '%s' afirmou inexistência sem busca web no turno — %d trecho(s)",
         agente,

@@ -121,7 +121,9 @@ class TestHookSemBusca:
         assert len(linhas) == 1
         ev = json.loads(linhas[0])
         assert ev["event"] == "unverified_negation"
-        assert ev["agent"] == "geral"
+        assert ev["agent_name"] == "geral"
+        assert ev["tool_use_id"] == "t1"
+        assert "session_id" in ev, "campo canônico do LOGGING_CONTRACT — permite JOIN com audit"
         assert ev["web_search_in_turn"] is False
         assert ev["snippets"]
 
