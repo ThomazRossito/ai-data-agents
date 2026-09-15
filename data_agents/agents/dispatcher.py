@@ -38,6 +38,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import urllib.error
 import urllib.request
 from typing import TYPE_CHECKING
@@ -208,7 +209,14 @@ async def select_agents(
     try:
         data = await asyncio.to_thread(_do_request)
     except urllib.error.HTTPError as e:
-        logger.warning(f"Dispatcher HTTP {e.code}: {e.reason} — fallback para todos os agentes")
+        # O corpo do erro é onde a API diz O QUE rejeitou. Sem ele, o eval de
+        # 2026-09-15 registrou 12× "HTTP 400: Bad Request" contra a Anthropic e
+        # ninguém soube qual campo do payload era o problema.
+        body = _http_error_body(e)
+        logger.warning(
+            f"Dispatcher HTTP {e.code}: {e.reason} — fallback para todos os agentes"
+            + (f" — corpo: {body}" if body else "")
+        )
         return _all_delegatable(available), 0.0, f"http_error:{e.code}"
     except (urllib.error.URLError, TimeoutError) as e:
         logger.warning(f"Dispatcher network error: {e} — fallback para todos os agentes")
@@ -356,3 +364,23 @@ def format_dispatcher_log(
 def _all_delegatable(available: dict[str, "AgentMeta"]) -> list[str]:
     """Retorna todos os nomes de agentes do registry, exceto os never-delegated."""
     return [n for n in available if n not in _NEVER_DELEGATED]
+
+
+_HTTP_ERROR_BODY_MAX = 400
+_SECRET_RE = re.compile(r"(sk-[A-Za-z0-9_\-]{6,}|dapi[a-f0-9]{8,}|tvly-[A-Za-z0-9_\-]{6,})")
+
+
+def _http_error_body(e: urllib.error.HTTPError) -> str:
+    """Corpo do erro HTTP, truncado e sem quebras de linha. Nunca levanta.
+
+    Só o corpo da RESPOSTA é lido — a request (que carrega a chave no header)
+    não entra. Se a API ecoar algo que pareça chave, `scrub` mascara.
+    """
+    try:
+        raw = e.read()
+        text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+    except Exception:  # noqa: BLE001 — diagnóstico nunca derruba o fallback
+        return ""
+    text = " ".join(text.split())
+    text = _SECRET_RE.sub(lambda m: m.group(0)[:4] + "…", text)
+    return text[:_HTTP_ERROR_BODY_MAX]
