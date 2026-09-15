@@ -1,0 +1,233 @@
+# AI Data Agents — Evals de ROTEAMENTO
+#
+# Mede o dispatcher (data_agents/agents/dispatcher.py), não a qualidade da
+# resposta. A pergunta é uma só: dada a query, o dispatcher escolhe os agentes
+# certos e só eles?
+#
+# POR QUE ISTO EXISTE
+# -------------------
+# Em 2026-09-13 o dispatcher estava quebrado em TODA query: o Kimi K2.6 gastava
+# os 256 tokens de orçamento pensando e nunca emitia texto, o parse caía em
+# "no_content" e o fallback carregava os 24 agentes. O two-stage routing — que
+# existe justamente para segurar o system prompt em ~25K em vez de ~80K — estava
+# anulado havia tempo indeterminado, e o único sinal era um WARNING no log.
+#
+# A suíte de testes não pegou porque testava as FUNÇÕES do dispatcher com mocks,
+# não o dispatcher CONTRA O MODELO. Este eval fecha essa lacuna: fala com a API
+# de verdade e reprova quando o roteamento degrada.
+#
+# CAMPOS
+# ------
+#   id          identificador estável (usado no scoreboard e na detecção de regressão)
+#   prompt      a query do usuário, como ele digitaria
+#   expect_any   pelo menos UM destes agentes deve estar na seleção
+#   expect_all   (opcional) TODOS estes devem estar na seleção
+#   forbid      (opcional) NENHUM destes pode estar na seleção
+#   max_agents  (opcional, default 5) teto de largura da seleção crua
+#   note        (opcional) por que a expectativa é essa — documenta o julgamento
+#
+# SOBRE `expect_any` vs `expect_all`
+# ---------------------------------
+# A maioria dos casos usa `expect_any` de propósito. Para "migrar SQL Server",
+# tanto `sqlserver-to-databricks` (especialista) quanto `migration-expert`
+# (generalista) são respostas defensáveis — reprovar uma das duas mediria a minha
+# opinião, não a qualidade do roteamento. `expect_all` só aparece onde a query
+# exige de fato mais de um domínio.
+#
+# SOBRE `max_agents: 5`
+# --------------------
+# Não é número arbitrário: o _DISPATCHER_SYSTEM_PROMPT manda "1 a 5 nomes".
+# O teto é o contrato do próprio dispatcher. É também o que faz o fallback
+# (24 agentes) reprovar — sem ele, o bug de 2026-09-13 passaria com nota 100%,
+# porque "o agente esperado está na lista" é trivialmente verdade quando a lista
+# é o registry inteiro.
+#
+# SOBRE `forbid`
+# -------------
+# Databricks vs Fabric é o par mais caro de confundir e o prompt do dispatcher
+# tem regra explícita para ele. É o sinal mais afiado que existe aqui.
+
+version: 1
+
+cases:
+  # ─── Databricks: núcleo ─────────────────────────────────────────
+  - id: databricks-sql-catalogo
+    prompt: |
+      Liste as tabelas do schema silver no Unity Catalog e me mostre o
+      schema da maior delas.
+    expect_any: [databricks-engineer]
+    forbid: [fabric-engineer, fabric-rti]
+
+  - id: databricks-diagnostico-oom
+    prompt: |
+      Meu job Spark está estourando OOM no executor durante o shuffle de
+      um join grande. Como eu diagnostico e corrijo?
+    expect_any: [databricks-engineer]
+    forbid: [fabric-engineer]
+
+  - id: databricks-dlt-cdc
+    prompt: |
+      Preciso montar um pipeline Lakeflow Declarative com AUTO CDC INTO
+      a partir de um tópico Kafka com Debezium.
+    expect_any: [databricks-engineer, databricks-ai]
+    forbid: [fabric-engineer]
+
+  - id: databricks-rag-vector-search
+    prompt: |
+      Quero montar um RAG sobre nossos PDFs usando Vector Search do
+      Databricks e servir por um endpoint de Model Serving.
+    expect_any: [databricks-ai]
+    note: databricks-ai é o dono de RAG/Vector Search/LLMOps no registry.
+
+  # ─── Fabric ─────────────────────────────────────────────────────
+  - id: fabric-direct-lake
+    prompt: |
+      Como eu configuro Direct Lake num semantic model do Microsoft Fabric
+      e quando ele cai para DirectQuery?
+    expect_any: [fabric-engineer]
+    forbid: [databricks-engineer, databricks-ai]
+
+  - id: fabric-rti-kql
+    prompt: |
+      Preciso de uma consulta KQL no Eventhouse que agregue os eventos da
+      última hora por dispositivo, e de um Activator disparando alerta.
+    expect_any: [fabric-rti]
+    forbid: [databricks-engineer]
+
+  - id: fabric-ontologia-owl
+    prompt: |
+      Quero modelar uma ontologia OWL 2 do nosso domínio de logística e
+      exportar as triples para o Fabric IQ Ontology.
+    expect_any: [fabric-ontology]
+
+  - id: fabric-medallion
+    prompt: |
+      Desenhe a arquitetura Medallion no Fabric: quais artefatos em cada
+      camada, Lakehouse ou Warehouse, e como faço a promoção entre elas.
+    expect_any: [fabric-engineer]
+    forbid: [databricks-engineer]
+
+  # ─── Migrações (cada uma tem especialista dedicado) ─────────────
+  - id: migracao-sqlserver
+    prompt: |
+      Tenho um SQL Server 2019 com 400 procedures e quero migrar para
+      Databricks. Por onde eu começo o assessment?
+    expect_any: [sqlserver-to-databricks, migration-expert]
+    note: >
+      Especialista e generalista são ambos defensáveis aqui — por isso
+      expect_any com os dois, não expect_all.
+
+  - id: migracao-ssis
+    prompt: |
+      Tenho 40 pacotes .dtsx do SSIS, com Control Flow e Data Flow, para
+      converter em pipelines no Databricks.
+    expect_any: [ssis-to-databricks, migration-expert]
+
+  - id: migracao-teradata
+    prompt: |
+      Preciso converter scripts BTEQ e entender como o PRIMARY INDEX e o
+      particionamento PPI do Teradata viram layout no Delta.
+    expect_any: [teradata-to-databricks, migration-expert]
+
+  - id: migracao-hadoop
+    prompt: |
+      Vamos sair de um cluster Hadoop on-prem: HDFS, Hive Metastore,
+      Impala, Oozie e Ranger. Qual o caminho para Databricks?
+    expect_any: [hadoop-to-databricks, migration-expert]
+
+  - id: migracao-ssas
+    prompt: |
+      Tenho um modelo tabular SSAS (.bim) com DAX e RLS. Como levo isso
+      para Metric Views no Unity Catalog?
+    expect_any: [ssas-to-databricks, migration-expert]
+
+  # ─── Qualidade e governança (S6: nunca cair em agente de engenharia) ──
+  - id: qualidade-profiling
+    prompt: |
+      Faça o profiling da tabela de vendas e proponha expectations para
+      as dimensões de completude e unicidade, com SLA.
+    expect_any: [data-quality-steward]
+    forbid: [databricks-engineer, fabric-engineer]
+    note: >
+      S6 da constituição — qualidade vai para o steward, nunca para
+      engenharia. O forbid aqui é a regra escrita virando teste.
+
+  - id: governanca-pii-lgpd
+    prompt: |
+      Preciso mapear quais colunas contêm PII, aplicar masking e provar
+      conformidade com a LGPD numa auditoria.
+    expect_any: [governance-auditor]
+    forbid: [databricks-engineer, fabric-engineer]
+    note: S6 — governança vai para o auditor, nunca para engenharia.
+
+  - id: contratos-odcs
+    prompt: |
+      Quero versionar um data contract em ODCS com SLA e detectar
+      breaking change de schema antes do deploy.
+    expect_any: [data-contracts-engineer]
+
+  - id: mesh-dominios
+    prompt: |
+      Como eu organizo domínios, data products e governança federada
+      num Data Mesh para quatro times de negócio?
+    expect_any: [data-mesh-architect]
+
+  # ─── FinOps (dois calculadores distintos — não podem se confundir) ──
+  - id: custo-databricks-dbu
+    prompt: |
+      Quanto custa por mês um job diário de 2h num cluster de 8 nós
+      Standard_DS4_v2 com Photon? Compare PAYG contra DBCU.
+    expect_any: [databricks-cost-calculator]
+    forbid: [azure-cost-calculator]
+
+  - id: custo-azure-storage
+    prompt: |
+      Qual o custo mensal de 50 TB num ADLS Gen2 hot com redundância
+      ZRS na região East US 2?
+    expect_any: [azure-cost-calculator]
+    forbid: [databricks-cost-calculator]
+
+  # ─── Especialistas fora do eixo Databricks/Fabric ───────────────
+  - id: dbt-snapshot-scd2
+    prompt: |
+      Como eu faço snapshot SCD tipo 2 no dbt Core e testo a integridade
+      da chave surrogate?
+    expect_any: [dbt-expert]
+
+  - id: python-empacotamento
+    prompt: |
+      Quero empacotar minha lib Python com pyproject.toml, publicar no
+      PyPI e cobrir com pytest.
+    expect_any: [python-expert]
+    forbid: [databricks-engineer]
+
+  - id: devops-pipeline-yaml
+    prompt: |
+      Crie um pipeline YAML no Azure DevOps com branch policy exigindo
+      dois reviewers e build de PR.
+    expect_any: [azure-devops-engineer]
+
+  - id: foundry-hosted-agent
+    prompt: |
+      Quero desenhar um hosted agent no Microsoft Foundry com avaliação
+      automatizada e conexão A2A.
+    expect_any: [foundry-engineer]
+
+  - id: intake-transcricao
+    prompt: |
+      Segue a transcrição da reunião com o time de marketing. Transforme
+      em backlog estruturado com critérios de aceite.
+    expect_any: [business-analyst]
+
+  # ─── Largura: ambíguo de verdade, mas ainda assim não pode explodir ──
+  - id: ambiguo-plataforma-nova
+    prompt: |
+      Vamos construir uma plataforma de dados nova do zero para a empresa.
+      Me ajude a pensar.
+    expect_any: []
+    max_agents: 5
+    note: >
+      Sem expectativa de agente — o ponto aqui é só a largura. Query
+      genuinamente ampla ainda assim tem que respeitar o teto de 5 do
+      contrato do dispatcher. É este caso que separa "incerto" de
+      "quebrado": o fallback devolve 24 e reprova.

@@ -136,10 +136,50 @@ async def select_agents(
         "Retorne o JSON com a seleção."
     )
 
+    # BUG CORRIGIDO (auditoria 2026-09-13) — o dispatcher falhava em TODA query.
+    #
+    # Sem `thinking` explícito, o Kimi K2.6 raciocina por padrão. Numa execução
+    # real observada, a resposta veio assim:
+    #
+    #   content     = [{"type": "thinking", ...}]      <- só isso, sem bloco de texto
+    #   stop_reason = "max_tokens"
+    #   usage       = {"output_tokens": 256, "thinking_tokens": 255}
+    #
+    # Ou seja: o modelo gastou os 256 tokens PENSANDO e nunca emitiu a resposta.
+    # O parse caía em "no_content", o fallback carregava TODOS os agentes, e o
+    # two-stage routing — que existe justamente para manter o system prompt em
+    # ~25K em vez de ~80K — era anulado silenciosamente (só um WARNING no log).
+    #
+    # Dois ajustes, um para a causa e outro para a robustez:
+    #   1. thinking=disabled — isto é classificação barata, não precisa raciocínio.
+    #   2. max_tokens folgado — se um modelo futuro exigir thinking sempre-ligado
+    #      (K3, K2.7-Code), ainda sobra orçamento para o texto sair.
+    #
+    # `temperature: 0` reduz a variação, mas NÃO dá determinismo neste endpoint.
+    #
+    # CORREÇÃO (2026-09-14) — este comentário afirmava que temperature 0 tornava
+    # o roteamento reprodutível ("a mesma pergunta seleciona os mesmos agentes
+    # entre execuções"). Era suposição, não medição. Três rodadas do
+    # `make eval-routing` com o dataset idêntico mostraram:
+    #
+    #   conjunto de agentes idêntico nos 3 runs : 15/25 casos
+    #   conjunto variou                          : 10/25 casos
+    #
+    # A variação é sempre de MARGEM, nunca de núcleo: em 75/75 execuções de caso
+    # o agente esperado apareceu. O que oscila é o acompanhante adjacente
+    # (`fabric-rti` às vezes vem com `fabric-engineer`; `migracao-hadoop` trocou
+    # `migration-expert` por `databricks-cost-calculator` num run). A confidence
+    # também oscila: `ambiguo-plataforma-nova` deu 75% / 65% / 75%.
+    #
+    # Consequência prática: não trate o roteamento como cacheável por hash da
+    # query, e não aperte o gate de routing_accuracy só porque uma rodada deu
+    # 100% — o piso de ruído é real. Ver data_agents/evals/routing.py.
     payload = json.dumps(
         {
             "model": settings.default_model,
-            "max_tokens": 256,
+            "max_tokens": 512,
+            "temperature": 0,
+            "thinking": {"type": "disabled"},
             "system": _DISPATCHER_SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": user_msg}],
         }
@@ -177,11 +217,31 @@ async def select_agents(
         logger.error(f"Dispatcher unexpected error: {e}", exc_info=True)
         return _all_delegatable(available), 0.0, f"unexpected:{type(e).__name__}"
 
-    # Parse da resposta
-    try:
-        text = data["content"][0]["text"].strip()
-    except (KeyError, IndexError, TypeError):
-        logger.warning(f"Dispatcher response sem content válido: {data}")
+    # Parse da resposta — NUNCA assumir que content[0] é o bloco de texto.
+    #
+    # Modelos com raciocínio estendido devolvem um bloco `thinking` PRIMEIRO, e
+    # `content[0]["text"]` levantava KeyError. Mesma classe do bug já corrigido
+    # no extrator de tokens: varrer os blocos procurando `type == "text"`.
+    # Aceita `type: "text"` e também blocos sem `type` (proxies compatíveis nem
+    # sempre o emitem); pula `thinking` e qualquer outro tipo.
+    text = ""
+    for bloco in data.get("content") or []:
+        if not isinstance(bloco, dict):
+            continue
+        if bloco.get("type") in (None, "text") and bloco.get("text"):
+            text = str(bloco["text"]).strip()
+            break
+
+    if not text:
+        # Diagnóstico acionável: sem isto, "no_content" não dizia POR QUE falhou.
+        tipos = [b.get("type") for b in (data.get("content") or []) if isinstance(b, dict)]
+        logger.warning(
+            "Dispatcher sem bloco de texto — fallback para todos os agentes. "
+            "blocos=%s stop_reason=%s usage=%s",
+            tipos,
+            data.get("stop_reason"),
+            data.get("usage"),
+        )
         return _all_delegatable(available), 0.0, "no_content"
 
     # Remove possíveis code fences

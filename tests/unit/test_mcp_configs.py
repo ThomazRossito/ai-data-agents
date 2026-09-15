@@ -106,3 +106,95 @@ def test_azure_devops_not_in_default_registry_without_credentials():
     # não incluído na lista de plataformas ativas.
     registry = build_mcp_registry(platforms=["databricks"])
     assert "azure_devops" not in registry
+
+
+# ─── databricks_sql: MCP GERENCIADO (HTTP) — auditoria 2026-09-13 ────────────
+# Primeiro MCP não-stdio do projeto. Tools enumeradas ao vivo contra o
+# workspace via JSON-RPC `tools/list`, não copiadas de documentação.
+
+
+def test_databricks_sql_uses_http_transport():
+    """Managed MCP é HTTP, não stdio: {type, url, headers} sem command/args."""
+    from data_agents.mcp_servers.databricks_sql.server_config import (
+        get_databricks_sql_mcp_config,
+    )
+
+    cfg = get_databricks_sql_mcp_config()["databricks_sql"]
+    assert cfg["type"] == "http"
+    assert "url" in cfg and "headers" in cfg
+    assert "command" not in cfg, "config HTTP não deve ter 'command' (isso é stdio)"
+    assert "args" not in cfg, "config HTTP não deve ter 'args' (isso é stdio)"
+
+
+def test_databricks_sql_url_is_well_formed(monkeypatch):
+    """A URL precisa ser o endpoint gerenciado, sem barra dupla."""
+    from data_agents.config.settings import settings
+    from data_agents.mcp_servers.databricks_sql.server_config import (
+        get_databricks_sql_mcp_config,
+    )
+
+    # com barra final e com esquema
+    monkeypatch.setattr(settings, "databricks_host", "https://adb-123.azuredatabricks.net/")
+    url = get_databricks_sql_mcp_config()["databricks_sql"]["url"]
+    assert url == "https://adb-123.azuredatabricks.net/api/2.0/mcp/sql"
+    assert "//api" not in url.replace("https://", ""), "barra dupla na URL"
+
+    # sem esquema — deve ser normalizado para https
+    monkeypatch.setattr(settings, "databricks_host", "adb-123.azuredatabricks.net")
+    url = get_databricks_sql_mcp_config()["databricks_sql"]["url"]
+    assert url.startswith("https://")
+
+
+def test_databricks_sql_auth_is_bearer_header(monkeypatch):
+    """PAT vai no header Authorization, não em argv (não vaza em ps/argv)."""
+    from data_agents.config.settings import settings
+    from data_agents.mcp_servers.databricks_sql.server_config import (
+        get_databricks_sql_mcp_config,
+    )
+
+    monkeypatch.setattr(settings, "databricks_token", "dapi-TESTE")
+    cfg = get_databricks_sql_mcp_config()["databricks_sql"]
+    assert cfg["headers"]["Authorization"] == "Bearer dapi-TESTE"
+
+
+def test_databricks_sql_tools_format():
+    from data_agents.mcp_servers.databricks_sql.server_config import (
+        DATABRICKS_SQL_MCP_TOOLS,
+    )
+
+    assert DATABRICKS_SQL_MCP_TOOLS, "lista de tools não pode estar vazia"
+    for tool in DATABRICKS_SQL_MCP_TOOLS:
+        assert tool.startswith("mcp__databricks_sql__"), tool
+
+
+def test_databricks_sql_readonly_excludes_destructive_tool():
+    """
+    O servidor anota `execute_sql` com destructiveHint=true e
+    `execute_sql_read_only` com readOnlyHint=true. O alias readonly precisa
+    honrar isso — senão 'somente leitura' volta a depender só dos nossos hooks.
+    """
+    from data_agents.mcp_servers.databricks_sql.server_config import (
+        DATABRICKS_SQL_MCP_READONLY_TOOLS,
+        DATABRICKS_SQL_MCP_TOOLS,
+    )
+
+    assert "mcp__databricks_sql__execute_sql" not in DATABRICKS_SQL_MCP_READONLY_TOOLS
+    assert "mcp__databricks_sql__execute_sql_read_only" in DATABRICKS_SQL_MCP_READONLY_TOOLS
+    assert set(DATABRICKS_SQL_MCP_READONLY_TOOLS).issubset(set(DATABRICKS_SQL_MCP_TOOLS))
+
+
+def test_databricks_sql_aliases_registered_in_loader():
+    from data_agents.agents.loader import MCP_TOOL_SETS
+
+    assert "databricks_sql_all" in MCP_TOOL_SETS
+    assert "databricks_sql_readonly" in MCP_TOOL_SETS
+
+
+def test_databricks_sql_not_active_without_credentials(monkeypatch):
+    """Sem HOST/TOKEN o MCP não deve ser ativado (evita erro silencioso no startup)."""
+    from data_agents.config.settings import settings
+
+    monkeypatch.setattr(settings, "databricks_host", "")
+    monkeypatch.setattr(settings, "databricks_token", "")
+    status = settings.validate_platform_credentials()
+    assert status["databricks_sql"]["ready"] is False

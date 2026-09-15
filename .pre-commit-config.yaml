@@ -13,7 +13,11 @@
 repos:
   # ─── Ruff: linting + formatação (substitui flake8, black, isort) ──
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.9
+    # DEVE bater com o pin exato de `ruff` em pyproject.toml.
+    # Estavam divergentes (pre-commit v0.15.9 x pyproject 0.15.22) — é a mesma
+    # classe de bug que causou o incidente de CI: versões diferentes do ruff
+    # formatando o mesmo repo. Alinhado na auditoria 2026-09-13.
+    rev: v0.15.22
     hooks:
       - id: ruff
         args: ["--fix", "--output-format=full"]

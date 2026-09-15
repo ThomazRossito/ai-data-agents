@@ -198,9 +198,10 @@ class TestBuildSupervisorOptions:
                 assert (
                     len(hooks["PostToolUse"]) == 6
                 )  # audit + cost guard + workflow tracker + memory capture + context budget + output compressor
-                assert len(hooks["PreToolUse"]) == 6, (
+                assert len(hooks["PreToolUse"]) == 7, (
                     "migration gate + destructive commands + sql cost + "
-                    "sensitive writes + progress tracker + lesson timing"
+                    "sensitive writes + destructive action + progress tracker + "
+                    "lesson timing"
                 )
 
                 # Checagem por nome, não só por contagem: um hook pode ser
@@ -213,6 +214,7 @@ class TestBuildSupervisorOptions:
                     "block_destructive_commands",
                     "check_sql_cost",
                     "block_sensitive_writes",
+                    "check_destructive_action",
                 ):
                     assert esperado in registered, (
                         f"hook de PreToolUse '{esperado}' não está registrado — "

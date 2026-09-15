@@ -23,6 +23,7 @@ from data_agents.mcp_servers.azure_pricing.server_config import get_azure_pricin
 from data_agents.mcp_servers.context7.server_config import get_context7_mcp_config
 from data_agents.mcp_servers.databricks.server_config import get_databricks_mcp_config
 from data_agents.mcp_servers.databricks_genie.server_config import get_databricks_genie_mcp_config
+from data_agents.mcp_servers.databricks_sql.server_config import get_databricks_sql_mcp_config
 from data_agents.mcp_servers.databricks_billing.server_config import (
     get_databricks_billing_mcp_config,
 )
@@ -137,6 +138,9 @@ ALL_MCP_CONFIGS: dict = {
     # (catalog YAML local + engine determinístico). Mesmos números que o Streamlit
     # App em data_agents/cost_app/databricks/app.py (porta 8514).
     # Usado pelo agent databricks-cost-calculator (slash /cost-databricks).
+    # databricks_sql: MCP GERENCIADO (HTTP) — SQL sobre Unity Catalog,
+    # com permissão aplicada pelo próprio UC. Requer HOST + TOKEN.
+    "databricks_sql": get_databricks_sql_mcp_config,
     "databricks_pricing": get_databricks_pricing_mcp_config,
     # databricks_billing: MCP customizado pra análise FinOps de workloads
     # em produção via system.billing.usage do Unity Catalog (Fase 3).

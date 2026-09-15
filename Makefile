@@ -27,6 +27,20 @@ install: ## Instala dependências de produção
 dev: ## Instala dependências de desenvolvimento + UI
 	pip install -e ".[dev,ui,monitoring]"
 
+# Servidor MCP do ai-dev-kit sem compilar plutoprint (C++/meson/ICU). O pacote
+# `databricks-tools-core` declara plutoprint como dependência dura, mas só a tool
+# `generate_and_upload_pdf` usa — e ela NÃO está na lista de tools oferecida aos
+# agentes (ver server_config.py). Instalamos com --no-deps e listamos as deps
+# reais à mão. Alternativa completa (compila): pip install -e ".[databricks-admin]"
+AI_DEV_KIT_SHA := b059fd017a2c5743c31a0ff30dc8a618723aae4f
+AI_DEV_KIT_GIT := git+https://github.com/databricks-solutions/ai-dev-kit@$(AI_DEV_KIT_SHA)
+
+install-databricks-admin: ## Instala o MCP admin do Databricks (ai-dev-kit) pulando o build C++ do plutoprint
+	pip install "databricks-sdk>=0.81.0" "sqlglot>=20.0.0" "sqlfluff>=3.0.0" "fastmcp>=3.2.4,<4" "pydantic>=2" "pyyaml>=6" "requests>=2.31"
+	pip install --no-deps "databricks-tools-core @ $(AI_DEV_KIT_GIT)#subdirectory=databricks-tools-core"
+	pip install --no-deps "databricks-mcp-server @ $(AI_DEV_KIT_GIT)#subdirectory=databricks-mcp-server"
+	@python -c "from databricks_mcp_server.server import mcp; print('✓ databricks_mcp_server importável —', len(__import__('asyncio').run(mcp.get_tools())), 'tools')"
+
 bootstrap: ## Wizard interativo para criar .env mínimo (primeira vez)
 	python scripts/bootstrap.py
 
@@ -35,6 +49,9 @@ demo: ## Executa query canônica (/geral) — smoke test end-to-end
 
 evals: ## Roda queries canônicas (~$$0.08) e gera scoreboard
 	python -m data_agents.evals.runner
+
+eval-routing: ## Mede o dispatcher contra a API (~$$0.003) — gate routing_accuracy >= 90%
+	python -m data_agents.evals.routing
 
 # ─── Quality ──────────────────────────────────────────────────────
 
@@ -54,7 +71,7 @@ test: test-fast test-int ## Roda unit + integration com cobertura (default offli
 
 test-fast: ## Iteração rápida — só unit/ (< 30s alvo)
 	TESTMON_DATAFILE=logs/.testmondata pytest tests/unit/ -v --tb=short \
-		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
+		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils --cov=data_agents.spec \
 		--cov-report=term-missing \
 		--cov-fail-under=80
 
@@ -81,7 +98,7 @@ docs-deploy: ## Force-deploy to gh-pages branch (CI does this automatically)
 
 test-all: ## Todos os testes (unit + integration + e2e) — uso manual antes de release
 	pytest tests/ -v --tb=short \
-		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
+		--cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils --cov=data_agents.spec \
 		--cov-report=term-missing \
 		--cov-fail-under=80
 
@@ -119,7 +136,10 @@ lint-mcp: ## Valida MCP server_configs + aliases no loader
 lint-commands: ## Valida config/commands.yaml (50 slash commands)
 	python scripts/lint_commands.py
 
-lint-all: lint lint-registry lint-kb lint-skills lint-mcp lint-commands sync-docs-check ## ruff + 5 lints + doc sync (CI gate)
+lint-bundle: ## Valida databricks.yml (offline, sem credenciais)
+	python scripts/lint_bundle.py
+
+lint-all: lint lint-registry lint-kb lint-skills lint-mcp lint-commands lint-bundle sync-docs-check ## ruff + 6 lints + doc sync (CI gate)
 
 # ─── Inventory sync ─────────────────────────────────────────────────
 # README/PRODUCT/CLAUDE.md declare auto-managed counts via

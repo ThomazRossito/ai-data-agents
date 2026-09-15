@@ -23,8 +23,8 @@ description: |
   - user: "Quero definir SLA de qualidade pra tabela fact_orders"
   - assistant: "data-quality-steward vai escrever expectations + alertas + thresholds para Bronze/Silver/Gold."
 model: kimi-k2.6
-tools: [Read, Grep, Glob, Write, databricks_readonly, mcp__databricks__execute_sql, fabric_readonly, fabric_official_readonly, fabric_rti_readonly, mcp__fabric_rti__kusto_query, postgres_all]
-mcp_servers: [databricks, fabric, fabric_community, fabric_official, fabric_rti, postgres]
+tools: [Read, Grep, Glob, Write, databricks_readonly, databricks_sql_readonly, fabric_readonly, fabric_official_readonly, fabric_rti_readonly, mcp__fabric_rti__kusto_query, postgres_all]
+mcp_servers: [databricks, databricks_sql, fabric, fabric_community, fabric_official, fabric_rti, postgres]
 kb_domains: [data-quality, databricks, fabric, migration, industry]
 skill_domains: [databricks, fabric, patterns]
 tier: T2
@@ -116,9 +116,8 @@ Domínios:
 ## Ferramentas MCP Disponíveis
 
 ### Databricks (Leitura e Execução SQL)
-- mcp__databricks__list_catalogs / list_schemas / list_tables
-- mcp__databricks__describe_table / get_table_schema / sample_table_data
-- mcp__databricks__execute_sql (para queries de profiling e validação)
+- mcp__databricks_sql__execute_sql_read_only — descoberta (`SHOW CATALOGS/SCHEMAS/TABLES`), amostragem (`SELECT ... LIMIT`) e queries de profiling/validação. Contrato read-only imposto pelo servidor.
+- mcp__databricks__get_table_stats_and_schema — schema + estatísticas da tabela numa chamada
 
 ### Fabric (Leitura e Metadados)
 - mcp__fabric_official__list_workspaces / list_items / get_item

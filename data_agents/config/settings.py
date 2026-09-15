@@ -685,6 +685,16 @@ class Settings(BaseSettings):
                 },
                 "required": ["AZURE_TENANT_ID", "FABRIC_SQL_LAKEHOUSES_OR_LEGACY"],
             },
+            "databricks_sql": {
+                # MCP GERENCIADO da Databricks (HTTP, /api/2.0/mcp/sql).
+                # Reusa as mesmas credenciais do Databricks — sem variável nova.
+                # O PAT vai como `Authorization: Bearer` no header HTTP.
+                "fields": {
+                    "DATABRICKS_HOST": self.databricks_host,
+                    "DATABRICKS_TOKEN": self.databricks_token,
+                },
+                "required": ["DATABRICKS_HOST", "DATABRICKS_TOKEN"],
+            },
             "databricks_genie": {
                 # Reusa credenciais Databricks + pelo menos um space configurado
                 "fields": {

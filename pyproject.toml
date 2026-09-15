@@ -28,7 +28,14 @@ dependencies = [
     "mcp[cli]>=1.27.0,<2",
 
     # MCP Servers
-    "databricks-mcp-server>=0.4.4",
+    #
+    # Databricks (admin/escrita): servidor do ai-dev-kit — extra `databricks-admin`
+    # abaixo, NÃO dependência core. Motivo: `databricks-tools-core` exige
+    # `plutoprint==0.19.0`, que só existe como sdist e compila C++ (meson + ICU
+    # baixado do GitHub) no `pip install`. Isso não pode entrar no caminho crítico
+    # da CI nem do `pip install -e .`. Até 2026-09-14 o pin aqui era
+    # `databricks-mcp-server>=0.4.4`, que no PyPI é OUTRO projeto (comunidade,
+    # markov-kernel) — enquanto a lista de tools estava escrita para o ai-dev-kit.
     "microsoft-fabric-rti-mcp>=0.1.0",
 
     # Databricks Enterprise & MLOps
@@ -110,6 +117,23 @@ dev = [
     # sem [dev]. Pin sincronizado.
     "openpyxl>=3.1",
 ]
+databricks-admin = [
+    # Servidor MCP do ai-dev-kit (databricks-solutions, oficial) — jobs, pipelines,
+    # clusters, UC admin, dashboards, serving, Genie spaces, Vector Search, Lakebase.
+    # É o ÚNICO caminho oficial para administração: os MCP gerenciados da Databricks
+    # (doc 11/set/2026) cobrem só Genie, AI Search, SQL e UC Functions.
+    #
+    # Não publicado no PyPI. Pinado no SHA contra o qual
+    # data_agents/mcp_servers/databricks/server_config.py foi verificado — subir o
+    # pin exige rerodar tests/unit/test_mcp_configs.py (compara com snapshot).
+    #
+    # Instalar:   pip install -e ".[databricks-admin]"      (compila plutoprint, minutos)
+    # Atalho:     make install-databricks-admin              (pula plutoprint; ver Makefile)
+    #
+    # fastmcp-slim 3.4.x exige mcp<2 — compatível com o pin de `mcp[cli]` acima.
+    "databricks-tools-core @ git+https://github.com/databricks-solutions/ai-dev-kit@b059fd017a2c5743c31a0ff30dc8a618723aae4f#subdirectory=databricks-tools-core",
+    "databricks-mcp-server @ git+https://github.com/databricks-solutions/ai-dev-kit@b059fd017a2c5743c31a0ff30dc8a618723aae4f#subdirectory=databricks-mcp-server",
+]
 memory = [
     # Embeddings semânticos locais (ONNX runtime, sem PyTorch, sem API externa).
     # Modelo padrão: BAAI/bge-small-en-v1.5 (~25MB, 384 dims).
@@ -185,6 +209,14 @@ databricks-billing-mcp = "data_agents.mcp_servers.databricks_billing.server:main
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+# O extra `databricks-admin` aponta para o git (`pkg @ git+https://...`) porque o
+# ai-dev-kit não publica no PyPI. Hatchling REJEITA referências diretas por padrão
+# — sem esta chave, `pip install -e .` falha na metadata para TODO MUNDO, inclusive
+# quem nunca vai instalar o extra. Foi o que derrubou 4 jobs na PR #52.
+# PyPI também recusa uploads com referências diretas; este pacote não é publicado.
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 # Phase 7: empacotar somente o namespace data_agents/

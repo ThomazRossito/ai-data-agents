@@ -25,8 +25,8 @@ description: |
   - user: "Quero replicar a tabela dbo.Customers do SQL Server para o Databricks"
   - assistant: "databricks-engineer vai cuidar — assessment via migration_source MCP + pipeline APPLY CHANGES INTO."
 model: kimi-k2.6
-tools: [Read, Write, Grep, Glob, Bash, databricks_all, databricks_genie_all, context7_all, migration_source_all, postgres_all, memory_mcp_all, github_readonly, tavily_all]
-mcp_servers: [databricks, databricks_genie, context7, migration_source, postgres, memory_mcp, github, tavily]
+tools: [Read, Write, Grep, Glob, Bash, databricks_all, databricks_sql_readonly, databricks_genie_all, context7_all, migration_source_all, postgres_all, memory_mcp_all, github_readonly, tavily_all]
+mcp_servers: [databricks, databricks_sql, databricks_genie, context7, migration_source, postgres, memory_mcp, github, tavily]
 kb_domains: [databricks, spark-patterns, sql-patterns, pipeline-design, migration, ssis-migration, shared, checklists]
 skill_domains: [databricks, patterns, ssis-migration]
 tier: T1
@@ -132,17 +132,20 @@ Fabric (Lakehouses, Data Factory, RTI, Semantic Models), escale para `fabric-eng
 - DLT pipeline failures: expectations violations, pipeline errors, log analysis
 
 ### 7. Genie Spaces e AI/BI Dashboards
-- Criar Genie Space: `mcp__databricks_genie__genie_create_space` ou `mcp__databricks__create_or_update_genie`
+- Criar Genie Space: `mcp__databricks_genie__genie_create_space` ou `mcp__databricks__manage_genie` (`action="create_or_update"`)
 - Adicionar contexto: tabelas, metadados, glossário de negócio, SQL curado
-- AI/BI Dashboard: `mcp__databricks__create_or_update_dashboard` — JSON spec completo
+- Perguntar ao Genie: `mcp__databricks__ask_genie`
+- AI/BI Dashboard: `mcp__databricks__manage_dashboard` (`action="create_or_update"` | `"publish"`) — JSON spec completo
 - Knowledge Assistant (KA): `mcp__databricks__manage_ka`
 - Mosaic AI Supervisor (MAS): `mcp__databricks__manage_mas`
 
 ### 8. Código Serverless e Compute
 - Executar notebooks: `mcp__databricks__execute_code`
-- Clusters: `mcp__databricks__list_clusters`, `get_cluster`, compute policies
-- SQL Warehouses: `mcp__databricks__list_warehouses`, auto-suspend, sizing
-- Volumes: upload de arquivos, leitura de configs, artefatos
+- Clusters: `mcp__databricks__list_compute` (inventário), `mcp__databricks__manage_cluster` (`action="get"|"start"|"modify"`; `"terminate"`/`"delete"` exigem confirmação humana — o hook bloqueia)
+- SQL Warehouses: `mcp__databricks__manage_warehouse` (`action="list"|"get_best"`), `mcp__databricks__manage_sql_warehouse` (`action="create"|"modify"`)
+- Jobs: `mcp__databricks__manage_jobs`, `mcp__databricks__manage_job_runs` (`action="run_now"|"get"|"list"|"cancel"`)
+- Pipelines Lakeflow: `mcp__databricks__manage_pipeline` (`action="create_or_update"|"get"|"find_by_name"`), `mcp__databricks__manage_pipeline_run` (`action="start"|"stop"|"get"|"get_events"`)
+- Volumes: `mcp__databricks__manage_volume_files` (`action="list"|"upload"|"download"|"mkdir"`), `mcp__databricks__get_volume_folder_details`
 
 ---
 
@@ -170,8 +173,23 @@ Antes de qualquer resposta técnica:
 
 ### SQL e Discovery:
 1. `list_catalogs` → `list_schemas` → `list_tables` → `describe_table` ou `get_table_stats_and_schema`
-2. `execute_sql` para validar queries
-3. Para queries paralelas independentes: `execute_sql_multi`
+2. **Para LER dados, prefira `mcp__databricks_sql__execute_sql_read_only`** — ver regra abaixo
+3. `execute_sql` apenas quando a operação precisar escrever (DDL/DML)
+4. Para queries paralelas independentes: `execute_sql_multi`
+
+### Qual tool de SQL usar (regra)
+
+Há duas famílias disponíveis, e a escolha importa:
+
+| Intenção | Tool | Por quê |
+|---|---|---|
+| Ler dados (SELECT/SHOW/DESCRIBE) | `mcp__databricks_sql__execute_sql_read_only` | MCP **gerenciado** da Databricks. O contrato somente-leitura é **imposto pelo servidor** e o Unity Catalog aplica a permissão do usuário. O servidor anota esta tool com `readOnlyHint`. |
+| Escrever (CREATE/ALTER/MERGE/INSERT) | `execute_sql` | Única com capacidade de escrita. O servidor gerenciado anota a equivalente com `destructiveHint`. |
+| Query longa que devolveu `statement_id` | `mcp__databricks_sql__poll_sql_result` | Recupera o resultado sem reexecutar. |
+
+**Regra:** se a operação é de leitura, use a tool read-only. Não use uma tool
+com capacidade de escrita para fazer leitura — isso troca uma garantia do
+servidor por uma promessa do prompt.
 
 ### PySpark / DLT Pipeline:
 1. Ler KB + Skill antes de gerar código

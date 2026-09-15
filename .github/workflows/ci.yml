@@ -118,6 +118,13 @@ jobs:
       - name: lint_commands — config/commands.yaml validation
         run: python scripts/lint_commands.py
 
+      # Offline por design: `databricks bundle validate` exigiria credenciais,
+      # e este projeto decidiu não guardar secrets de Databricks no GitHub
+      # (ver cabeçalho de cd.yml). Este lint cobre a classe de bug que passou
+      # meses despercebida: variável auto-referente e include morto.
+      - name: lint_bundle — databricks.yml structural checks
+        run: python scripts/lint_bundle.py
+
       - name: sync-docs-check — README/PRODUCT/CLAUDE.md counts in sync
         run: python scripts/gen_inventory.py --check
 
@@ -338,7 +345,7 @@ jobs:
           DATABRICKS_TOKEN: "test-token"
         run: |
           pytest tests/unit/ --testmon -v --tb=short \
-            --cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
+            --cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils --cov=data_agents.spec \
             --cov-report=xml \
             --cov-report=term
 
@@ -351,7 +358,7 @@ jobs:
           DATABRICKS_TOKEN: "test-token"
         run: |
           pytest tests/unit/ -v --tb=short \
-            --cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils \
+            --cov=data_agents.agents --cov=data_agents.config --cov=data_agents.hooks --cov=data_agents.commands --cov=data_agents.utils --cov=data_agents.spec \
             --cov-report=xml \
             --cov-report=term \
             --cov-fail-under=80

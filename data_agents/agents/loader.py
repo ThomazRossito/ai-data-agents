@@ -95,6 +95,10 @@ from data_agents.mcp_servers.migration_source.server_config import (
     MIGRATION_SOURCE_MCP_TOOLS,
     MIGRATION_SOURCE_MCP_READONLY_TOOLS,
 )
+from data_agents.mcp_servers.databricks_sql.server_config import (
+    DATABRICKS_SQL_MCP_READONLY_TOOLS,
+    DATABRICKS_SQL_MCP_TOOLS,
+)
 from data_agents.mcp_servers.postgres.server_config import (
     POSTGRES_MCP_READONLY_TOOLS,
     POSTGRES_MCP_TOOLS,
@@ -128,6 +132,12 @@ MCP_TOOL_SETS: dict[str, list[str]] = {
     "databricks_aibi": DATABRICKS_AIBI_TOOLS,  # Genie, Dashboards, KA, MAS
     "databricks_serving": DATABRICKS_SERVING_TOOLS,  # Model Serving endpoints
     "databricks_compute": DATABRICKS_COMPUTE_TOOLS,  # Clusters, execute_code, wait_for_run
+    # databricks_sql: MCP GERENCIADO da Databricks (HTTP). Preferir o alias
+    # readonly — `execute_sql_read_only` tem contrato de leitura imposto pelo
+    # SERVIDOR, enquanto `execute_sql` é anotado destructiveHint pelo próprio
+    # servidor e reabre DDL/DML.
+    "databricks_sql_all": DATABRICKS_SQL_MCP_TOOLS,
+    "databricks_sql_readonly": DATABRICKS_SQL_MCP_READONLY_TOOLS,
     "databricks_genie_all": DATABRICKS_GENIE_MCP_TOOLS,
     "databricks_genie_readonly": DATABRICKS_GENIE_MCP_READONLY_TOOLS,
     "fabric_all": FABRIC_MCP_TOOLS,

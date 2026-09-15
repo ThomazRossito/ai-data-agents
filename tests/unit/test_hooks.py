@@ -808,3 +808,212 @@ class TestSensitiveWriteGuardrail:
         from data_agents.hooks.security_hook import block_sensitive_writes
 
         assert await block_sensitive_writes(None, tool_use_id=None, context=None) == {}
+
+
+class TestDestructiveActionGuard:
+    """
+    Compensação obrigatória para tools `action-dispatch` (auditoria 2026-09-13).
+
+    MCP servers modernos consolidam operações num argumento `action`. Como o
+    `allowed_tools` do SDK filtra por NOME de tool — e `manage_pipeline` é um
+    nome benigno — a granularidade de permissão desaparece sem este hook.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "acao", ["delete", "drop", "destroy", "remove", "purge", "truncate", "revoke"]
+    )
+    async def test_blocks_destructive_actions(self, acao):
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        result = await check_destructive_action(
+            {
+                "tool_name": "mcp__databricks__manage_pipeline",
+                "tool_input": {"action": acao, "name": "prod_pipeline"},
+            },
+            tool_use_id="act-1",
+            context=None,
+        )
+        assert result["hookSpecificOutput"]["permissionDecision"] == "deny", acao
+        motivo = result["hookSpecificOutput"]["permissionDecisionReason"]
+        assert acao in motivo
+        assert "prod_pipeline" in motivo, "a mensagem deve nomear o alvo"
+
+    @pytest.mark.asyncio
+    async def test_case_insensitive(self):
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        result = await check_destructive_action(
+            {
+                "tool_name": "mcp__databricks__manage_uc_objects",
+                "tool_input": {"action": "  DROP  "},
+            },
+            tool_use_id="act-2",
+            context=None,
+        )
+        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("acao", ["list", "get", "create", "update", "download", "mkdir"])
+    async def test_allows_non_destructive_actions(self, acao):
+        """Não pode travar a operação normal — só o irreversível."""
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        result = await check_destructive_action(
+            {
+                "tool_name": "mcp__databricks__manage_jobs",
+                "tool_input": {"action": acao},
+            },
+            tool_use_id="act-3",
+            context=None,
+        )
+        assert result == {}, f"ação legítima foi bloqueada: {acao}"
+
+    @pytest.mark.asyncio
+    async def test_covers_alternative_field_names(self):
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        for campo in ("operation", "op", "mode"):
+            result = await check_destructive_action(
+                {"tool_name": "some_tool", "tool_input": {campo: "delete"}},
+                tool_use_id="act-4",
+                context=None,
+            )
+            assert result["hookSpecificOutput"]["permissionDecision"] == "deny", campo
+
+    @pytest.mark.asyncio
+    async def test_ignores_tools_without_action(self):
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        result = await check_destructive_action(
+            {"tool_name": "Read", "tool_input": {"file_path": "/tmp/x.md"}},
+            tool_use_id="act-5",
+            context=None,
+        )
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_handles_none_and_malformed_input(self):
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        assert await check_destructive_action(None, tool_use_id=None, context=None) == {}
+        assert (
+            await check_destructive_action(
+                {"tool_name": "x", "tool_input": "não é dict"}, tool_use_id=None, context=None
+            )
+            == {}
+        )
+
+
+class TestDestructiveActionRealVocabulary:
+    """
+    O hook contra o vocabulário REAL de actions do servidor do ai-dev-kit.
+
+    A primeira versão do hook comparava a string exata. Quando o vocabulário de
+    verdade foi lido no fonte do servidor (2026-09-14, commit b059fd0), estas
+    passavam ilesas: `drop_column_mask`, `drop_row_filter`, `remove_table`,
+    `revoke_from_recipient`, `rotate_token`, `terminate`. O hook passou a casar
+    pelo verbo-prefixo. Este teste é a lista completa de actions do servidor,
+    classificada à mão — se o servidor ganhar uma action nova, ela entra aqui.
+    """
+
+    #: (tool, action) que DEVEM ser bloqueadas.
+    DESTRUTIVAS = [
+        ("manage_ka", "delete"),
+        ("manage_mas", "delete"),
+        ("manage_dashboard", "delete"),
+        ("manage_app", "delete"),
+        ("manage_cluster", "delete"),
+        ("manage_cluster", "terminate"),
+        ("manage_sql_warehouse", "delete"),
+        ("manage_workspace_files", "delete"),
+        ("manage_volume_files", "delete"),
+        ("manage_genie", "delete"),
+        ("manage_lakebase_database", "delete"),
+        ("manage_lakebase_branch", "delete"),
+        ("manage_lakebase_sync", "delete"),
+        ("manage_pipeline", "delete"),
+        ("manage_uc_objects", "delete"),
+        ("manage_uc_storage", "delete"),
+        ("manage_uc_security_policies", "drop_column_mask"),
+        ("manage_uc_security_policies", "drop_row_filter"),
+        ("manage_uc_monitors", "delete"),
+        ("manage_uc_sharing", "delete"),
+        ("manage_uc_sharing", "remove_table"),
+        ("manage_uc_sharing", "revoke_from_recipient"),
+        ("manage_uc_sharing", "rotate_token"),
+        ("manage_metric_views", "drop"),
+        ("manage_vs_endpoint", "delete"),
+        ("manage_vs_index", "delete"),
+        ("manage_vs_data", "delete"),
+    ]
+
+    #: (tool, action) que DEVEM passar — bloqueá-las quebraria o uso normal.
+    PERMITIDAS = [
+        ("manage_pipeline", "create"),
+        ("manage_pipeline", "create_or_update"),
+        ("manage_pipeline", "get"),
+        ("manage_pipeline", "find_by_name"),
+        ("manage_pipeline", "update"),
+        ("manage_pipeline_run", "start"),
+        ("manage_pipeline_run", "stop"),  # parar pipeline descontrolado é segurança, não destruição
+        ("manage_pipeline_run", "get_events"),
+        ("manage_cluster", "start"),
+        ("manage_cluster", "modify"),
+        ("manage_dashboard", "publish"),
+        ("manage_dashboard", "unpublish"),  # reversível
+        ("manage_uc_tags", "unset_tags"),  # metadado reversível
+        ("manage_uc_tags", "set_tags"),
+        ("manage_uc_security_policies", "set_row_filter"),
+        ("manage_uc_security_policies", "set_column_mask"),
+        ("manage_uc_sharing", "add_table"),
+        ("manage_uc_sharing", "grant_to_recipient"),
+        ("manage_uc_grants", "table"),
+        ("manage_metric_views", "describe"),
+        ("manage_metric_views", "grant"),
+        ("manage_vs_data", "upsert"),
+        ("manage_vs_data", "sync"),
+        ("manage_vs_data", "scan"),
+        ("manage_serving_endpoint", "query"),
+        ("manage_warehouse", "get_best"),
+        ("manage_job_runs", "cancel"),  # cancelar run em andamento é operação normal
+    ]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("tool,acao", DESTRUTIVAS, ids=[f"{t}:{a}" for t, a in DESTRUTIVAS])
+    async def test_bloqueia(self, tool, acao):
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        result = await check_destructive_action(
+            {"tool_name": f"mcp__databricks__{tool}", "tool_input": {"action": acao, "name": "x"}},
+            tool_use_id="real-1",
+            context=None,
+        )
+        assert result, (
+            f"{tool}(action={acao!r}) passou — o hook não reconhece esta action como destrutiva"
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("tool,acao", PERMITIDAS, ids=[f"{t}:{a}" for t, a in PERMITIDAS])
+    async def test_permite(self, tool, acao):
+        from data_agents.hooks.security_hook import check_destructive_action
+
+        result = await check_destructive_action(
+            {"tool_name": f"mcp__databricks__{tool}", "tool_input": {"action": acao, "name": "x"}},
+            tool_use_id="real-2",
+            context=None,
+        )
+        assert result == {}, (
+            f"{tool}(action={acao!r}) foi bloqueada — falso positivo quebra uso normal"
+        )
+
+    def test_verbo_prefixo_e_a_regra(self):
+        """Documenta a regra: primeiro token antes do `_` é o verbo."""
+        from data_agents.hooks.security_hook import _action_is_destructive
+
+        assert _action_is_destructive("drop_column_mask")
+        assert _action_is_destructive("DELETE")
+        assert _action_is_destructive("rotate_token")
+        assert not _action_is_destructive("undrop")  # não é prefixo
+        assert not _action_is_destructive("")
+        assert not _action_is_destructive("get_best")

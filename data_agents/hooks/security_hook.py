@@ -142,6 +142,121 @@ _DESTRUCTIVE_SQL_PATTERNS: list[tuple[re.Pattern, str]] = [
 ]
 
 
+# ─── Ações destrutivas em tools "action-dispatch" ────────────────
+
+#: Valores do campo ``action`` que executam operação irreversível.
+#:
+#: POR QUE ISTO EXISTE (auditoria 2026-09-13):
+#: MCP servers modernos consolidam dezenas de operações em poucas tools, usando
+#: um argumento ``action`` para escolher a operação — por exemplo
+#: ``manage_pipeline(action="delete")`` ou ``manage_uc_objects(action="drop")``.
+#:
+#: O ``allowed_tools`` do Agent SDK filtra por **nome de tool**, e o nome
+#: (``manage_pipeline``) é benigno. Logo, a granularidade de permissão
+#: DESAPARECE: um agente com o alias ``databricks_all`` poderia deletar um
+#: pipeline de produção sem que nenhum hook visse.
+#:
+#: Este hook devolve a granularidade, inspecionando o valor de ``action``.
+#:
+#: CASAMENTO POR VERBO, NÃO POR STRING EXATA (correção 2026-09-14)
+#: A primeira versão comparava ``action in _DESTRUCTIVE_ACTIONS`` — string
+#: exata. Ao adotar o servidor do ai-dev-kit e ler o vocabulário REAL de actions
+#: no fonte dele, apareceram estes, que passavam ilesos:
+#:
+#:     manage_uc_security_policies  drop_column_mask, drop_row_filter
+#:     manage_uc_sharing            remove_table, revoke_from_recipient, rotate_token
+#:     manage_cluster               terminate
+#:
+#: A regra agora é: o **primeiro token** da action (antes do primeiro ``_``) é o
+#: verbo, e é ele que se compara. ``drop_column_mask`` → ``drop`` → bloqueado.
+#: A action inteira também é comparada, para verbos sem sufixo e para os que
+#: não são prefixo (``rotate_token`` é destrutivo para o token antigo).
+_DESTRUCTIVE_VERBS: frozenset[str] = frozenset(
+    {
+        "delete",
+        "drop",
+        "destroy",
+        "remove",
+        "purge",
+        "truncate",
+        "revoke",
+        # Cluster em execução: mata trabalho em andamento. `stop` de pipeline
+        # NÃO entra — parar um pipeline descontrolado é ação de segurança
+        # legítima e reiniciável; bloquear seria pior que permitir.
+        "terminate",
+    }
+)
+
+#: Actions destrutivas cujo verbo NÃO é o primeiro token.
+_DESTRUCTIVE_EXACT: frozenset[str] = frozenset(
+    {
+        "rotate_token",  # invalida o token vigente de um recipient Delta Sharing
+    }
+)
+
+#: Mantido por compatibilidade com testes e leitores antigos — é a união.
+_DESTRUCTIVE_ACTIONS: frozenset[str] = _DESTRUCTIVE_VERBS | _DESTRUCTIVE_EXACT
+
+
+def _action_is_destructive(action: str) -> bool:
+    """True se a action, ou seu verbo-prefixo, for destrutiva."""
+    verbo_completo = action.strip().lower()
+    if not verbo_completo:
+        return False
+    if verbo_completo in _DESTRUCTIVE_EXACT or verbo_completo in _DESTRUCTIVE_VERBS:
+        return True
+    prefixo = verbo_completo.split("_", 1)[0]
+    return prefixo in _DESTRUCTIVE_VERBS
+
+
+#: Campos que carregam o verbo da operação em tools action-dispatch.
+_ACTION_FIELDS = ("action", "operation", "op", "mode")
+
+
+async def check_destructive_action(
+    input_data: dict[str, Any],
+    tool_use_id: str | None,
+    context: Any,
+) -> dict[str, Any]:
+    """
+    Bloqueia tools ``action-dispatch`` quando o verbo é destrutivo.
+
+    Complementa ``check_sql_cost``: aquele inspeciona o SQL, este inspeciona a
+    intenção declarada no argumento. Sem ele, a migração para MCP servers com
+    tools consolidadas removeria silenciosamente o controle por tool.
+    """
+    if not input_data or not isinstance(input_data, dict):
+        return {}
+
+    tool_input: dict = input_data.get("tool_input", {}) or {}
+    if not isinstance(tool_input, dict):
+        return {}
+
+    tool_name: str = input_data.get("tool_name", "") or ""
+
+    for field in _ACTION_FIELDS:
+        value = tool_input.get(field)
+        if not isinstance(value, str):
+            continue
+        verbo = value.strip().lower()
+        if _action_is_destructive(verbo):
+            alvo = (
+                tool_input.get("name")
+                or tool_input.get("full_name")
+                or tool_input.get("path")
+                or tool_input.get("id")
+                or "(alvo não informado)"
+            )
+            return _deny(
+                f"Ação destrutiva bloqueada — '{tool_name}' foi chamada com "
+                f"{field}='{verbo}' sobre {alvo}. Operações irreversíveis exigem "
+                f"confirmação explícita do usuário antes de executar. "
+                f"Se a intenção for real, peça a confirmação e explique o impacto."
+            )
+
+    return {}
+
+
 # ─── Escrita em caminhos sensíveis ───────────────────────────────
 
 #: Caminhos que um agente nunca deve sobrescrever.

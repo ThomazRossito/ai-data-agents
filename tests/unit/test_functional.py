@@ -784,3 +784,46 @@ class TestPartyModeAgentTiers:
             assert tier == "T1", (
                 f"Agente '{agent_name}' do grupo default deveria ser T1, é '{tier}'"
             )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Skills custom sobrevivem a update do catálogo upstream (auditoria 2026-09-13)
+# ══════════════════════════════════════════════════════════════════════════════
+class TestCustomSkillsSurvive:
+    """
+    Três skills de `skills/databricks/` NÃO existem no catálogo oficial
+    (`databricks/databricks-agent-skills`): nasceram neste repositório.
+
+    Um `databricks aitools update` puxa o catálogo upstream. Se algum dia ele
+    gravar neste diretório, estas podem ser removidas silenciosamente — e não
+    voltam, porque não têm origem upstream.
+
+    Este teste é o gate que transforma essa perda em falha visível.
+    Contexto completo: `skills/databricks/PROVENANCE.md`.
+    """
+
+    CUSTOM_SKILLS = [
+        "databricks-genie-health-check",
+        "databricks-observability-migration",
+        "pricing",
+    ]
+
+    @pytest.mark.parametrize("skill_name", CUSTOM_SKILLS)
+    def test_custom_skill_still_present(self, skill_name):
+        skill = ROOT / "skills" / "databricks" / skill_name / "SKILL.md"
+        assert skill.is_file(), (
+            f"a skill custom '{skill_name}' sumiu de skills/databricks/. "
+            f"Ela NÃO existe no catálogo upstream e não volta por "
+            f"`databricks aitools update` — restaure pelo git. "
+            f"Ver skills/databricks/PROVENANCE.md"
+        )
+
+    def test_provenance_doc_exists(self):
+        """A doc que explica a fronteira upstream x custom não pode sumir."""
+        doc = ROOT / "skills" / "databricks" / "PROVENANCE.md"
+        assert doc.is_file(), "skills/databricks/PROVENANCE.md é a referência da fronteira"
+        conteudo = doc.read_text(encoding="utf-8")
+        for skill_name in self.CUSTOM_SKILLS:
+            assert skill_name in conteudo, (
+                f"'{skill_name}' é custom mas não está listada no PROVENANCE.md"
+            )

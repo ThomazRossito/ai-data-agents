@@ -1,3 +1,35 @@
+---
+spec_id: "[PREENCHER — kebab-case, ex: sync-databricks-fabric-vendas]"
+titulo: "[PREENCHER]"
+status: rascunho
+trilha: plataforma
+iteracao_revisao: 0
+baseline_commit: "[PREENCHER — hash curto do repo quando o spec nasceu]"
+criado_em: "[PREENCHER — AAAA-MM-DD]"
+atualizado_em: "[PREENCHER — AAAA-MM-DD]"
+---
+
+<!--
+`trilha: plataforma` já vem preenchida aqui de propósito: operação que atravessa
+Databricks E Fabric tem alcance arquitetural por definição, e trilha alta nunca
+é decidida pelo tamanho aparente da tarefa.
+
+O `spec_id` é a IDENTIDADE do documento e NUNCA muda — nem se o arquivo for
+renomeado, nem se o título mudar. `data_agents/spec/store.py::find_by_id()`
+procura por ele dentro do arquivo, jamais pelo nome.
+-->
+
+<intencao-congelada>
+[PREENCHER — o que você quer, em 1 a 3 frases. Escreva o RESULTADO desejado e
+as restrições inegociáveis, não a solução técnica.]
+</intencao-congelada>
+
+<!--
+O bloco acima pertence ao humano. Agentes leem e trabalham dentro dele; não o
+reescrevem. `save()` levanta `IntencaoCongeladaViolada` se um agente tentar.
+Se a intenção mudou de verdade, quem edita é você — e o spec volta a `rascunho`.
+-->
+
 # Cross-Platform Spec — {{NOME_DA_OPERAÇÃO}}
 
 > **Template Spec-First:** Especificação para operações que envolvem Databricks E Fabric.
