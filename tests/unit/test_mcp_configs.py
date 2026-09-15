@@ -198,3 +198,43 @@ def test_databricks_sql_not_active_without_credentials(monkeypatch):
     monkeypatch.setattr(settings, "databricks_token", "")
     status = settings.validate_platform_credentials()
     assert status["databricks_sql"]["ready"] is False
+
+
+# ─── tavily (hotfix 2026-09-15) ──────────────────────────────────────────────
+
+
+def test_tavily_usa_o_pacote_oficial_npm_pinado():
+    """A config antiga era `uvx tavily-mcp`. O pacote PyPI com esse nome NÃO é o da
+    Tavily e não expõe executável `tavily-mcp` (expõe check/mcp/tavily) — o
+    servidor nunca subiu e `mcp__tavily__*` nunca apareceu em audit.jsonl.
+    O oficial é o npm `tavily-mcp` (github.com/tavily-ai/tavily-mcp)."""
+    from data_agents.mcp_servers.tavily.server_config import (
+        TAVILY_MCP_NPM_VERSION,
+        get_tavily_mcp_config,
+    )
+
+    cfg = get_tavily_mcp_config()["tavily"]
+    assert cfg["type"] == "stdio"
+    assert cfg["command"] == "npx", (
+        "uvx tavily-mcp aponta para um pacote PyPI que não é o da Tavily"
+    )
+    assert cfg["args"][0] == "-y"
+    assert cfg["args"][1] == f"tavily-mcp@{TAVILY_MCP_NPM_VERSION}", (
+        "versão pinada, política do projeto"
+    )
+    assert "@latest" not in cfg["args"][1]
+    assert "TAVILY_API_KEY" in cfg["env"]
+
+
+def test_tavily_tools_batem_com_o_servidor_oficial():
+    """Nomes das tools do npm oficial (README): tavily-search, tavily-extract,
+    tavily-map, tavily-crawl. O projeto oferece as duas primeiras aos agentes."""
+    from data_agents.mcp_servers.tavily.server_config import TAVILY_MCP_TOOLS
+
+    assert set(TAVILY_MCP_TOOLS) <= {
+        "mcp__tavily__tavily-search",
+        "mcp__tavily__tavily-extract",
+        "mcp__tavily__tavily-map",
+        "mcp__tavily__tavily-crawl",
+    }
+    assert "mcp__tavily__tavily-search" in TAVILY_MCP_TOOLS

@@ -310,6 +310,62 @@ class TestSelectAgents:
         assert "http_error:500" in reason
 
     @pytest.mark.asyncio
+    async def test_http_error_loga_o_corpo_da_resposta(self, caplog):
+        """Eval 2026-09-15: 12× 'HTTP 400: Bad Request' contra a Anthropic e
+        nenhuma pista de QUAL campo foi rejeitado. O corpo tem que ir ao log."""
+        import io
+        import logging
+        import urllib.error
+
+        available = _make_available("databricks-engineer", "geral")
+        corpo = (
+            b'{"type":"error","error":{"type":"invalid_request_error",'
+            b'"message":"campo X nao e aceito"}}'
+        )
+        err = urllib.error.HTTPError(
+            url="http://x", code=400, msg="Bad Request", hdrs=None, fp=io.BytesIO(corpo)
+        )
+        with caplog.at_level(logging.WARNING, logger="data_agents.dispatcher"):
+            with patch("urllib.request.urlopen", side_effect=err):
+                _, _, reason = await select_agents("query", available)
+        assert "http_error:400" in reason
+        assert "invalid_request_error" in caplog.text
+        assert "campo X nao e aceito" in caplog.text
+
+    def test_corpo_do_erro_e_truncado_e_sem_chave(self):
+        import io
+        import urllib.error
+
+        from data_agents.agents.dispatcher import _HTTP_ERROR_BODY_MAX, _http_error_body
+
+        longo = ("x" * 1000 + " sk-abcdefghijklmnop \n quebra").encode()
+        err = urllib.error.HTTPError(
+            url="http://x", code=400, msg="b", hdrs=None, fp=io.BytesIO(longo)
+        )
+        body = _http_error_body(err)
+        assert len(body) <= _HTTP_ERROR_BODY_MAX
+        assert "\n" not in body
+
+        curto = b"erro com sk-abcdefghijklmnop dentro"
+        err2 = urllib.error.HTTPError(
+            url="http://x", code=400, msg="b", hdrs=None, fp=io.BytesIO(curto)
+        )
+        assert "sk-abcdefghijklmnop" not in _http_error_body(err2)
+        assert "sk-a…" in _http_error_body(
+            urllib.error.HTTPError(
+                url="http://x", code=400, msg="b", hdrs=None, fp=io.BytesIO(curto)
+            )
+        )
+
+    def test_corpo_do_erro_sem_fp_nao_estoura(self):
+        import urllib.error
+
+        from data_agents.agents.dispatcher import _http_error_body
+
+        err = urllib.error.HTTPError(url="http://x", code=500, msg="b", hdrs=None, fp=None)
+        assert _http_error_body(err) == ""
+
+    @pytest.mark.asyncio
     async def test_handles_markdown_fenced_response(self):
         """Modelo às vezes envolve JSON em ```json ... ```; deve parsear OK."""
         available = _make_available("databricks-engineer")
