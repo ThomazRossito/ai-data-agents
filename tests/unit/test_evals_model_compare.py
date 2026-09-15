@@ -15,6 +15,7 @@ o eval não responde à pergunta que o motivou.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -378,6 +379,68 @@ class TestCLI:
 
     def test_repeat_invalido_sai_2(self) -> None:
         assert mc.main(["--repeat", "0", "--id", "genie-ontology"]) == 2
+
+
+class TestAmbienteDoSubprocesso:
+    """1º run real (2026-09-15 01:56): 12/12 'Command failed with exit code 1'.
+
+    O dispatcher (Pydantic lê .env) funcionou; o subprocesso `claude` (Node, só
+    vê os.environ) morreu sem chave. Estes testes travam a paridade com cli.py.
+    """
+
+    def test_load_env_nao_sobrescreve_o_shell(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (tmp_path / ".env").write_text(
+            "ANTHROPIC_BASE_URL=https://api.moonshot.ai/anthropic\nX_SO_NO_ENV=1\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(mc, "REPO_ROOT", tmp_path)
+        monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+        monkeypatch.delenv("X_SO_NO_ENV", raising=False)
+        assert mc.load_env_file() is True
+        assert os.environ["ANTHROPIC_BASE_URL"] == "https://api.anthropic.com", (
+            "o shell tem que vencer o .env — é o que permite trocar de provedor sem editar arquivo"
+        )
+        assert os.environ["X_SO_NO_ENV"] == "1"
+
+    def test_provider_env_vem_do_settings(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from data_agents.config import settings as s
+
+        monkeypatch.setattr(s.settings, "anthropic_api_key", "sk-teste-123456789")
+        monkeypatch.setattr(s.settings, "anthropic_base_url", "https://api.moonshot.ai/anthropic")
+        env = mc.provider_env()
+        assert env == {
+            "ANTHROPIC_API_KEY": "sk-teste-123456789",
+            "ANTHROPIC_BASE_URL": "https://api.moonshot.ai/anthropic",
+        }
+
+    def test_provider_env_omite_vazios(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from data_agents.config import settings as s
+
+        monkeypatch.setattr(s.settings, "anthropic_api_key", "")
+        monkeypatch.setattr(s.settings, "anthropic_base_url", "")
+        assert mc.provider_env() == {}
+
+    def test_main_aborta_sem_chave_antes_de_gastar(
+        self, monkeypatch: pytest.MonkeyPatch, capsys
+    ) -> None:
+        monkeypatch.setattr(mc, "load_env_file", lambda: False)
+        monkeypatch.setattr(mc, "provider_env", lambda: {})
+        assert mc.main(["--id", "genie-ontology"]) == 2
+        assert "ANTHROPIC_API_KEY ausente" in capsys.readouterr().err
+
+    @pytest.mark.parametrize(
+        "bruto,esperado",
+        [
+            ("key sk-abcdef123456789 ok", "key sk-a… ok"),
+            ("token dapi0123456789abcdef", "token dapi…"),
+            ("TAVILY tvly-abcdefgh12", "TAVILY tvly…"),
+            ("sem segredo aqui", "sem segredo aqui"),
+        ],
+    )
+    def test_scrub_secrets(self, bruto: str, esperado: str) -> None:
+        assert mc.scrub_secrets(bruto) == esperado
 
 
 class TestFonteUnicaDeBuscaWeb:

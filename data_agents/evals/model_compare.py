@@ -83,10 +83,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 import subprocess
 import sys
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -113,6 +114,52 @@ WEB_SEARCH_TOOLS: frozenset[str] = frozenset(_WEB_SEARCH_TOOLS)
 SUPERVISOR = "supervisor"
 
 DEFAULT_TIMEOUT_S = 600
+STDERR_TAIL_LINES = 12
+
+# O subprocesso `claude` (Node) só enxerga os.environ — não lê `.env`, não
+# conhece o Pydantic. É por isso que o `cli.py` faz `load_dotenv` antes de tudo;
+# sem paridade aqui, o dispatcher (que usa `settings`) funciona e o Supervisor
+# morre com exit code 1 — foi o 1º run deste eval (2026-09-15, 12/12 erros).
+
+_SECRET_RE = re.compile(
+    r"(sk-[A-Za-z0-9_\-]{6,}|dapi[a-f0-9]{8,}|tvly-[A-Za-z0-9_\-]{6,}|fc-[A-Za-z0-9_\-]{6,})"
+)
+
+
+def scrub_secrets(text: str) -> str:
+    """Mascara prefixos conhecidos de chave antes de qualquer coisa ir para log/JSON."""
+    return _SECRET_RE.sub(lambda m: m.group(0)[:4] + "…", text)
+
+
+def load_env_file() -> bool:
+    """Carrega `<repo>/.env` em os.environ SEM sobrescrever o que já está no shell.
+
+    Assim `ANTHROPIC_BASE_URL=... make eval-model-compare` vence o `.env` — é o
+    que permite rodar contra outro provedor sem editar arquivo. Mesmo padrão e
+    mesmo motivo do `cli.py`.
+    """
+    try:
+        from dotenv import load_dotenv
+    except ImportError:  # pragma: no cover — python-dotenv é dependência declarada
+        return False
+    return bool(load_dotenv(REPO_ROOT / ".env", override=False))
+
+
+def provider_env() -> dict[str, str]:
+    """Credenciais/endpoint que o Pydantic resolveu, para injetar no subprocesso.
+
+    O transporte do SDK faz `{**os.environ, **options.env}` (subprocess_cli.py),
+    então isto garante que o `claude` vê exatamente o provedor que `settings`
+    vê — mesmo se o `.env` não foi carregado no shell.
+    """
+    from data_agents.config.settings import settings
+
+    out: dict[str, str] = {}
+    if settings.anthropic_api_key:
+        out["ANTHROPIC_API_KEY"] = str(settings.anthropic_api_key)
+    if settings.anthropic_base_url:
+        out["ANTHROPIC_BASE_URL"] = str(settings.anthropic_base_url)
+    return out
 
 
 # ─── Modelos ──────────────────────────────────────────────────────────────────
@@ -458,18 +505,26 @@ async def run_case(case: ConceptualCase, run_idx: int, timeout_s: float) -> Case
             elif isinstance(m, ResultMessage):
                 result_msg = m
 
+    # stderr do subprocesso `claude`: sem isto, a falha vem como "Command failed
+    # with exit code 1 — check stderr" e nada mais (1º run deste eval, 2026-09-15).
+    stderr_tail: deque[str] = deque(maxlen=STDERR_TAIL_LINES)
+
     try:
         available = preload_registry()
         selected, confidence, reason = await select_agents(case.prompt, available)
         dispatched = apply_fallback_policy(selected, confidence, available)
         options = build_supervisor_options(agent_names=dispatched)
         options.include_partial_messages = False
+        options.env = {**(options.env or {}), **provider_env()}
+        options.stderr = lambda line: stderr_tail.append(line.rstrip()[:200])
         thinking_repr = json.dumps(getattr(options, "thinking", None), sort_keys=True, default=str)
         await asyncio.wait_for(_consume(options), timeout=timeout_s)
     except asyncio.TimeoutError:
         error = f"timeout após {timeout_s:.0f}s"
     except Exception as e:  # noqa: BLE001 — um caso quebrado não derruba o run
         error = f"{type(e).__name__}: {e}"
+        if stderr_tail:
+            error += " | stderr: " + " ⏎ ".join(scrub_secrets(ln) for ln in stderr_tail if ln)
 
     duration = time.monotonic() - t0
     final_text = "\n\n".join(texts)
@@ -808,12 +863,25 @@ def main(argv: list[str] | None = None) -> int:
         print("--repeat deve ser >= 1", file=sys.stderr)
         return 2
 
+    # .env → os.environ ANTES de importar settings e ANTES do subprocesso `claude`.
+    load_env_file()
     from data_agents.config.settings import settings
 
+    env = provider_env()
+    if "ANTHROPIC_API_KEY" not in env:
+        print(
+            "❌ ANTHROPIC_API_KEY ausente (nem no shell, nem em <repo>/.env). O subprocesso "
+            "`claude` morreria com exit code 1 em todos os casos — abortando antes de gastar.",
+            file=sys.stderr,
+        )
+        return 2
+
     label = args.label or settings.default_model
+    host = urlparse(env.get("ANTHROPIC_BASE_URL", "")).netloc or "api.anthropic.com (default)"
     print(f"\n🧪 Eval conceitual — {len(cases)} caso(s) × {args.repeat} · label={label}")
     print(
-        f"   modelo={settings.default_model} · thinking_allow={settings.moonshot_allow_thinking}\n"
+        f"   modelo={settings.default_model} · endpoint={host} · chave=presente · "
+        f"thinking_allow={settings.moonshot_allow_thinking}\n"
     )
 
     try:
@@ -828,6 +896,14 @@ def main(argv: list[str] | None = None) -> int:
     print_scoreboard(meta, s)
     print(f"\n  run salvo em {path.relative_to(REPO_ROOT)}")
     print("  compare com: python -m data_agents.evals.model_compare --compare <A.json> <B.json>")
+
+    if s["error_rate"] >= 1.0:
+        print(
+            "\n❌ 100% dos casos com erro — isto NÃO é dado sobre o modelo, é falha de ambiente. "
+            "Veja o campo `error` (traz o stderr do `claude`) no JSON antes de comparar.",
+            file=sys.stderr,
+        )
+        return 1
 
     if args.min_accuracy is not None and s["accuracy"] < args.min_accuracy:
         print(f"\n❌ accuracy {s['accuracy']:.0%} abaixo do gate {args.min_accuracy:.0%}")
