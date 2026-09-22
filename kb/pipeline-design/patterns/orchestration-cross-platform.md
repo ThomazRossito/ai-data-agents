@@ -44,7 +44,7 @@ resources:
         cloudFiles.schemaInferenceMode: "addNewColumns"
       cluster:
         num_workers: 2
-        spark_version: "15.4.x"
+        spark_version: ${var.spark_version}  # DBR fixo em exemplo é ilustrativo. Resolva no deploy: `databricks clusters spark-versions` (LTS mais recente) ou prefira serverless.
 
   jobs:
     gold_build:

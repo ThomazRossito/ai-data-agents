@@ -61,7 +61,7 @@ def repo(tmp_path: Path) -> Path:
     sk = tmp_path / "skills" / "databricks"
     _skill(sk, "databricks-bundles", "antigo")
     _skill(sk, "databricks-jobs", "v1")
-    _skill(sk, "pricing", "custom!")  # está em CUSTOM
+    _skill(sk, "databricks-pricing", "custom!")  # está em CUSTOM
     (sk / "TEMPLATE").mkdir()
     (sk / "TEMPLATE" / "SKILL.md").write_text("template", encoding="utf-8")
     return sk
@@ -83,7 +83,7 @@ class TestClassificar:
     def test_separa_as_tres_classes(self, repo: Path) -> None:
         c = sds.classificar(repo)
         assert c["upstream"] == ["databricks-bundles", "databricks-jobs"]
-        assert c["custom"] == ["pricing"]
+        assert c["custom"] == ["databricks-pricing"]
         assert c["scaffold"] == ["TEMPLATE"]
 
     def test_custom_bate_com_provenance(self) -> None:
@@ -102,7 +102,7 @@ class TestDiff:
 
     def test_custom_nunca_aparece_no_diff(self, repo: Path, fonte: Path) -> None:
         d = sds.diff(fonte, repo)
-        assert "pricing" not in d["remover"], (
+        assert "databricks-pricing" not in d["remover"], (
             "custom não está na fonte e MESMO ASSIM não pode ser removida"
         )
 
@@ -113,7 +113,7 @@ class TestDiff:
     def test_colisao_com_custom_bloqueia(self, repo: Path, tmp_path: Path) -> None:
         """Se a Databricks publicar uma skill chamada `pricing`, o sync PARA."""
         f = tmp_path / "f"
-        _skill(f, "pricing", "homônima upstream")
+        _skill(f, "databricks-pricing", "homônima upstream")
         with pytest.raises(sds.SyncError, match="MESMO nome das custom"):
             sds.diff(f, repo)
 
@@ -136,9 +136,13 @@ class TestSync:
             "databricks-core",
             "databricks-dabs",
             "databricks-jobs",
-            "pricing",
+            "databricks-pricing",
         ]
-        assert (repo / "pricing" / "SKILL.md").read_text(encoding="utf-8").endswith("custom!")
+        assert (
+            (repo / "databricks-pricing" / "SKILL.md")
+            .read_text(encoding="utf-8")
+            .endswith("custom!")
+        )
         assert (repo / "databricks-jobs" / "refs" / "x.md").exists()
         assert not (repo / "databricks-jobs" / "__pycache__").exists(), "lixo não viaja"
 

@@ -19,7 +19,7 @@ resources:
       job_clusters:
         - job_cluster_key: shared_compute
           new_cluster:
-            spark_version: "15.4.x-scala2.12"
+            spark_version: ${var.spark_version}  # DBR fixo em exemplo é ilustrativo. Resolva no deploy: `databricks clusters spark-versions` (LTS mais recente) ou prefira serverless.
             node_type_id: "i3.xlarge"
             num_workers: 2
             spark_conf:

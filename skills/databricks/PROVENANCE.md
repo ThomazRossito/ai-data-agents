@@ -36,7 +36,7 @@ Estas **não existem no catálogo oficial**. Nasceram aqui e não voltam por
 |---|---|
 | `databricks-genie-health-check/` | Rubrica de pontuação de saúde de Genie Space, específica deste projeto |
 | `databricks-observability-migration/` | Migração de observabilidade, com notas de rollout datadas |
-| `pricing/` | Cálculo de custo DBU, consumido pelo agente `databricks-cost-calculator` |
+| `databricks-pricing/` | Cálculo de custo DBU, consumido pelo agente `databricks-cost-calculator` |
 
 **Proteção ativa:** `tests/unit/test_functional.py::TestCustomSkillsSurvive` falha
 se qualquer uma delas sumir. Não é documentação passiva — é um gate.

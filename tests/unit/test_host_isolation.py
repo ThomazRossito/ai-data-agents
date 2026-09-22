@@ -183,3 +183,34 @@ class TestRegraDeVerificacaoNoAgente:
         import re
 
         assert not re.search(r"\b20\d\d-\d\d-\d\dT\d\d:\d\d", prefixo), "timestamp no cache_prefix"
+
+
+class TestRegraDeVersaoDeRuntime:
+    """Item 1.8 da Onda 1 reformulado (2026-09-22).
+
+    O plano previa trocar 13 `spark_version` hardcoded nas skills. Recontagem
+    após o `aitools`: 16 estão em skills UPSTREAM (não editamos — o próximo
+    sync sobrescreve) e 4 em KBs nossas (corrigidas). Para os 16, o que
+    funciona é o agente saber que o número do exemplo não é fonte.
+    """
+
+    @pytest.fixture(scope="class")
+    def prefixo(self) -> str:
+        return (_REPO / "data_agents" / "agents" / "cache_prefix.md").read_text(encoding="utf-8")
+
+    def test_regra_existe_e_da_o_metodo_certo(self, prefixo: str) -> None:
+        assert "nunca copie o número" in prefixo
+        assert "select_spark_version(latest=True, long_term_support=True)" in prefixo
+        assert "databricks clusters spark-versions" in prefixo
+        assert "serverless" in prefixo
+
+    def test_kbs_nossas_nao_tem_dbr_fixo(self) -> None:
+        import re
+
+        fixo = re.compile(r'spark_version: *"[0-9]+\.[0-9]+\.x')
+        ofensores = [
+            str(p)
+            for p in (_REPO / "kb").rglob("*.md")
+            if fixo.search(p.read_text(encoding="utf-8"))
+        ]
+        assert ofensores == [], f"DBR hardcoded em KB nossa: {ofensores}"

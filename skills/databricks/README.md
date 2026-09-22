@@ -22,7 +22,7 @@ Skills **experimentais** do catálogo (`--experimental`) ficam de fora por decis
 
 ## Custom (3 skills) — nasceram aqui
 
-`databricks-genie-health-check/`, `databricks-observability-migration/`, `pricing/`.
+`databricks-genie-health-check/`, `databricks-observability-migration/`, `databricks-pricing/`.
 O script de sync nunca as toca; `tests/unit/test_functional.py::TestCustomSkillsSurvive`
 falha se sumirem.
 
