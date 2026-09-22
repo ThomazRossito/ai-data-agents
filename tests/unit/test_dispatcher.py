@@ -567,3 +567,54 @@ class TestBuildDispatcherPayload:
             agents, conf, _ = await select_agents("query", available)
         assert "temperature" not in captured["body"]
         assert agents == ["databricks-engineer"] and conf == 0.9
+
+
+# ─── O que o dispatcher ENXERGA (hotfix 2026-09-22) ─────────────────────────
+
+
+class TestDescricaoVisivelAoDispatcher:
+    """Caso real: "me fale sobre o Genie Ontology" → fabric-ontology (85%).
+
+    O dispatcher lê só os primeiros `_MAX_AGENT_DESC_CHARS` de cada descrição.
+    No databricks-engineer, "Genie" aparecia no char 322 — invisível. No
+    fabric-ontology, "Ontolog" aparece no início. O roteador só tinha um casamento
+    lexical possível, e era o errado. Estes testes travam a janela visível.
+    """
+
+    def _visivel(self, nome: str) -> str:
+        from data_agents.agents.dispatcher import _MAX_AGENT_DESC_CHARS
+        from data_agents.agents.loader import preload_registry
+
+        desc = " ".join((preload_registry()[nome].description or "").split())
+        return desc[:_MAX_AGENT_DESC_CHARS].lower()
+
+    def test_databricks_engineer_mostra_a_familia_genie_na_janela(self):
+        vis = self._visivel("databricks-engineer")
+        for termo in ("genie", "genie ontology", "genie one", "genie agents", "databricks"):
+            assert termo in vis, f"'{termo}' fora dos primeiros chars que o dispatcher lê"
+
+    def test_fabric_ontology_mostra_fabric_na_janela(self):
+        vis = self._visivel("fabric-ontology")
+        assert "fabric" in vis and "ontolog" in vis
+
+    def test_prompt_do_dispatcher_desambigua_ontology(self):
+        from data_agents.agents.dispatcher import _DISPATCHER_SYSTEM_PROMPT as p
+
+        assert "Genie Ontology" in p and "Fabric IQ Ontology" in p
+        assert "não decide plataforma" in p.lower()
+
+    def test_supervisor_proibe_substituir_entre_plataformas(self):
+        from data_agents.agents.prompts.supervisor_prompt import SUPERVISOR_SYSTEM_PROMPT as p
+
+        assert "Never substitute across platforms" in p
+        assert "agent not found" in p
+
+    def test_dataset_de_roteamento_cobre_o_caso(self):
+        from data_agents.evals.routing import load_cases
+
+        casos = {c.id: c for c in load_cases()}
+        c = casos["genie-ontology-databricks"]
+        assert "databricks-engineer" in c.expect_any
+        assert "fabric-ontology" in c.forbid, (
+            "o usuário foi explícito: fabric-ontology NÃO pode ser chamado"
+        )

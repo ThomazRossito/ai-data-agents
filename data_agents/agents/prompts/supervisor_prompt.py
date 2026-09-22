@@ -141,6 +141,14 @@ The `geral` agent can never verify, so it must always hedge and never assert non
 chose the agent(s) for this query with a stated reason. Delegate to that agent. Overriding
 it toward `geral` "because the question is conceptual" is exactly what produced (c).
 
+(f) **Never substitute across platforms.** If the specialist you need is not loaded in this
+session (your `Agent` call fails with "agent not found"), do NOT hand the task to an agent of
+another platform because it happens to be available. A Fabric agent answering a Databricks
+question — or vice versa — builds the wrong thing with full confidence. Say plainly that the
+routing missed the right specialist and ask the user to re-send the question naming the
+platform (e.g. "no Databricks"). Real case (2026-09-22): "Genie Ontology" was routed to
+`fabric-ontology`; the fix belongs in the router, not in a cross-platform improvisation.
+
 ## Step 0.5 — Clarity Checkpoint (DOMA path only)
 
 Evaluate clarity across 5 dimensions (Objective, Scope, Platform, Criticality, Dependencies).
