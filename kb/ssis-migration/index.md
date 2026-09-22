@@ -56,7 +56,7 @@ PARSE(.dtsx) → INVENTORY → CLASSIFY → MAP → GENERATE (PySpark/DLT/Jobs) 
 | **B — Imperativo** | Muita lógica procedural, loops, chamadas externas | Tudo PySpark em **Lakeflow Jobs** (MERGE/SCD na mão), **zero @dp**; expectations viram checks pós-carga/CHECK constraints |
 
 - Arquivos contínuos → **Auto Loader (cloudFiles)** (não For Each). SQL Server → **Lakeflow Connect** (CDC/Change Tracking; JDBC só fallback).
-- **Empacotar como Declarative Automation Bundle (DAB)** — `databricks.yml` + `resources/*.yml` (jobs + pipelines) + targets. Nunca Jobs JSON solto. Usar `skills/databricks/databricks-bundles/SKILL.md`.
+- **Empacotar como Declarative Automation Bundle (DAB)** — `databricks.yml` + `resources/*.yml` (jobs + pipelines) + targets. Nunca Jobs JSON solto. Usar `skills/databricks/databricks-dabs/SKILL.md`.
 
 ## 6. Anti-padrões SSIS→Databricks (invioláveis)
 

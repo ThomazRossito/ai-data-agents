@@ -89,7 +89,7 @@ e SLAs definidos pelo time.
 
 | Tipo de Tarefa                                  | KB a Ler Primeiro                   | Skill Operacional (se necessário)                                                  |
 |-------------------------------------------------|-------------------------------------|------------------------------------------------------------------------------------|
-| Expectations em SDP/LakeFlow                    | `kb/data-quality/index.md`          | `skills/databricks/databricks-spark-declarative-pipelines/SKILL.md`               |
+| Expectations em SDP/LakeFlow                    | `kb/data-quality/index.md`          | `skills/databricks/databricks-pipelines/SKILL.md`               |
 | Data Profiling de tabela nova                   | `kb/data-quality/index.md`          | `skills/databricks/databricks-unity-catalog/7-data-profiling.md`                  |
 | Alertas no Fabric Activator                     | `kb/data-quality/index.md`          | `skills/fabric/fabric-eventhouse-rti/SKILL.md`                                     |
 | Monitoramento de qualidade em tempo real        | `kb/data-quality/index.md`          | `skills/fabric/fabric-eventhouse-rti/SKILL.md`                                     |

@@ -102,4 +102,4 @@ output/
 
 - [Constitution](../concepts/constitution.md) — S6 governance never delegated to engineering
 - [`kb/pipeline-design/`](https://github.com/ThomazRossito/ai-data-agents/tree/refactor/v3.0/kb/pipeline-design) — Medallion patterns
-- [`skills/databricks/databricks-spark-declarative-pipelines/SKILL.md`](https://github.com/ThomazRossito/ai-data-agents/blob/refactor/v3.0/skills/databricks/databricks-spark-declarative-pipelines/SKILL.md) — DLT skill
+- [`skills/databricks/databricks-pipelines/SKILL.md`](https://github.com/ThomazRossito/ai-data-agents/blob/refactor/v3.0/skills/databricks/databricks-pipelines/SKILL.md) — DLT skill
