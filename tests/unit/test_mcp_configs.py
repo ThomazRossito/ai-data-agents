@@ -198,3 +198,60 @@ def test_databricks_sql_not_active_without_credentials(monkeypatch):
     monkeypatch.setattr(settings, "databricks_token", "")
     status = settings.validate_platform_credentials()
     assert status["databricks_sql"]["ready"] is False
+
+
+# ─── tavily (hotfix 2026-09-15) ──────────────────────────────────────────────
+
+
+def test_tavily_usa_o_pacote_oficial_npm_pinado():
+    """A config antiga era `uvx tavily-mcp`. O pacote PyPI com esse nome NÃO é o da
+    Tavily e não expõe executável `tavily-mcp` (expõe check/mcp/tavily) — o
+    servidor nunca subiu e `mcp__tavily__*` nunca apareceu em audit.jsonl.
+    O oficial é o npm `tavily-mcp` (github.com/tavily-ai/tavily-mcp)."""
+    from data_agents.mcp_servers.tavily.server_config import (
+        TAVILY_MCP_NPM_VERSION,
+        get_tavily_mcp_config,
+    )
+
+    cfg = get_tavily_mcp_config()["tavily"]
+    assert cfg["type"] == "stdio"
+    assert cfg["command"] == "npx", (
+        "uvx tavily-mcp aponta para um pacote PyPI que não é o da Tavily"
+    )
+    assert cfg["args"][0] == "-y"
+    assert cfg["args"][1] == f"tavily-mcp@{TAVILY_MCP_NPM_VERSION}", (
+        "versão pinada, política do projeto"
+    )
+    assert "@latest" not in cfg["args"][1]
+    assert "TAVILY_API_KEY" in cfg["env"]
+
+
+def test_tavily_tools_batem_com_o_servidor_oficial():
+    """Os nomes REAIS do servidor npm são underscore (`tavily_search`), não hífen
+    como o README sugere. Snapshot em tests/fixtures/tavily_mcp_tools.txt
+    (extraído do build do pacote). Foi o hífen que deixou o especialista sem
+    tavily mesmo com o servidor conectado (2ª rodada do eval, 2026-09-15)."""
+    from pathlib import Path
+
+    from data_agents.mcp_servers.tavily.server_config import TAVILY_MCP_TOOLS, TAVILY_TOOL_PREFIX
+
+    fixture = Path(__file__).resolve().parents[1] / "fixtures" / "tavily_mcp_tools.txt"
+    oficiais = {
+        f"{TAVILY_TOOL_PREFIX}{ln.strip()}"
+        for ln in fixture.read_text(encoding="utf-8").splitlines()
+        if ln.strip() and not ln.startswith("#")
+    }
+    assert oficiais, "fixture vazio"
+    sobrando = set(TAVILY_MCP_TOOLS) - oficiais
+    assert not sobrando, f"tools que o servidor oficial NÃO registra: {sorted(sobrando)}"
+    assert "mcp__tavily__tavily_search" in TAVILY_MCP_TOOLS
+    assert not any("-" in t.split("__")[-1] for t in TAVILY_MCP_TOOLS), "hífen de novo não"
+
+
+def test_tavily_alias_do_loader_usa_os_nomes_reais():
+    """O alias `tavily_all` é o que entra no `tools:` dos agentes — é ELE que
+    decide se o subagente enxerga a tool."""
+    from data_agents.agents.loader import MCP_TOOL_SETS
+
+    assert "mcp__tavily__tavily_search" in MCP_TOOL_SETS["tavily_all"]
+    assert "mcp__tavily__tavily-search" not in MCP_TOOL_SETS["tavily_all"]

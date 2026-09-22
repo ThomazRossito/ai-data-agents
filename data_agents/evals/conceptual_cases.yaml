@@ -1,0 +1,143 @@
+# AI Data Agents — Evals CONCEITUAIS: "o modelo sabe do que está falando?"
+#
+# POR QUE ESTE ARQUIVO EXISTE
+# ---------------------------
+# Em 2026-09-14/15 a pergunta "me fale sobre o Genie Ontology" foi respondida
+# errado QUATRO vezes, de quatro jeitos, apesar de três correções de prompt e um
+# hook. O especialista Databricks tinha `tavily_search` disponível e não a usou
+# em nenhuma das quatro. A suspeita passou do harness para o modelo — e suspeita
+# se resolve com medição, não com a quinta correção de prompt.
+#
+# Este dataset roda o PIPELINE INTEIRO (dispatcher → Supervisor → subagente →
+# tools) e mede três coisas por caso:
+#
+#   correto          a resposta contém os termos que a doc oficial contém
+#   web_search       tavily/firecrawl foi chamado no turno (via audit.jsonl)
+#   negacao          a resposta afirma inexistência ("não existe", "não é um
+#                    produto") — o modo de falha que motivou tudo
+#
+# Rodar duas vezes com endpoints/modelos diferentes e comparar é o objetivo.
+# Ver data_agents/evals/model_compare.py.
+#
+# REGRA PARA ADICIONAR CASO
+# -------------------------
+# Só entra fato que ALGUÉM verificou na documentação oficial, com a URL em
+# `fonte` e a data em `verificado_em`. Termos de `must_include` são grupos OR:
+# cada grupo precisa de pelo menos um termo presente (case-insensitive). Isso
+# permite PT/EN e sinônimos sem afrouxar o critério.
+#
+# Todos os casos abaixo foram verificados por leitura direta das páginas em
+# 2026-09-14/15 durante a auditoria. Nenhum vem de memória de modelo.
+
+version: 1
+
+cases:
+  - id: genie-ontology
+    prompt: |
+      Me fale sobre o Genie Ontology no Databricks.
+    fonte:
+      - https://docs.databricks.com/aws/en/genie/genie-ontology
+      - https://docs.databricks.com/aws/en/genie-one/chat#genie-ontology
+      - https://docs.databricks.com/aws/en/uc-semantics/
+    verificado_em: "2026-09-15"
+    fato: >
+      "Genie Ontology" é a camada de contexto unificada da família Genie
+      (Genie One e Genie Code buscam na mesma ontologia). Public Preview.
+      Duas categorias de contexto: Unity Catalog semantics (metric views,
+      domains, Pages — modelado e certificado por humanos) e contexto
+      inferido (snippets extraídos de metric views, dashboards, queries e
+      Genie Agents). Cada snippet recebe um authority score (origem, uso,
+      frescor) e é gated por permissões do UC. Hoje sem custo para curar
+      snippets. Tem página própria (genie/genie-ontology, 11/set/2026) mas
+      NÃO aparece no llms.txt — foi o que enganou a 3ª rodada.
+    must_include:
+      - ["genie one", "genie code", "genie"]
+      - ["unity catalog", "metric view", "semânt", "semant"]
+      - ["inferid", "inferred", "snippet"]
+    expect_web_search: true
+    agent_hint: databricks-engineer
+
+  - id: managed-mcp-servers
+    prompt: |
+      Quais são os MCP servers gerenciados da Databricks e qual é o padrão de
+      URL para conectar neles?
+    fonte:
+      - https://docs.databricks.com/aws/en/agents/mcp-tools/managed-mcp
+    verificado_em: "2026-09-14"
+    fato: >
+      Cinco servidores: Genie One, Genie Agent, AI Search, Databricks SQL e
+      Unity Catalog functions. URL: https://<workspace>/api/2.0/mcp/<...>.
+      Public Preview; doc atualizada em 11/set/2026.
+    must_include:
+      - ["genie"]
+      - ["sql"]
+      - ["functions", "funções", "funcoes"]
+      - ["/api/2.0/mcp"]
+    expect_web_search: true
+    agent_hint: databricks-engineer
+
+  - id: mcp-services-system-ai
+    prompt: |
+      O que são os MCP Services fornecidos pela Databricks no schema system.ai,
+      e quais workspace tools existem lá?
+    fonte:
+      - https://docs.databricks.com/aws/en/agents/mcp-tools/built-in-mcp-services
+    verificado_em: "2026-09-14"
+    fato: >
+      Serviços em system.ai invocados via Unity Gateway. Workspace tools (Beta):
+      system.ai.dbsql, system.ai.web_search, system.ai.sandbox. Também
+      conectores SaaS (slack, github, atlassian, google_*, microsoft_365).
+    must_include:
+      - ["system.ai"]
+      - ["sandbox", "web_search", "dbsql"]
+    expect_web_search: true
+    agent_hint: databricks-engineer
+
+  - id: declarative-automation-bundles
+    prompt: |
+      O que são Declarative Automation Bundles no Databricks? Têm relação com
+      os Databricks Asset Bundles?
+    fonte:
+      - https://docs.databricks.com/aws/en/dev-tools/bundles/
+    verificado_em: "2026-09-13"
+    fato: >
+      É o nome atual dos Databricks Asset Bundles (renomeados em 2026-03-16,
+      mudança não-quebrante; o comando `databricks bundle` continua).
+    must_include:
+      - ["asset bundles", "asset bundle", "dab"]
+      - ["bundle"]
+    expect_web_search: true
+    agent_hint: databricks-engineer
+
+  - id: databricks-aitools-cli
+    prompt: |
+      Para que serve o comando `databricks aitools` e quais subcomandos ele
+      oferece?
+    fonte:
+      - https://docs.databricks.com/aws/en/dev-tools/cli/reference/aitools-commands
+    verificado_em: "2026-09-15"
+    fato: >
+      Grupo de comandos da CLI (>=1.0.0) que instala skills e plugins para
+      coding agents (Claude Code, Cursor, Codex…). Subcomandos: install, list,
+      update, uninstall, version. Flags: --scope project|global, --path,
+      --skills, --experimental.
+    must_include:
+      - ["install"]
+      - ["update", "uninstall", "list"]
+      - ["skill"]
+    expect_web_search: true
+    agent_hint: databricks-engineer
+
+  - id: genie-agents-rename
+    prompt: |
+      Genie Spaces mudou de nome? Como o Databricks chama isso hoje?
+    fonte:
+      - https://docs.databricks.com/llms.txt
+      - https://docs.databricks.com/aws/en/genie-agents/
+    verificado_em: "2026-09-15"
+    fato: >
+      O llms.txt oficial descreve "Genie Agents (formerly Genie Spaces)".
+    must_include:
+      - ["genie agents", "genie agent"]
+    expect_web_search: true
+    agent_hint: databricks-engineer

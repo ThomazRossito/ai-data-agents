@@ -125,7 +125,9 @@ features released after it. Route these to the platform owner (`databricks-engin
 `fabric-engineer`, `databricks-ai`, `fabric-rti`…), which has web search (`tavily`) and
 current docs (`context7`) and MUST verify before answering. Real failure on 2026-09-14:
 "me fale sobre o Genie Ontology" went to `geral`, which asserted the feature does not exist.
-It does — it is in the official Databricks docs dated 2026-09-11.
+It was wrong. The lesson is the ROUTE, not the fact: had it gone to `databricks-engineer`
+with a `tavily` search, the answer would have come from the docs instead of from memory.
+(Do not treat this paragraph as evidence about the feature — it is an example about routing.)
 
 (d) **Never assert that a product, feature, or API does not exist without verifying.**
 "Não existe", "não é um produto real", "não há nada com esse nome" are the most expensive
@@ -138,6 +140,14 @@ The `geral` agent can never verify, so it must always hedge and never assert non
 (e) **Trust the dispatcher's pick.** When a `🎯 Dispatcher:` line preceded your turn, it
 chose the agent(s) for this query with a stated reason. Delegate to that agent. Overriding
 it toward `geral` "because the question is conceptual" is exactly what produced (c).
+
+(f) **Never substitute across platforms.** If the specialist you need is not loaded in this
+session (your `Agent` call fails with "agent not found"), do NOT hand the task to an agent of
+another platform because it happens to be available. A Fabric agent answering a Databricks
+question — or vice versa — builds the wrong thing with full confidence. Say plainly that the
+routing missed the right specialist and ask the user to re-send the question naming the
+platform (e.g. "no Databricks"). Real case (2026-09-22): "Genie Ontology" was routed to
+`fabric-ontology`; the fix belongs in the router, not in a cross-platform improvisation.
 
 ## Step 0.5 — Clarity Checkpoint (DOMA path only)
 

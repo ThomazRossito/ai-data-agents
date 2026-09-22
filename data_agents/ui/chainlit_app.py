@@ -718,8 +718,10 @@ async def _handle_supervisor(user_input: str) -> None:
     # delegação de GENERATE de um turno FUTURO (após o usuário aprovar) seria contada
     # como a 2ª delegação de migração e bloqueada por engano pelo enforce_migration_gate.
     from data_agents.hooks.migration_gate_hook import reset_migration_gate
+    from data_agents.hooks.negation_guard_hook import reset_negation_guard
 
     reset_migration_gate()
+    reset_negation_guard()
 
     try:
         await client.query(prompt)

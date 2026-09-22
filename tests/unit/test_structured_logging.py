@@ -38,6 +38,9 @@ LOGGING_CONTRACT: dict[str, list[str]] = {
     # transcript_hook escreve por session_id no path; o campo aparece como
     # "session_id" no payload tbm.
     "transcript_hook.py": ["session_id"],
+    # negation_guard grava `unverified_negation` em workflows.jsonl — o evento
+    # que mede quantas vezes o sistema afirmou inexistência sem busca web.
+    "negation_guard_hook.py": ["session_id", "agent_name", "tool_use_id"],
 }
 
 

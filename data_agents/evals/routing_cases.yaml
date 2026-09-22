@@ -94,6 +94,24 @@ cases:
     expect_any: [fabric-rti]
     forbid: [databricks-engineer]
 
+  - id: genie-ontology-databricks
+    prompt: |
+      Me fale sobre o Genie Ontology no Databricks.
+    expect_any: [databricks-engineer]
+    forbid: [fabric-ontology]
+    note: |
+      Caso real (2026-09-22): roteado para fabric-ontology com 85% de confiança
+      porque o dispatcher lê só os primeiros 240 chars da descrição e "Genie"
+      não aparecia neles no databricks-engineer — só "Ontolog" no fabric-ontology.
+      Genie Ontology é produto Databricks; Fabric IQ Ontology é Microsoft.
+
+  - id: genie-ontology-sem-plataforma
+    prompt: |
+      Como o Genie Ontology decide qual snippet de contexto tem mais autoridade?
+    expect_any: [databricks-engineer]
+    forbid: [fabric-ontology]
+    note: Mesmo sem a palavra "Databricks", "Genie" decide a plataforma.
+
   - id: fabric-ontologia-owl
     prompt: |
       Quero modelar uma ontologia OWL 2 do nosso domínio de logística e

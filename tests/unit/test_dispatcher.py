@@ -310,6 +310,62 @@ class TestSelectAgents:
         assert "http_error:500" in reason
 
     @pytest.mark.asyncio
+    async def test_http_error_loga_o_corpo_da_resposta(self, caplog):
+        """Eval 2026-09-15: 12× 'HTTP 400: Bad Request' contra a Anthropic e
+        nenhuma pista de QUAL campo foi rejeitado. O corpo tem que ir ao log."""
+        import io
+        import logging
+        import urllib.error
+
+        available = _make_available("databricks-engineer", "geral")
+        corpo = (
+            b'{"type":"error","error":{"type":"invalid_request_error",'
+            b'"message":"campo X nao e aceito"}}'
+        )
+        err = urllib.error.HTTPError(
+            url="http://x", code=400, msg="Bad Request", hdrs=None, fp=io.BytesIO(corpo)
+        )
+        with caplog.at_level(logging.WARNING, logger="data_agents.dispatcher"):
+            with patch("urllib.request.urlopen", side_effect=err):
+                _, _, reason = await select_agents("query", available)
+        assert "http_error:400" in reason
+        assert "invalid_request_error" in caplog.text
+        assert "campo X nao e aceito" in caplog.text
+
+    def test_corpo_do_erro_e_truncado_e_sem_chave(self):
+        import io
+        import urllib.error
+
+        from data_agents.agents.dispatcher import _HTTP_ERROR_BODY_MAX, _http_error_body
+
+        longo = ("x" * 1000 + " sk-abcdefghijklmnop \n quebra").encode()
+        err = urllib.error.HTTPError(
+            url="http://x", code=400, msg="b", hdrs=None, fp=io.BytesIO(longo)
+        )
+        body = _http_error_body(err)
+        assert len(body) <= _HTTP_ERROR_BODY_MAX
+        assert "\n" not in body
+
+        curto = b"erro com sk-abcdefghijklmnop dentro"
+        err2 = urllib.error.HTTPError(
+            url="http://x", code=400, msg="b", hdrs=None, fp=io.BytesIO(curto)
+        )
+        assert "sk-abcdefghijklmnop" not in _http_error_body(err2)
+        assert "sk-a…" in _http_error_body(
+            urllib.error.HTTPError(
+                url="http://x", code=400, msg="b", hdrs=None, fp=io.BytesIO(curto)
+            )
+        )
+
+    def test_corpo_do_erro_sem_fp_nao_estoura(self):
+        import urllib.error
+
+        from data_agents.agents.dispatcher import _http_error_body
+
+        err = urllib.error.HTTPError(url="http://x", code=500, msg="b", hdrs=None, fp=None)
+        assert _http_error_body(err) == ""
+
+    @pytest.mark.asyncio
     async def test_handles_markdown_fenced_response(self):
         """Modelo às vezes envolve JSON em ```json ... ```; deve parsear OK."""
         available = _make_available("databricks-engineer")
@@ -435,17 +491,130 @@ class TestDispatcherThinkingBlocks:
         assert conf == 0.0
         assert len(agents) > 1, "fallback deve carregar os agentes delegáveis"
 
-    def test_payload_disables_thinking_and_is_deterministic(self):
+    def test_payload_disables_thinking(self):
         """
-        A causa raiz: sem `thinking=disabled`, o modelo gasta o orçamento
-        pensando. E `temperature: 0` torna o roteamento reprodutível.
+        A causa raiz do bug de 2026-09-13: sem `thinking=disabled`, o modelo
+        gasta o orçamento pensando e nunca emite o JSON.
+
+        (Este teste grepava o código-fonte e afirmava que `temperature: 0`
+        "torna o roteamento reprodutível" — falso, medido em 2026-09-14: 10/25
+        casos variam. Agora testa o comportamento do payload, não o texto.)
         """
-        import inspect
+        from data_agents.agents.dispatcher import build_dispatcher_payload
 
-        from data_agents.agents import dispatcher
+        for base in ("https://api.moonshot.ai/anthropic", "https://api.anthropic.com"):
+            body = build_dispatcher_payload("q", "m", base)
+            assert body["thinking"] == {"type": "disabled"}, base
+            assert body["max_tokens"] >= 512, "orçamento folgado para modelos com thinking forçado"
 
-        src = inspect.getsource(dispatcher.select_agents)
-        assert '"thinking": {"type": "disabled"}' in src, (
-            "o payload do dispatcher deve desabilitar thinking explicitamente"
+
+# ─── build_dispatcher_payload (puro) ─────────────────────────────────────────
+
+
+class TestBuildDispatcherPayload:
+    """Eval 2026-09-15 contra o Sonnet 5: 24/24 `HTTP 400 — "temperature is
+    deprecated for this model"`. O campo só pode ir para a Moonshot."""
+
+    def test_anthropic_sem_temperature(self):
+        from data_agents.agents.dispatcher import build_dispatcher_payload
+
+        body = build_dispatcher_payload("q", "claude-sonnet-5", "https://api.anthropic.com")
+        assert "temperature" not in body
+        assert body["thinking"] == {"type": "disabled"}
+        assert body["model"] == "claude-sonnet-5"
+        assert body["messages"] == [{"role": "user", "content": "q"}]
+
+    def test_moonshot_mantem_temperature_zero(self):
+        """Baseline do eval-routing foi medido com temperature=0 — não mexer."""
+        from data_agents.agents.dispatcher import build_dispatcher_payload
+
+        body = build_dispatcher_payload("q", "kimi-k2.6", "https://api.moonshot.ai/anthropic")
+        assert body["temperature"] == 0
+
+    @pytest.mark.asyncio
+    async def test_select_agents_usa_o_payload_sem_temperature_na_anthropic(self, monkeypatch):
+        from data_agents.agents import dispatcher as disp
+
+        monkeypatch.setattr(disp.settings, "anthropic_base_url", "https://api.anthropic.com")
+        monkeypatch.setattr(disp.settings, "default_model", "claude-sonnet-5")
+        available = _make_available("databricks-engineer", "geral")
+        captured = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured["body"] = json.loads(req.data.decode("utf-8"))
+            resp = MagicMock()
+            resp.read.return_value = json.dumps(
+                {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(
+                                {
+                                    "agents": ["databricks-engineer"],
+                                    "confidence": 0.9,
+                                    "reason": "x",
+                                }
+                            ),
+                        }
+                    ]
+                }
+            ).encode()
+            resp.__enter__ = MagicMock(return_value=resp)
+            resp.__exit__ = MagicMock(return_value=False)
+            return resp
+
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            agents, conf, _ = await select_agents("query", available)
+        assert "temperature" not in captured["body"]
+        assert agents == ["databricks-engineer"] and conf == 0.9
+
+
+# ─── O que o dispatcher ENXERGA (hotfix 2026-09-22) ─────────────────────────
+
+
+class TestDescricaoVisivelAoDispatcher:
+    """Caso real: "me fale sobre o Genie Ontology" → fabric-ontology (85%).
+
+    O dispatcher lê só os primeiros `_MAX_AGENT_DESC_CHARS` de cada descrição.
+    No databricks-engineer, "Genie" aparecia no char 322 — invisível. No
+    fabric-ontology, "Ontolog" aparece no início. O roteador só tinha um casamento
+    lexical possível, e era o errado. Estes testes travam a janela visível.
+    """
+
+    def _visivel(self, nome: str) -> str:
+        from data_agents.agents.dispatcher import _MAX_AGENT_DESC_CHARS
+        from data_agents.agents.loader import preload_registry
+
+        desc = " ".join((preload_registry()[nome].description or "").split())
+        return desc[:_MAX_AGENT_DESC_CHARS].lower()
+
+    def test_databricks_engineer_mostra_a_familia_genie_na_janela(self):
+        vis = self._visivel("databricks-engineer")
+        for termo in ("genie", "genie ontology", "genie one", "genie agents", "databricks"):
+            assert termo in vis, f"'{termo}' fora dos primeiros chars que o dispatcher lê"
+
+    def test_fabric_ontology_mostra_fabric_na_janela(self):
+        vis = self._visivel("fabric-ontology")
+        assert "fabric" in vis and "ontolog" in vis
+
+    def test_prompt_do_dispatcher_desambigua_ontology(self):
+        from data_agents.agents.dispatcher import _DISPATCHER_SYSTEM_PROMPT as p
+
+        assert "Genie Ontology" in p and "Fabric IQ Ontology" in p
+        assert "não decide plataforma" in p.lower()
+
+    def test_supervisor_proibe_substituir_entre_plataformas(self):
+        from data_agents.agents.prompts.supervisor_prompt import SUPERVISOR_SYSTEM_PROMPT as p
+
+        assert "Never substitute across platforms" in p
+        assert "agent not found" in p
+
+    def test_dataset_de_roteamento_cobre_o_caso(self):
+        from data_agents.evals.routing import load_cases
+
+        casos = {c.id: c for c in load_cases()}
+        c = casos["genie-ontology-databricks"]
+        assert "databricks-engineer" in c.expect_any
+        assert "fabric-ontology" in c.forbid, (
+            "o usuário foi explícito: fabric-ontology NÃO pode ser chamado"
         )
-        assert '"temperature": 0' in src, "roteamento deve ser determinístico"

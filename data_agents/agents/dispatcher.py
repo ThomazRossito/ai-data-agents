@@ -38,6 +38,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import urllib.error
 import urllib.request
 from typing import TYPE_CHECKING
@@ -81,6 +82,9 @@ REGRAS DE SAÍDA:
 
 REGRAS DE ROTEAMENTO:
 - Query sobre Databricks (Spark, Delta, Unity Catalog, Genie, jobs) → agentes Databricks, NÃO Fabric.
+- Genie One, Genie Agents, Genie Ontology, Genie Code, Genie Spaces são produtos DATABRICKS → databricks-engineer.
+  A palavra "Ontology" sozinha NÃO decide plataforma: Fabric IQ Ontology (Microsoft) → fabric-ontology;
+  Genie Ontology (Databricks) → databricks-engineer. Roteie pelo PRODUTO, não pela palavra.
 - Query sobre Microsoft Fabric (Lakehouse, Power BI, Direct Lake, Eventhouse) → agentes Fabric, NÃO Databricks.
 - Query sobre migração de banco relacional → migration-expert + agente da plataforma destino.
 - Query sobre qualidade de dados → data-quality-steward.
@@ -126,7 +130,9 @@ async def select_agents(
         if name in _NEVER_DELEGATED:
             continue
         meta = available[name]
-        desc = (meta.description or "")[:_MAX_AGENT_DESC_CHARS]
+        # Whitespace normalizado: o YAML quebra linhas a ~85 colunas e cada "\n"
+        # come um char dos 240 que o roteador enxerga.
+        desc = " ".join((meta.description or "").split())[:_MAX_AGENT_DESC_CHARS]
         agents_lines.append(f"- {name} (tier {meta.tier}): {desc}")
     agents_block = "\n".join(agents_lines)
 
@@ -174,19 +180,11 @@ async def select_agents(
     # Consequência prática: não trate o roteamento como cacheável por hash da
     # query, e não aperte o gate de routing_accuracy só porque uma rodada deu
     # 100% — o piso de ruído é real. Ver data_agents/evals/routing.py.
-    payload = json.dumps(
-        {
-            "model": settings.default_model,
-            "max_tokens": 512,
-            "temperature": 0,
-            "thinking": {"type": "disabled"},
-            "system": _DISPATCHER_SYSTEM_PROMPT,
-            "messages": [{"role": "user", "content": user_msg}],
-        }
-    ).encode("utf-8")
-
     base = (settings.anthropic_base_url or "https://api.anthropic.com").rstrip("/")
     url = f"{base}/v1/messages"
+    payload = json.dumps(build_dispatcher_payload(user_msg, settings.default_model, base)).encode(
+        "utf-8"
+    )
 
     req = urllib.request.Request(
         url,
@@ -208,7 +206,14 @@ async def select_agents(
     try:
         data = await asyncio.to_thread(_do_request)
     except urllib.error.HTTPError as e:
-        logger.warning(f"Dispatcher HTTP {e.code}: {e.reason} — fallback para todos os agentes")
+        # O corpo do erro é onde a API diz O QUE rejeitou. Sem ele, o eval de
+        # 2026-09-15 registrou 12× "HTTP 400: Bad Request" contra a Anthropic e
+        # ninguém soube qual campo do payload era o problema.
+        body = _http_error_body(e)
+        logger.warning(
+            f"Dispatcher HTTP {e.code}: {e.reason} — fallback para todos os agentes"
+            + (f" — corpo: {body}" if body else "")
+        )
         return _all_delegatable(available), 0.0, f"http_error:{e.code}"
     except (urllib.error.URLError, TimeoutError) as e:
         logger.warning(f"Dispatcher network error: {e} — fallback para todos os agentes")
@@ -350,9 +355,55 @@ def format_dispatcher_log(
     return main_part + suffix
 
 
+def build_dispatcher_payload(user_msg: str, model: str, base_url: str) -> dict:
+    """Corpo da chamada do dispatcher. Puro — testável sem rede.
+
+    `temperature` só vai para a Moonshot. Contra a Anthropic, os modelos da
+    família Claude 5 rejeitam o campo com HTTP 400:
+
+        {"type":"invalid_request_error","message":"`temperature` is deprecated for this model."}
+
+    Foi isso que derrubou o dispatcher em 24/24 casos dos dois evals contra o
+    Sonnet 5 (2026-09-15) — fallback para 24 agentes, prompt 4× maior, custo
+    US$11,7 por rodada e pipeline incomparável. Na Moonshot o campo fica como
+    estava: o baseline do `eval-routing` (100%/100%/100%, fallback 0%) foi
+    medido com ele, e não há motivo para mexer no que está medido.
+    """
+    body: dict = {
+        "model": model,
+        "max_tokens": 512,
+        "thinking": {"type": "disabled"},
+        "system": _DISPATCHER_SYSTEM_PROMPT,
+        "messages": [{"role": "user", "content": user_msg}],
+    }
+    if "moonshot" in base_url.lower():
+        body["temperature"] = 0
+    return body
+
+
 # ─── Helpers internos ────────────────────────────────────────────────────────
 
 
 def _all_delegatable(available: dict[str, "AgentMeta"]) -> list[str]:
     """Retorna todos os nomes de agentes do registry, exceto os never-delegated."""
     return [n for n in available if n not in _NEVER_DELEGATED]
+
+
+_HTTP_ERROR_BODY_MAX = 400
+_SECRET_RE = re.compile(r"(sk-[A-Za-z0-9_\-]{6,}|dapi[a-f0-9]{8,}|tvly-[A-Za-z0-9_\-]{6,})")
+
+
+def _http_error_body(e: urllib.error.HTTPError) -> str:
+    """Corpo do erro HTTP, truncado e sem quebras de linha. Nunca levanta.
+
+    Só o corpo da RESPOSTA é lido — a request (que carrega a chave no header)
+    não entra. Se a API ecoar algo que pareça chave, `scrub` mascara.
+    """
+    try:
+        raw = e.read()
+        text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+    except Exception:  # noqa: BLE001 — diagnóstico nunca derruba o fallback
+        return ""
+    text = " ".join(text.split())
+    text = _SECRET_RE.sub(lambda m: m.group(0)[:4] + "…", text)
+    return text[:_HTTP_ERROR_BODY_MAX]

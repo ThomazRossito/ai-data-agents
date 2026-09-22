@@ -135,3 +135,51 @@ class TestAgenteGeral:
         meta, _ = parse_yaml_frontmatter(corpo)
         assert meta.get("tools") == [] and meta.get("mcp_servers") == []
         assert meta.get("tier") == "T0"
+
+
+class TestRegraDeVerificacaoNoAgente:
+    """Segunda rodada do caso Genie Ontology (2026-09-15).
+
+    Com o isolamento, a query foi para o `databricks-engineer` (1 delegação, sem
+    `ai-data-agents:`). Mas o agente NÃO buscou: chamou `context7` (tool de
+    biblioteca, não de produto), fez `Grep` no próprio repositório e citou o
+    exemplo do prompt do Supervisor como se fosse a documentação. Zero chamadas
+    a `tavily`, que estava ativo e no `tools:` do agente.
+
+    A regra "verifique antes de afirmar" estava só no prompt do Supervisor — e o
+    Supervisor não governa o subagente. Foi para o `cache_prefix.md`, injetado
+    em TODOS os agentes.
+    """
+
+    @pytest.fixture(scope="class")
+    def prefixo(self) -> str:
+        return (_REPO / "data_agents" / "agents" / "cache_prefix.md").read_text(encoding="utf-8")
+
+    def test_manda_usar_tavily_antes_de_responder(self, prefixo: str) -> None:
+        assert "tavily_search" in prefixo and "ANTES de responder" in prefixo
+
+    def test_diz_que_context7_nao_e_para_produto(self, prefixo: str) -> None:
+        assert "context7 indexa *bibliotecas*" in prefixo
+
+    def test_proibe_citar_o_proprio_repo_como_fonte(self, prefixo: str) -> None:
+        """O KB-First grepou o repo e achou o exemplo do prompt — e citou."""
+        baixo = prefixo.lower()
+        assert "próprio repositório como fonte" in baixo
+        assert "exemplos em prompts e testes" in baixo
+
+    def test_caminho_sem_tavily_e_hedge_nao_negacao(self, prefixo: str) -> None:
+        assert "Não afirme que não existe" in prefixo
+
+    def test_exemplo_do_supervisor_nao_afirma_a_data_como_fato(self) -> None:
+        """Se o prompt afirma 'docs dated 2026-09-11', o KB-First cita isso como
+        evidência — foi o que aconteceu. O exemplo tem que ser sobre a ROTA."""
+        from data_agents.agents.prompts.supervisor_prompt import SUPERVISOR_SYSTEM_PROMPT as p
+
+        assert "dated 2026-09-11" not in p
+        assert "Do not treat this paragraph as evidence" in p
+
+    def test_cache_prefix_continua_sem_conteudo_dinamico(self, prefixo: str) -> None:
+        """Regra do CLAUDE.md: byte-idêntico a cada execução. Nada de timestamp."""
+        import re
+
+        assert not re.search(r"\b20\d\d-\d\d-\d\dT\d\d:\d\d", prefixo), "timestamp no cache_prefix"
