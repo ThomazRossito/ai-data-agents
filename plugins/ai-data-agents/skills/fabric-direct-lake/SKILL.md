@@ -314,3 +314,7 @@ WHERE is_active = true
 - [Sunsetting Default Semantic Models — Microsoft Fabric Blog](https://blog.fabric.microsoft.com/en-us/blog/sunsetting-default-semantic-models-microsoft-fabric)
 - [Composite Semantic Models with Direct Lake and Import tables](https://powerbi.microsoft.com/en-us/blog/deep-dive-into-composite-semantic-models-with-direct-lake-and-import-tables/)
 - [Power BI Embedded with Direct Lake Mode — GA (março 2025)](https://blog.fabric.microsoft.com/en-US/blog/introducing-power-bi-embedded-with-direct-lake-mode-preview/)
+
+## Referência adicional
+
+- [`references/direct-lake-patterns.md`](references/direct-lake-patterns.md) — Padrões de arquitetura e ingestão para Direct Lake (movido de `skills/fabric/` em 2026-09-22; antes era órfão, nenhuma skill o referenciava).

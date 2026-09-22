@@ -60,7 +60,7 @@ CUSTOM: frozenset[str] = frozenset(
     {
         "databricks-genie-health-check",
         "databricks-observability-migration",
-        "pricing",
+        "databricks-pricing",
     }
 )
 

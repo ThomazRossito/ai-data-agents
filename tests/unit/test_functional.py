@@ -805,7 +805,7 @@ class TestCustomSkillsSurvive:
     CUSTOM_SKILLS = [
         "databricks-genie-health-check",
         "databricks-observability-migration",
-        "pricing",
+        "databricks-pricing",
     ]
 
     @pytest.mark.parametrize("skill_name", CUSTOM_SKILLS)

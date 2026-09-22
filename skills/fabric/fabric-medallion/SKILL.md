@@ -460,3 +460,7 @@ Estas regras evitam **fallback para DirectQuery** no Power BI:
 - [OneLake Shortcuts](https://learn.microsoft.com/en-us/fabric/onelake/onelake-shortcuts)
 - [Direct Lake overview](https://learn.microsoft.com/en-us/fabric/fundamentals/direct-lake-overview)
 - [Lakehouse schemas (enable_schemas)](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-schemas)
+
+## Referência adicional
+
+- [`references/lakehouse-medallion.md`](references/lakehouse-medallion.md) — Padrões de engenharia da arquitetura Medalhão no Fabric (movido de `skills/fabric/` em 2026-09-22; antes era órfão, nenhuma skill o referenciava).
