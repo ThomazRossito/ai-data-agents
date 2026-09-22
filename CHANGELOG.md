@@ -7,7 +7,30 @@
 
 ## [Unreleased]
 
+## [3.1.0] — 2026-09-22 — Onda 1: base Databricks reconciliada
 
+### Added
+- **Skills Databricks pelo catálogo oficial** (`databricks aitools install --path` + `scripts/sync_databricks_skills.py`): 29 skills upstream (catálogo 0.2.10), 3 custom preservadas, `skills/databricks/UPSTREAM.json` como rastreio. `make refresh-databricks-skills` / `check-databricks-skills`.
+- **Eval conceitual** `data_agents/evals/model_compare.py` + `conceptual_cases.yaml`: roda o pipeline inteiro, mede quem buscou na web (por agente), negações, custo; `--compare A B`.
+- **Negation guard** (`hooks/negation_guard_hook.py`): "não existe" de subagente sem busca web no turno vira `additionalContext` ao Supervisor + evento `unverified_negation`.
+- **Eval de roteamento** ganhou 2 casos (`genie-ontology-*`, `forbid: fabric-ontology`).
+- Regra global em `cache_prefix.md`: versão de DBR em exemplo é ilustrativa — `select_spark_version(latest=True, long_term_support=True)`, variável de bundle ou serverless.
+
+### Changed
+- **MCP Databricks** → servidor do `ai-dev-kit` @ `b059fd0` (43 tools); allowlist readonly explícita; `security_hook` inspeciona `tool_input["action"]`.
+- **Renomes oficiais das skills**: `bundles→dabs`, `config→core`, `spark-declarative-pipelines→pipelines`, `lakebase-{autoscale,provisioned}→lakebase`; `genie` coberto por `data-discovery`; `pricing→databricks-pricing`.
+- **Dispatcher**: descrição do `databricks-engineer` com a família Genie nos 240 chars visíveis; desambiguação Genie Ontology (Databricks) vs Fabric IQ Ontology; `temperature` só para Moonshot.
+- Supervisor: regra (f) — nunca substituir especialista ausente por agente de outra plataforma.
+- `setting_sources=["project"]`: o SDK não herda mais plugins/MCPs do `~/.claude` do host.
+- Dependabot mira `dev`.
+
+### Fixed
+- **`tavily` nunca subiu**: `uvx tavily-mcp` apontava para pacote PyPI homônimo sem executável. Agora `npx -y tavily-mcp@0.2.22` (oficial) e tools com o nome real `tavily_search`/`tavily_extract` (underscore). Primeira chamada bem-sucedida de tavily por um especialista: 22/09/2026.
+- `.env` do CLI passado ao subprocesso `claude` também nos evals; stderr do subprocesso capturado.
+- 3 `.md` órfãos em `skills/fabric/` → `references/` das skills; links de `kb/sqlserver-migration/index.md` desquebrados; `install_skills.sh` (404) removido.
+
+### Removed
+- `skills/databricks/install_skills.sh`, `databricks-genie`, `spark-python-data-source` (saíram do catálogo estável).
 
 ## [3.0.1] — 2026-05-23
 ## [3.0.0] — 2026-05-23
