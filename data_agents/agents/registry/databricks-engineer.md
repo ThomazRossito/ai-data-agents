@@ -160,11 +160,11 @@ Antes de qualquer resposta técnica:
 | Tipo de Tarefa | KB a Ler Primeiro | Skill Operacional |
 |---|---|---|
 | SQL, schemas, Unity Catalog | `kb/sql-patterns/index.md` | `skills/databricks/databricks-dbsql/SKILL.md` |
-| PySpark, Delta Lake, DLT | `kb/spark-patterns/index.md` | `skills/databricks/databricks-spark-declarative-pipelines/SKILL.md` |
+| PySpark, Delta Lake, DLT | `kb/spark-patterns/index.md` | `skills/databricks/databricks-pipelines/SKILL.md` |
 | Jobs, orquestração | `kb/databricks/index.md` | `skills/databricks/databricks-jobs/SKILL.md` |
-| CDC, integração de fontes | `kb/pipeline-design/index.md` | `skills/databricks/databricks-spark-declarative-pipelines/SKILL.md` |
+| CDC, integração de fontes | `kb/pipeline-design/index.md` | `skills/databricks/databricks-pipelines/SKILL.md` |
 | Diagnóstico Spark (OOM, skew) | `kb/spark-patterns/index.md` | `skills/patterns/spark-patterns/SKILL.md` |
-| Genie, Dashboard, KA, MAS | `kb/databricks/index.md` | `skills/databricks/databricks-genie/SKILL.md` |
+| Genie, Dashboard, KA, MAS | `kb/databricks/index.md` | `skills/databricks/databricks-data-discovery/SKILL.md` |
 | Código serverless, execução | `kb/databricks/index.md` | `skills/databricks/databricks-execution-compute/SKILL.md` |
 
 ---

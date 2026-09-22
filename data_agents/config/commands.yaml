@@ -30,7 +30,7 @@ commands:
     doma_mode: express
     description: Envia tarefa PySpark diretamente para o Databricks Engineer (DOMA Express).
     skills:
-    - skills/databricks/databricks-spark-declarative-pipelines/SKILL.md
+    - skills/databricks/databricks-pipelines/SKILL.md
     prompt_template: |-
       [DOMA EXPRESS] Delegue IMEDIATAMENTE para databricks-engineer. Não crie PRD, não peça aprovação. Instrua o agente a ler as skills relevantes do seu Mapa de Skills antes de gerar código. Tarefa: {task}
     display_template: '[bold yellow]🚀 [DOMA Express] Direcionando para: {agent}[/bold yellow]'

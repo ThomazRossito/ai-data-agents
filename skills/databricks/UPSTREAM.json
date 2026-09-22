@@ -1,0 +1,42 @@
+{
+  "fonte": "databricks/databricks-agent-skills via `databricks aitools install --path`",
+  "versao_aitools": "0.2.10",
+  "sincronizado_em": "2026-09-22T22:00:58+00:00",
+  "upstream": [
+    "databricks-agent-bricks",
+    "databricks-ai-functions",
+    "databricks-aibi-dashboards",
+    "databricks-app-design",
+    "databricks-apps",
+    "databricks-apps-python",
+    "databricks-core",
+    "databricks-dabs",
+    "databricks-data-discovery",
+    "databricks-dbsql",
+    "databricks-docs",
+    "databricks-execution-compute",
+    "databricks-iceberg",
+    "databricks-jobs",
+    "databricks-lakebase",
+    "databricks-lakeflow-connect",
+    "databricks-metric-views",
+    "databricks-ml-training",
+    "databricks-mlflow-evaluation",
+    "databricks-model-serving",
+    "databricks-pipelines",
+    "databricks-python-sdk",
+    "databricks-serverless-migration",
+    "databricks-spark-structured-streaming",
+    "databricks-synthetic-data-gen",
+    "databricks-unity-catalog",
+    "databricks-unstructured-pdf-generation",
+    "databricks-vector-search",
+    "databricks-zerobus-ingest"
+  ],
+  "custom": [
+    "databricks-genie-health-check",
+    "databricks-observability-migration",
+    "pricing"
+  ],
+  "nota": "Gerado por scripts/sync_databricks_skills.py. `databricks aitools list/update` NÃO rastreiam instalação por --path; este arquivo é o rastreio. Para atualizar: make refresh-databricks-skills."
+}

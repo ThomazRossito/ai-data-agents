@@ -186,8 +186,8 @@ ORDER BY start_time DESC;
 
 - **[databricks-unity-catalog](../databricks-unity-catalog/SKILL.md)** — mecânica genérica de system tables (lineage, audit, billing), volumes
 - **[databricks-jobs](../databricks-jobs/SKILL.md)** — configuração de notifications/monitoring nativo de Jobs
-- **[databricks-bundles](../databricks-bundles/SKILL.md)** — deployment de recursos DAB (`resources.alerts`, `resources.jobs`)
-- **[databricks-spark-declarative-pipelines](../databricks-spark-declarative-pipelines/SKILL.md)** — configuração do bloco `event_log` no YAML do pipeline
+- **[databricks-dabs](../databricks-dabs/SKILL.md)** — deployment de recursos DAB (`resources.alerts`, `resources.jobs`)
+- **[databricks-pipelines](../databricks-pipelines/SKILL.md)** — configuração do bloco `event_log` no YAML do pipeline
 - **[pricing](../pricing/SKILL.md)** — cotação de custo Databricks (agent `databricks-cost-calculator`)
 - **[migration](../../migration/SKILL.md)** — playbook das 5 fases de migração (ASSESS → VALIDATE)
 

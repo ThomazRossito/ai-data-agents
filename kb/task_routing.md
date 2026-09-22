@@ -15,16 +15,16 @@ Antes de planejar, leia a KB indicada. Skills são opcionais (detalhes operacion
 
 | Tipo de Tarefa                                       | KB a Ler Primeiro                   | Skill Operacional                                                                                    |
 |------------------------------------------------------|-------------------------------------|------------------------------------------------------------------------------------------------------|
-| Pipeline SDP/LakeFlow (Spark Declarative)            | `kb/pipeline-design/index.md`       | `skills/databricks/databricks-spark-declarative-pipelines/SKILL.md` + `skills/patterns/pipeline-design/SKILL.md`    |
+| Pipeline SDP/LakeFlow (Spark Declarative)            | `kb/pipeline-design/index.md`       | `skills/databricks/databricks-pipelines/SKILL.md` + `skills/patterns/pipeline-design/SKILL.md`    |
 | Pipeline Spark Structured Streaming                  | `kb/spark-patterns/index.md`        | `skills/databricks/databricks-spark-structured-streaming/SKILL.md`                                   |
 | DDL / Tabelas Delta / Unity Catalog                  | `kb/sql-patterns/index.md`          | `skills/patterns/sql-generation/SKILL.md` + `skills/databricks/databricks-unity-catalog/SKILL.md`                   |
 | SQL Warehouse / Materialized Views                   | `kb/databricks/index.md`            | `skills/databricks/databricks-dbsql/SKILL.md`                                                        |
 | Databricks Jobs / Workflows / Orquestração           | `kb/databricks/index.md`            | `skills/databricks/databricks-jobs/SKILL.md`                                                         |
-| Databricks Asset Bundles / CI-CD                     | `kb/databricks/index.md`            | `skills/databricks/databricks-bundles/SKILL.md`                                                      |
+| Databricks Asset Bundles / CI-CD                     | `kb/databricks/index.md`            | `skills/databricks/databricks-dabs/SKILL.md`                                                      |
 | Model Serving / MLflow / Deploy de Agentes           | `kb/databricks/index.md`            | `skills/databricks/databricks-model-serving/SKILL.md`                                                |
 | Vector Search / RAG                                  | `kb/databricks/index.md`            | `skills/databricks/databricks-vector-search/SKILL.md`                                                |
 | AI Functions (ai_query, ai_forecast)                 | `kb/databricks/index.md`            | `skills/databricks/databricks-ai-functions/SKILL.md`                                                 |
-| Genie Space (criar/atualizar — Conversational BI)    | `kb/semantic-modeling/index.md`     | `skills/databricks/databricks-genie/SKILL.md`                                                        |
+| Genie Space (criar/atualizar — Conversational BI)    | `kb/semantic-modeling/index.md`     | `skills/databricks/databricks-data-discovery/SKILL.md`                                                        |
 | AI/BI Dashboard (criar/publicar)                     | `kb/semantic-modeling/index.md`     | `skills/databricks/databricks-aibi-dashboards/SKILL.md`                                              |
 | Knowledge Assistants / Mosaic AI Agents (KA/MAS)     | `kb/databricks/index.md`            | `skills/databricks/databricks-agent-bricks/SKILL.md`                                                 |
 | Execução de código serverless                        | `kb/databricks/index.md`            | *(use `mcp__databricks__execute_code`)*                                                              |
