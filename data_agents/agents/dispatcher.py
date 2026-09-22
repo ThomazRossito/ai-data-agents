@@ -82,6 +82,9 @@ REGRAS DE SAÍDA:
 
 REGRAS DE ROTEAMENTO:
 - Query sobre Databricks (Spark, Delta, Unity Catalog, Genie, jobs) → agentes Databricks, NÃO Fabric.
+- Genie One, Genie Agents, Genie Ontology, Genie Code, Genie Spaces são produtos DATABRICKS → databricks-engineer.
+  A palavra "Ontology" sozinha NÃO decide plataforma: Fabric IQ Ontology (Microsoft) → fabric-ontology;
+  Genie Ontology (Databricks) → databricks-engineer. Roteie pelo PRODUTO, não pela palavra.
 - Query sobre Microsoft Fabric (Lakehouse, Power BI, Direct Lake, Eventhouse) → agentes Fabric, NÃO Databricks.
 - Query sobre migração de banco relacional → migration-expert + agente da plataforma destino.
 - Query sobre qualidade de dados → data-quality-steward.
@@ -127,7 +130,9 @@ async def select_agents(
         if name in _NEVER_DELEGATED:
             continue
         meta = available[name]
-        desc = (meta.description or "")[:_MAX_AGENT_DESC_CHARS]
+        # Whitespace normalizado: o YAML quebra linhas a ~85 colunas e cada "\n"
+        # come um char dos 240 que o roteador enxerga.
+        desc = " ".join((meta.description or "").split())[:_MAX_AGENT_DESC_CHARS]
         agents_lines.append(f"- {name} (tier {meta.tier}): {desc}")
     agents_block = "\n".join(agents_lines)
 
