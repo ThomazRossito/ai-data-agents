@@ -111,7 +111,7 @@ class TestHookSemBusca:
         assert out["hookSpecificOutput"]["hookEventName"] == "PostToolUse"
         assert "NEGATION GUARD" in ctx
         assert "NÃO repasse a negação" in ctx
-        assert "tavily-search" in ctx
+        assert "tavily_search" in ctx
         assert "Genie Ontology" in ctx, "o trecho ofensor deve ir no contexto"
 
     @pytest.mark.asyncio
@@ -139,7 +139,7 @@ class TestHookComBusca:
     async def test_tavily_no_turno_libera_a_negacao(self, tmp_path: Path) -> None:
         """Com busca web feita, a negação pode estar fundamentada — o hook recua."""
         await guard_unverified_negation(
-            {"tool_name": "mcp__tavily__tavily-search", "tool_input": {"query": "x"}}, "t0", None
+            {"tool_name": "mcp__tavily__tavily_search", "tool_input": {"query": "x"}}, "t0", None
         )
         out = await guard_unverified_negation(_agent_event(RODADA_3_CURL), "t1", None)
         assert out == {}
@@ -179,6 +179,28 @@ class TestHookComBusca:
         assert await guard_unverified_negation(_agent_event(RODADA_3_CURL), "t1", None)
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "tool",
+        ["mcp__tavily__tavily_search", "mcp__tavily__tavily_extract", "mcp__tavily__tavily_crawl"],
+    )
+    async def test_qualquer_tool_tavily_conta_por_prefixo(self, tool: str) -> None:
+        """Nome exato enganou por dois dias (hífen vs underscore). Prefixo não engana."""
+        await guard_unverified_negation({"tool_name": tool, "tool_input": {}}, "t0", None)
+        assert await guard_unverified_negation(_agent_event(RODADA_3_CURL), "t1", None) == {}
+
+    def test_is_web_search_tool(self) -> None:
+        from data_agents.hooks.negation_guard_hook import is_web_search_tool
+
+        assert is_web_search_tool("mcp__tavily__tavily_search")
+        assert is_web_search_tool("mcp__tavily__qualquer_coisa_nova")
+        assert is_web_search_tool("WebSearch")
+        assert is_web_search_tool("mcp__firecrawl__firecrawl_search")
+        assert not is_web_search_tool("WebFetch")
+        assert not is_web_search_tool("Bash")
+        assert not is_web_search_tool("mcp__context7__resolve-library-id")
+        assert not is_web_search_tool("")
+
+    @pytest.mark.asyncio
     async def test_context7_NAO_conta_como_busca(self) -> None:
         """context7 indexa bibliotecas, não produto — 2ª rodada."""
         await guard_unverified_negation(
@@ -189,7 +211,7 @@ class TestHookComBusca:
     @pytest.mark.asyncio
     async def test_reset_zera_a_busca(self) -> None:
         await guard_unverified_negation(
-            {"tool_name": "mcp__tavily__tavily-search", "tool_input": {}}, "t0", None
+            {"tool_name": "mcp__tavily__tavily_search", "tool_input": {}}, "t0", None
         )
         reset_negation_guard()
         assert await guard_unverified_negation(_agent_event(RODADA_1_GERAL), "t1", None), (

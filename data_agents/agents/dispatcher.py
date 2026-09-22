@@ -175,19 +175,11 @@ async def select_agents(
     # Consequência prática: não trate o roteamento como cacheável por hash da
     # query, e não aperte o gate de routing_accuracy só porque uma rodada deu
     # 100% — o piso de ruído é real. Ver data_agents/evals/routing.py.
-    payload = json.dumps(
-        {
-            "model": settings.default_model,
-            "max_tokens": 512,
-            "temperature": 0,
-            "thinking": {"type": "disabled"},
-            "system": _DISPATCHER_SYSTEM_PROMPT,
-            "messages": [{"role": "user", "content": user_msg}],
-        }
-    ).encode("utf-8")
-
     base = (settings.anthropic_base_url or "https://api.anthropic.com").rstrip("/")
     url = f"{base}/v1/messages"
+    payload = json.dumps(build_dispatcher_payload(user_msg, settings.default_model, base)).encode(
+        "utf-8"
+    )
 
     req = urllib.request.Request(
         url,
@@ -356,6 +348,32 @@ def format_dispatcher_log(
         suffix += f" · {reason}"
     suffix += ")"
     return main_part + suffix
+
+
+def build_dispatcher_payload(user_msg: str, model: str, base_url: str) -> dict:
+    """Corpo da chamada do dispatcher. Puro — testável sem rede.
+
+    `temperature` só vai para a Moonshot. Contra a Anthropic, os modelos da
+    família Claude 5 rejeitam o campo com HTTP 400:
+
+        {"type":"invalid_request_error","message":"`temperature` is deprecated for this model."}
+
+    Foi isso que derrubou o dispatcher em 24/24 casos dos dois evals contra o
+    Sonnet 5 (2026-09-15) — fallback para 24 agentes, prompt 4× maior, custo
+    US$11,7 por rodada e pipeline incomparável. Na Moonshot o campo fica como
+    estava: o baseline do `eval-routing` (100%/100%/100%, fallback 0%) foi
+    medido com ele, e não há motivo para mexer no que está medido.
+    """
+    body: dict = {
+        "model": model,
+        "max_tokens": 512,
+        "thinking": {"type": "disabled"},
+        "system": _DISPATCHER_SYSTEM_PROMPT,
+        "messages": [{"role": "user", "content": user_msg}],
+    }
+    if "moonshot" in base_url.lower():
+        body["temperature"] = 0
+    return body
 
 
 # ─── Helpers internos ────────────────────────────────────────────────────────

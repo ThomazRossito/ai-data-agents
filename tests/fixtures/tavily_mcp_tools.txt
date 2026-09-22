@@ -1,0 +1,10 @@
+# Tools registradas pelo servidor oficial npm `tavily-mcp` — uma por linha.
+# Como regenerar (não precisa de chave):
+#   npm pack tavily-mcp@<versão> && tar xzf tavily-mcp-<versão>.tgz
+#   grep -rhoE "name:\s*['\"]tavily_[a-z]+['\"]" package/build | sort -u
+# Versão do snapshot: 0.2.22 (2026-09-15). Atualize junto com TAVILY_MCP_NPM_VERSION.
+tavily_crawl
+tavily_extract
+tavily_map
+tavily_research
+tavily_search

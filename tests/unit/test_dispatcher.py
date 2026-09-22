@@ -491,17 +491,79 @@ class TestDispatcherThinkingBlocks:
         assert conf == 0.0
         assert len(agents) > 1, "fallback deve carregar os agentes delegáveis"
 
-    def test_payload_disables_thinking_and_is_deterministic(self):
+    def test_payload_disables_thinking(self):
         """
-        A causa raiz: sem `thinking=disabled`, o modelo gasta o orçamento
-        pensando. E `temperature: 0` torna o roteamento reprodutível.
+        A causa raiz do bug de 2026-09-13: sem `thinking=disabled`, o modelo
+        gasta o orçamento pensando e nunca emite o JSON.
+
+        (Este teste grepava o código-fonte e afirmava que `temperature: 0`
+        "torna o roteamento reprodutível" — falso, medido em 2026-09-14: 10/25
+        casos variam. Agora testa o comportamento do payload, não o texto.)
         """
-        import inspect
+        from data_agents.agents.dispatcher import build_dispatcher_payload
 
-        from data_agents.agents import dispatcher
+        for base in ("https://api.moonshot.ai/anthropic", "https://api.anthropic.com"):
+            body = build_dispatcher_payload("q", "m", base)
+            assert body["thinking"] == {"type": "disabled"}, base
+            assert body["max_tokens"] >= 512, "orçamento folgado para modelos com thinking forçado"
 
-        src = inspect.getsource(dispatcher.select_agents)
-        assert '"thinking": {"type": "disabled"}' in src, (
-            "o payload do dispatcher deve desabilitar thinking explicitamente"
-        )
-        assert '"temperature": 0' in src, "roteamento deve ser determinístico"
+
+# ─── build_dispatcher_payload (puro) ─────────────────────────────────────────
+
+
+class TestBuildDispatcherPayload:
+    """Eval 2026-09-15 contra o Sonnet 5: 24/24 `HTTP 400 — "temperature is
+    deprecated for this model"`. O campo só pode ir para a Moonshot."""
+
+    def test_anthropic_sem_temperature(self):
+        from data_agents.agents.dispatcher import build_dispatcher_payload
+
+        body = build_dispatcher_payload("q", "claude-sonnet-5", "https://api.anthropic.com")
+        assert "temperature" not in body
+        assert body["thinking"] == {"type": "disabled"}
+        assert body["model"] == "claude-sonnet-5"
+        assert body["messages"] == [{"role": "user", "content": "q"}]
+
+    def test_moonshot_mantem_temperature_zero(self):
+        """Baseline do eval-routing foi medido com temperature=0 — não mexer."""
+        from data_agents.agents.dispatcher import build_dispatcher_payload
+
+        body = build_dispatcher_payload("q", "kimi-k2.6", "https://api.moonshot.ai/anthropic")
+        assert body["temperature"] == 0
+
+    @pytest.mark.asyncio
+    async def test_select_agents_usa_o_payload_sem_temperature_na_anthropic(self, monkeypatch):
+        from data_agents.agents import dispatcher as disp
+
+        monkeypatch.setattr(disp.settings, "anthropic_base_url", "https://api.anthropic.com")
+        monkeypatch.setattr(disp.settings, "default_model", "claude-sonnet-5")
+        available = _make_available("databricks-engineer", "geral")
+        captured = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured["body"] = json.loads(req.data.decode("utf-8"))
+            resp = MagicMock()
+            resp.read.return_value = json.dumps(
+                {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(
+                                {
+                                    "agents": ["databricks-engineer"],
+                                    "confidence": 0.9,
+                                    "reason": "x",
+                                }
+                            ),
+                        }
+                    ]
+                }
+            ).encode()
+            resp.__enter__ = MagicMock(return_value=resp)
+            resp.__exit__ = MagicMock(return_value=False)
+            return resp
+
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            agents, conf, _ = await select_agents("query", available)
+        assert "temperature" not in captured["body"]
+        assert agents == ["databricks-engineer"] and conf == 0.9

@@ -227,14 +227,31 @@ def test_tavily_usa_o_pacote_oficial_npm_pinado():
 
 
 def test_tavily_tools_batem_com_o_servidor_oficial():
-    """Nomes das tools do npm oficial (README): tavily-search, tavily-extract,
-    tavily-map, tavily-crawl. O projeto oferece as duas primeiras aos agentes."""
-    from data_agents.mcp_servers.tavily.server_config import TAVILY_MCP_TOOLS
+    """Os nomes REAIS do servidor npm são underscore (`tavily_search`), não hífen
+    como o README sugere. Snapshot em tests/fixtures/tavily_mcp_tools.txt
+    (extraído do build do pacote). Foi o hífen que deixou o especialista sem
+    tavily mesmo com o servidor conectado (2ª rodada do eval, 2026-09-15)."""
+    from pathlib import Path
 
-    assert set(TAVILY_MCP_TOOLS) <= {
-        "mcp__tavily__tavily-search",
-        "mcp__tavily__tavily-extract",
-        "mcp__tavily__tavily-map",
-        "mcp__tavily__tavily-crawl",
+    from data_agents.mcp_servers.tavily.server_config import TAVILY_MCP_TOOLS, TAVILY_TOOL_PREFIX
+
+    fixture = Path(__file__).resolve().parents[1] / "fixtures" / "tavily_mcp_tools.txt"
+    oficiais = {
+        f"{TAVILY_TOOL_PREFIX}{ln.strip()}"
+        for ln in fixture.read_text(encoding="utf-8").splitlines()
+        if ln.strip() and not ln.startswith("#")
     }
-    assert "mcp__tavily__tavily-search" in TAVILY_MCP_TOOLS
+    assert oficiais, "fixture vazio"
+    sobrando = set(TAVILY_MCP_TOOLS) - oficiais
+    assert not sobrando, f"tools que o servidor oficial NÃO registra: {sorted(sobrando)}"
+    assert "mcp__tavily__tavily_search" in TAVILY_MCP_TOOLS
+    assert not any("-" in t.split("__")[-1] for t in TAVILY_MCP_TOOLS), "hífen de novo não"
+
+
+def test_tavily_alias_do_loader_usa_os_nomes_reais():
+    """O alias `tavily_all` é o que entra no `tools:` dos agentes — é ELE que
+    decide se o subagente enxerga a tool."""
+    from data_agents.agents.loader import MCP_TOOL_SETS
+
+    assert "mcp__tavily__tavily_search" in MCP_TOOL_SETS["tavily_all"]
+    assert "mcp__tavily__tavily-search" not in MCP_TOOL_SETS["tavily_all"]
