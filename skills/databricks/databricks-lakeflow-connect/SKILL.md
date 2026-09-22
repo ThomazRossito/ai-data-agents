@@ -1,368 +1,260 @@
 ---
 name: databricks-lakeflow-connect
-description: "Patterns and best practices for LakeFlow Connect — Databricks native managed ingestion for streaming data from SaaS applications and databases into Unity Catalog. Use when setting up CDC from databases (PostgreSQL, MySQL, SQL Server, Oracle), ingesting from SaaS sources (Salesforce, ServiceNow, Workday, NetSuite), configuring incremental ingestion pipelines, monitoring connector health and lag, or troubleshooting ingestion failures."
-updated_at: 2026-04-30
-source: databricks_docs
+description: "Build managed ingestion pipelines into Databricks using Lakeflow Connect. Use when ingesting from SaaS apps (Salesforce, Workday Reports, ServiceNow, Google Analytics 4, HubSpot, Confluence) or databases (SQL Server cloud and on-prem; PostgreSQL/MySQL CDC in PuPr) into Unity Catalog with serverless pipelines."
+compatibility: Requires databricks CLI (>= v0.294.0)
+metadata:
+  version: "0.1.0"
+parent: databricks-core
 ---
 
-# LakeFlow Connect
+# Lakeflow Connect
 
-LakeFlow Connect is Databricks' **managed ingestion** product for streaming data from external sources into Unity Catalog using Delta Live Tables (DLT) pipelines. It is **GA** as of 2025, replacing the need for third-party ETL tools (Fivetran, Airbyte) for supported source types.
+Build managed ingestion pipelines that pull from SaaS apps and databases into Unity Catalog Delta tables, governed end-to-end and powered by serverless Lakeflow Spark Declarative Pipelines (formerly Delta Live Tables / DLT).
 
-> LakeFlow Connect é diferente de LakeFlow Pipelines (DLT). Connect = ingestão de fontes externas. Pipelines = transformação Spark/SQL dentro do Databricks.
-
----
-
-## When to Use
-
-| Use Case | LakeFlow Connect |
-|----------|-----------------|
-| CDC de banco relacional (PostgreSQL, MySQL, SQL Server, Oracle) | ✓ Ideal |
-| Ingestão de SaaS (Salesforce, ServiceNow, Workday, NetSuite) | ✓ Ideal |
-| Streaming de eventos Kafka / Kinesis | ✗ Usar Auto Loader ou structured streaming diretamente |
-| Arquivos em cloud storage (S3, ADLS, GCS) | ✗ Usar Auto Loader |
-| APIs REST customizadas | ✗ Construir pipeline Python custom |
+**Status:** mixed catalog — GA connectors for production use, plus Public Preview, Beta, and Private Preview connectors that expand over time. See the connector catalog below.
 
 ---
 
-## Architecture Overview
+## What Is Lakeflow Connect?
 
+Managed connectors for ingesting data from SaaS applications and databases. The resulting ingestion pipeline is governed by Unity Catalog and powered by serverless compute and Lakeflow Spark Declarative Pipelines.
+
+Three frames to keep in mind:
+
+- **Simple and low-maintenance** — no client code to write, no message bus to operate; connector + UC Connection + a serverless pipeline.
+- **Unified with the lakehouse** — credentials stored in UC, output is governed Delta, runs on Jobs and SDP like any other workload.
+- **Efficient incremental processing** — change tracking / CDC / schema evolution / retries are built in.
+
+There are four architecture patterns:
+
+1. **SaaS pull** — connector reads from an external SaaS via OAuth or API key, lands in a streaming Delta table.
+2. **Database CDC via gateway** — an ingestion gateway runs in the customer's network, stages change events to a UC Volume, a serverless ingestion pipeline applies them as CDC into Delta.
+3. **Query-based** — for sources without native CDC (Oracle / Teradata / SQL Server / PG / MySQL query-based, Snowflake / Redshift / Synapse / BigQuery via Foreign Catalog), the connector issues periodic queries instead of subscribing to a change feed.
+4. **Community connectors** — template-based, out of scope for this skill.
+
+---
+
+## Is Lakeflow Connect the right tool?
+
+Decide this before you build. Lakeflow Connect is the managed **pull** path for SaaS apps and databases — it is not the answer for every ingestion intent.
+
+| If the source is... | Use | Skill |
+|---|---|---|
+| A SaaS app or database with a managed connector (Salesforce, Workday, ServiceNow, GA4, HubSpot, Confluence, SQL Server, ...) | **Lakeflow Connect** | this skill |
+| Files on cloud object storage (S3 / ADLS / GCS) | Auto Loader | **databricks-pipelines** |
+| A source you want to query in place, no copy | Lakehouse Federation | — |
+| An app or device that **pushes** events at you | Zerobus | **databricks-zerobus-ingest** |
+| A partner offering a Delta share | Delta Sharing | — |
+
+Full reasoning, including the Federation-vs-Connect and Auto-Loader-vs-Connect trade-offs, is in [4-ingestion-decision-tree.md](references/4-ingestion-decision-tree.md).
+
+---
+
+## Connector catalog
+
+Lakeflow Connect ships connectors at multiple release stages. **GA** and **Public Preview** connectors are production-supported; **Beta** and **Private Preview** are early-access and not production-supported.
+
+### GA connectors
+
+Full coverage in this skill.
+
+| Source | Type | Auth | Reference |
+|--------|------|------|-----------|
+| Salesforce (Sales / Service / etc.) | SaaS pull | OAuth U2M | [1-saas-connectors.md](references/1-saas-connectors.md) |
+| Workday Reports (RaaS) | SaaS pull | OAuth refresh token / basic | [1-saas-connectors.md](references/1-saas-connectors.md) |
+| ServiceNow | SaaS pull | OAuth U2M / basic | [1-saas-connectors.md](references/1-saas-connectors.md) |
+| Google Analytics 4 | SaaS pull (via BigQuery) | Service-account JSON | [1-saas-connectors.md](references/1-saas-connectors.md) |
+| HubSpot | SaaS pull | OAuth | [1-saas-connectors.md](references/1-saas-connectors.md) |
+| Confluence | SaaS pull | OAuth | [1-saas-connectors.md](references/1-saas-connectors.md) |
+| SQL Server (cloud) | Database CDC | DB user + change tracking / CDC | [2-database-connectors.md](references/2-database-connectors.md) |
+| SQL Server (on-prem) | Database CDC | DB user + ExpressRoute / Direct Connect | [2-database-connectors.md](references/2-database-connectors.md) |
+
+### Public Preview connectors
+
+Production-supported. Configuration may evolve before GA. Deep coverage is being added incrementally; until then, see the [public connector reference](https://docs.databricks.com/aws/en/ingestion/lakeflow-connect/connectors) for current setup steps.
+
+| Source | Type | Auth |
+|--------|------|------|
+| NetSuite | SaaS pull | OAuth |
+| Dynamics 365 | SaaS pull | OAuth |
+| PostgreSQL CDC | Database CDC | DB user + gateway |
+| MySQL CDC | Database CDC | DB user + gateway |
+| Oracle / Teradata / SQL Server / PG / MySQL (query-based) | Database query | DB user |
+| Snowflake / Redshift / Synapse / BigQuery (Foreign Catalog) | Database query | Foreign Catalog |
+| SFTP | File pull | Key / password |
+
+### Beta and Private Preview
+
+Early-access connectors are not production-supported. The list changes month to month; check the [public connector reference](https://docs.databricks.com/aws/en/ingestion/lakeflow-connect/connectors) for current availability.
+
+For the Lakeflow-Connect-vs-Auto-Loader-vs-Federation-vs-Delta-Sharing decision, see [4-ingestion-decision-tree.md](references/4-ingestion-decision-tree.md).
+
+---
+
+## Required Tools
+
+- **Databricks CLI v0.294.0+** for `databricks pipelines create` and `databricks connections create`. Verify with `databricks --version`.
+- **Databricks SDK for Python** (`databricks-sdk>=0.85.0`) if you prefer SDK over CLI.
+- **Declarative Automation Bundles** if authoring as IaC (recommended for any pipeline that ships to a customer environment).
+
+No extra connector-specific SDK is needed. Lakeflow Connect reuses the pipelines API surface — pipelines are created with an `ingestion_definition` block instead of a `libraries` block, but the API and CLI are otherwise the same.
+
+---
+
+## Prerequisites
+
+Confirm before creating any pipeline:
+
+1. **A Unity Catalog target** — catalog and schema must exist; the service principal or user creating the pipeline needs `USE CATALOG`, `USE SCHEMA`, `CREATE TABLE`, and `MODIFY` on the target schema.
+2. **A UC `CONNECTION` object** with credentials for the source. SaaS OAuth U2M connections must be created via the UI (Catalog Explorer); API-key and basic-auth connections can be created via CLI / DAB.
+3. **For database connectors**: network reachability between the gateway (classic compute, customer VPC) and the source database. On-prem requires ExpressRoute (Azure) or Direct Connect (AWS).
+4. **For file connectors**: OAuth scope grants on the SaaS file repo (SharePoint / Google Drive).
+
+---
+
+## Minimal Example — Salesforce ingestion pipeline
+
+The canonical authoring path is JSON to `databricks pipelines create --json`. (There is no SQL `CREATE TABLE … FROM CONNECTION` syntax for Lakeflow Connect — that syntax exists only for Lakehouse Federation, which is a different product.)
+
+```bash
+databricks pipelines create --json '{
+  "name": "salesforce_to_uc",
+  "ingestion_definition": {
+    "connection_name": "my_salesforce_oauth_connection",
+    "objects": [
+      {"table": {"source_schema": "salesforce", "source_table": "Account",
+                 "destination_catalog": "main", "destination_schema": "salesforce_raw"}},
+      {"table": {"source_schema": "salesforce", "source_table": "Opportunity",
+                 "destination_catalog": "main", "destination_schema": "salesforce_raw"}}
+    ]
+  }
+}'
 ```
-Source (DB / SaaS)
-       │
-       ▼
-LakeFlow Connect (managed connector)
-       │  ← DLT pipeline gerenciado pela Databricks
-       ▼
-Bronze table (Unity Catalog) — raw / append-only
-       │
-       ▼
-Silver table — via DLT transformation (opcional, mesmo pipeline)
+
+For a DAB-authored version (the production path), see [1-saas-connectors.md](references/1-saas-connectors.md).
+
+---
+
+## Running the pipeline
+
+Once authored, deploy and trigger a run. The bundle path gives the cleanest run-by-key command:
+
+```bash
+databricks bundle deploy -t dev
+databricks bundle run salesforce_ingestion           # KEY = the pipeline resource key in the bundle; waits by default
+databricks bundle run salesforce_ingestion --no-wait
 ```
 
-- Connectors rodam como **DLT pipelines** no workspace Databricks
-- Dados são escritos em **Delta tables no Unity Catalog**
-- Suporte a **full refresh** e **incremental** (CDC via log-based replication)
-- Monitoramento via **Pipeline Events** e métricas nativas do DLT
+A pipeline created imperatively with `pipelines create --json` has no run-by-name CLI — start and poll an update by pipeline ID instead:
+
+```bash
+databricks pipelines start-update <pipeline-id>             # returns an update_id
+databricks pipelines get-update  <pipeline-id> <update-id>  # poll one update's status
+databricks pipelines list-updates <pipeline-id>             # recent updates and their states
+```
+
+That asymmetry is one more reason to author with a Declarative Automation Bundle.
 
 ---
 
-## Supported Sources (GA — Abril 2026)
+## Detailed guides
 
-### Database Sources (CDC via log-based replication)
-
-| Source | CDC Method | Notes |
-|--------|-----------|-------|
-| PostgreSQL | Logical replication (pgoutput) | Requer `wal_level = logical` |
-| MySQL | Binary log (binlog) | Requer `binlog_format = ROW` |
-| SQL Server | CDC / change tracking | Requer SQL Server CDC habilitado |
-| Oracle | LogMiner | Requer supplemental logging |
-
-### SaaS Sources
-
-| Source | Ingestion Type | Notes |
-|--------|---------------|-------|
-| Salesforce | Bulk API 2.0 + incremental | Objects e Custom Objects |
-| ServiceNow | Table API incremental | Suporte a campos sys_updated_on |
-| Workday | Raas Reports incremental | Requer Workday ISU |
-| NetSuite | SuiteQL incremental | Requer token-based auth |
-| Google Analytics 4 | Batch daily | 28 dias de lookback |
-| HubSpot | REST API incremental | Deals, contacts, companies |
+| Topic | File | When to read |
+|-------|------|--------------|
+| SaaS connectors (Salesforce, Workday Reports, ServiceNow, GA4, HubSpot, Confluence) | [1-saas-connectors.md](references/1-saas-connectors.md) | Unified SaaS pattern, per-connector deltas, OAuth flows, DAB stubs |
+| Database connectors (SQL Server cloud + on-prem) | [2-database-connectors.md](references/2-database-connectors.md) | Gateway pattern, change tracking vs CDC, network setup |
+| Ingestion decision tree | [4-ingestion-decision-tree.md](references/4-ingestion-decision-tree.md) | Lakeflow Connect vs Auto Loader vs Lakehouse Federation vs Delta Sharing |
+| Troubleshooting and monitoring | [5-troubleshooting-and-monitoring.md](references/5-troubleshooting-and-monitoring.md) | Event log queries, common errors, escalation pointers |
 
 ---
 
-## Quick Start — Database CDC (PostgreSQL)
+## Workflow
 
-### 1. Pré-requisitos no PostgreSQL
+For each new ingestion pipeline:
+
+1. **Pick the connector category** — SaaS / database / file / push — and read the matching reference file.
+2. **Verify prerequisites** — UC target, source credentials, network path (for databases), region availability.
+3. **Create the UC `CONNECTION`** — UI for OAuth U2M, CLI / DAB for everything else.
+4. **Author the pipeline** — `databricks pipelines create --json` for one-offs, DAB YAML for anything shipping to a customer.
+5. **Trigger the first run** and watch the event log; see [5-troubleshooting-and-monitoring.md](references/5-troubleshooting-and-monitoring.md) for the SQL.
+6. **Schedule** the triggered pipeline with a Jobs `pipeline_task` (cron or interval). Lakeflow Connect supports triggered runs only — `continuous: false` selects triggered mode but is not itself a schedule, so the cadence comes from the Jobs trigger.
+
+---
+
+## Anti-patterns
+
+Three forms that look plausible but fail — wrong vs. right:
+
+**1. `CREATE TABLE ... FROM CONNECTION` is Lakehouse Federation, not Lakeflow Connect.**
 
 ```sql
--- No PostgreSQL, habilitar logical replication
-ALTER SYSTEM SET wal_level = logical;
-ALTER SYSTEM SET max_replication_slots = 10;
-SELECT pg_reload_conf();
-
--- Criar usuário de replicação
-CREATE USER lakeflow_user WITH REPLICATION LOGIN PASSWORD 'secure-password';
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO lakeflow_user;
-
--- Habilitar replicação para tabelas específicas
-CREATE PUBLICATION lakeflow_pub FOR TABLE orders, customers, products;
+-- WRONG: Federation syntax; no LFC equivalent exists
+CREATE TABLE main.salesforce_raw.account FROM CONNECTION my_salesforce_conn;
+```
+```json
+// RIGHT: author an ingestion_definition (see the Minimal Example above)
+{"ingestion_definition": {"connection_name": "my_salesforce_conn", "objects": [/* ... */]}}
 ```
 
-### 2. Criar Connection no Databricks
+**2. An ingestion pipeline carries `ingestion_definition`, never a `libraries` block.**
 
-```python
-# Via Databricks SDK
-from databricks.sdk import WorkspaceClient
-
-w = WorkspaceClient()
-
-# Criar connection para PostgreSQL
-connection = w.connections.create(
-    name="prod-postgresql",
-    connection_type="POSTGRESQL",
-    options={
-        "host": "prod-db.example.com",
-        "port": "5432",
-        "database": "mydb",
-        "user": "lakeflow_user",
-        "password": "{{secrets/lakeflow/pg-password}}",  # usar Databricks Secrets
-    }
-)
-print(f"Connection ID: {connection.name}")
+```json
+// WRONG: libraries is for a standard SDP pipeline running your notebooks/files
+{"name": "salesforce_to_uc", "libraries": [{"notebook": {"path": "/Repos/.../ingest"}}]}
+// RIGHT:
+{"name": "salesforce_to_uc", "ingestion_definition": {"connection_name": "...", "objects": []}}
 ```
 
-### 3. Criar Ingestion Pipeline
+**3. `continuous: true` is rejected — Lakeflow Connect is triggered-only.**
 
-```python
-# Criar pipeline de ingestão LakeFlow Connect
-pipeline = w.pipelines.create(
-    name="postgresql-cdc-pipeline",
-    ingestion_definition={
-        "connection_name": "prod-postgresql",
-        "objects": [
-            {
-                "schema": {
-                    "source_catalog": None,  # não aplicável para DB sources
-                    "source_schema": "public",
-                    "destination_catalog": "main",
-                    "destination_schema": "bronze_postgresql",
-                }
-            }
-        ],
-    },
-    catalog="main",
-    target="bronze_postgresql",
-    channel="CURRENT",
-    continuous=True,  # modo streaming contínuo
-    development=False,
-)
-print(f"Pipeline ID: {pipeline.pipeline_id}")
-```
-
-### 4. Iniciar e Monitorar
-
-```python
-# Iniciar pipeline
-w.pipelines.start_update(pipeline_id=pipeline.pipeline_id)
-
-# Verificar status
-import time
-while True:
-    status = w.pipelines.get(pipeline_id=pipeline.pipeline_id)
-    print(f"State: {status.state} | Health: {status.health}")
-    if status.state in ("RUNNING", "FAILED", "IDLE"):
-        break
-    time.sleep(10)
+```json
+// WRONG: continuous mode fails at create
+{"continuous": true, "ingestion_definition": {/* ... */}}
+// RIGHT: continuous:false (or omit) + schedule with a Jobs pipeline_task
+{"continuous": false, "ingestion_definition": {/* ... */}}
 ```
 
 ---
 
-## Quick Start — SaaS Source (Salesforce)
+## Important
 
-### 1. Criar Connection Salesforce
-
-```python
-connection = w.connections.create(
-    name="salesforce-prod",
-    connection_type="SALESFORCE",
-    options={
-        "client_id": "{{secrets/salesforce/client-id}}",
-        "client_secret": "{{secrets/salesforce/client-secret}}",
-        "username": "integration@company.com",
-        "password": "{{secrets/salesforce/password}}",
-        "security_token": "{{secrets/salesforce/token}}",
-        "instance_url": "https://company.my.salesforce.com",
-        "api_version": "59.0",
-    }
-)
-```
-
-### 2. Criar Pipeline com objetos específicos
-
-```python
-pipeline = w.pipelines.create(
-    name="salesforce-ingestion",
-    ingestion_definition={
-        "connection_name": "salesforce-prod",
-        "objects": [
-            {
-                "table": {
-                    "source_catalog": None,
-                    "source_schema": None,
-                    "source_table": "Opportunity",
-                    "destination_catalog": "main",
-                    "destination_schema": "bronze_salesforce",
-                    "destination_table": "opportunity",
-                }
-            },
-            {
-                "table": {
-                    "source_table": "Account",
-                    "destination_catalog": "main",
-                    "destination_schema": "bronze_salesforce",
-                    "destination_table": "account",
-                }
-            },
-            {
-                "table": {
-                    "source_table": "Lead",
-                    "destination_catalog": "main",
-                    "destination_schema": "bronze_salesforce",
-                    "destination_table": "lead",
-                }
-            },
-        ],
-    },
-    catalog="main",
-    target="bronze_salesforce",
-    channel="CURRENT",
-    continuous=False,  # scheduled para SaaS (não tem CDC real-time)
-)
-```
+- **Triggered only, no continuous mode** — pipelines run on a schedule or on-demand, never continuously. Check the connector reference for the latest status.
+- **Compute-only billing** — Lakeflow Connect is billed in DBUs (no per-row fee). Database connectors also incur classic-compute gateway DBUs in addition to the serverless ingestion pipeline DBUs. See the [pricing page](https://www.databricks.com/product/pricing/lakeflow-connect) for current rates.
+- **Salesforce auth is OAuth U2M only** — no machine-to-machine, no basic auth. Connection creation requires a UI walk-through.
+- **Database staging retention is 30 days** by default in the UC Volume between the gateway and the ingestion pipeline.
+- **Limits per pipeline** — most SaaS connectors cap at 250 tables per pipeline. Split across multiple pipelines if needed.
+- **This lands raw tables** — Lakeflow Connect writes source-faithful tables (the ingestion landing zone). Build the medallion Bronze/Silver/Gold transforms on top of them with **databricks-pipelines**.
 
 ---
 
-## Monitoramento e Observabilidade
+## Key Concepts
 
-### Verificar lag de replicação (DB sources)
-
-```sql
--- Consultar métricas do pipeline via system tables
-SELECT
-  pipeline_id,
-  pipeline_name,
-  timestamp,
-  level,
-  message
-FROM system.lakeflow.pipeline_events
-WHERE pipeline_name = 'postgresql-cdc-pipeline'
-  AND timestamp > now() - INTERVAL 1 HOUR
-ORDER BY timestamp DESC
-LIMIT 50;
-```
-
-### Verificar tabelas ingeridas e row counts
-
-```sql
--- Verificar tabelas no schema bronze
-SHOW TABLES IN main.bronze_postgresql;
-
--- Row count de uma tabela ingerida
-SELECT COUNT(*), MAX(_commit_timestamp) as last_cdc_event
-FROM main.bronze_postgresql.orders;
-```
-
-### Alertas recomendados
-
-```python
-# Configurar alerta de pipeline via Databricks Jobs (wrapper)
-w.jobs.create(
-    name="lakeflow-connect-health-check",
-    tasks=[{
-        "task_key": "health_check",
-        "notebook_task": {
-            "notebook_path": "/pipelines/health_check",
-        },
-        "existing_cluster_id": "...",
-    }],
-    schedule={
-        "quartz_cron_expression": "0 */15 * * * ?",  # a cada 15 minutos
-        "timezone_id": "America/Sao_Paulo",
-    },
-    email_notifications={
-        "on_failure": ["data-team@company.com"],
-    }
-)
-```
+- **UC `CONNECTION` is the credential anchor** — every Lakeflow Connect pipeline points at a UC connection. The connection owns the auth; the pipeline references it by name.
+- **Serverless ingestion pipeline + (optional) classic gateway** — SaaS connectors are pure serverless. Database connectors split into a customer-network gateway (classic) and a serverless ingestion pipeline (Delta-bound).
+- **CDC and schema evolution are built in** — for sources that support change tracking or CDC, the connector applies changes incrementally and evolves the target schema. Data-type changes typically require a full snapshot reload.
+- **Streaming Delta output** — destination tables are governed Delta tables; CDC sources are applied with change semantics (`APPLY CHANGES` / AUTO CDC, or `apply_changes_from_snapshot` for snapshot sources). Compatible with downstream materialized views and Spark streaming.
+- **OAuth U2M is UI-only** — DAB / CLI cannot bootstrap OAuth U2M connections. Hand the one-time browser step to a human (Catalog Explorer > External Data > Connections > Create connection > pick the source > sign in), then resume once `databricks connections get <connection_name>` reports `READY`.
 
 ---
 
-## Transformações Downstream (Silver Layer)
+## Common Issues
 
-LakeFlow Connect grava na camada Bronze. Use DLT para transformar para Silver no mesmo pipeline ou em pipeline separado:
-
-```python
-# Adicionar transformação Silver ao mesmo pipeline (DLT notebook)
-import dlt
-from pyspark.sql.functions import col, current_timestamp
-
-@dlt.table(
-    name="silver_orders",
-    comment="Cleaned orders from PostgreSQL CDC",
-    table_properties={"quality": "silver"},
-)
-@dlt.expect_or_drop("valid_order_id", "order_id IS NOT NULL")
-@dlt.expect_or_drop("valid_amount", "amount > 0")
-def silver_orders():
-    return (
-        dlt.read_stream("bronze_postgresql.orders")
-        .filter(col("_change_type") != "delete")  # excluir deletes do CDC
-        .select(
-            col("order_id"),
-            col("customer_id"),
-            col("amount").cast("decimal(18,2)"),
-            col("status"),
-            col("created_at"),
-            current_timestamp().alias("processed_at"),
-        )
-    )
-```
+For common errors and their fixes — duplicate-key violations, watermark / cursor problems, schema evolution, gateway region availability, the `channel` runtime-channel setting, and pipelines that run but land no data — see [5-troubleshooting-and-monitoring.md](references/5-troubleshooting-and-monitoring.md), which also has the event-log queries to diagnose them.
 
 ---
 
-## Schema Evolution
+## Related Skills
 
-LakeFlow Connect suporta **schema evolution automático** por padrão:
-
-| Evento | Comportamento padrão |
-|--------|---------------------|
-| Nova coluna no source | Adicionada automaticamente na tabela Delta |
-| Coluna removida no source | Mantida na Delta com `NULL` para novos registros |
-| Mudança de tipo (ex: INT → BIGINT) | Aceita se compatível (widening); falha se incompatível |
-| Rename de coluna | Tratada como drop + add (coluna antiga com NULLs) |
-
-Para desabilitar evolution automático:
-```python
-pipeline = w.pipelines.create(
-    ...,
-    ingestion_definition={
-        ...,
-        "schema_evolution_mode": "NONE",  # ou "ADD_COLUMNS_ONLY"
-    }
-)
-```
+- **databricks-pipelines** — the SDP runtime that Lakeflow Connect pipelines run on. For Auto Loader and downstream pipeline patterns.
+- **databricks-zerobus-ingest** — push-based gRPC ingestion. Sibling to Lakeflow Connect's pull-based connectors.
+- **databricks-dabs** — author Lakeflow Connect pipelines as IaC.
+- **databricks-unity-catalog** — managing catalogs, schemas, and the UC `CONNECTION` objects that LFC credentials live in.
+- **databricks-jobs** — schedule ingestion pipelines with `pipeline_task`.
 
 ---
 
-## Troubleshooting
+## Resources
 
-| Sintoma | Causa provável | Solução |
-|---------|---------------|---------|
-| Pipeline em `FAILED` com erro de replicação | `wal_level` não é `logical` no PostgreSQL | `ALTER SYSTEM SET wal_level = logical; SELECT pg_reload_conf();` |
-| Lag crescente no CDC | Tabela source sem índice na PK | Adicionar índice primário + verificar replica identity |
-| SaaS connector com `RATE_LIMITED` | Muitas requisições à API do SaaS | Reduzir frequência de polling em `schedule_interval` |
-| Tabela com registros duplicados | Pipeline reiniciado sem checkpoint limpo | Verificar `_commit_version` e deduplificar com `MERGE` |
-| Schema evolution falhou | Mudança de tipo incompatível (ex: BIGINT → INT) | Recriar tabela destino com novo schema |
-
----
-
-## Boas Práticas
-
-1. **Sempre usar Databricks Secrets** para credenciais — nunca hardcode em opções do connector
-2. **Nomear connections** com ambiente: `postgresql-prod`, `salesforce-staging`
-3. **Separar schemas Bronze por source**: `bronze_postgresql`, `bronze_salesforce` — facilita lineage
-4. **Monitorar `_commit_timestamp`** nas tabelas Bronze para detectar lag de CDC
-5. **Usar `continuous=True`** apenas para fontes com CDC real (DB). Para SaaS, usar scheduled com `continuous=False`
-6. **Schema Bronze = append-only**: nunca atualizar tabelas Bronze diretamente — deixar o connector gerenciar
-7. **Testar em desenvolvimento primeiro**: criar pipeline com `development=True` para validar configuração antes de produção
-
----
-
-## Referências
-
-- Databricks Docs: [LakeFlow Connect](https://docs.databricks.com/ingestion/lakeflow-connect/index.html)
-- Databricks Docs: [Supported Sources](https://docs.databricks.com/ingestion/lakeflow-connect/sources/index.html)
-- Skill relacionada: `skills/databricks/databricks-spark-declarative-pipelines/` — DLT para transformação Silver/Gold
-- KB relacionada: `kb/pipeline-design/` — padrões Medallion e orquestração
-- KB relacionada: `kb/databricks/` — Unity Catalog e Delta Lake
+- [Lakeflow Connect public docs hub](https://docs.databricks.com/aws/en/ingestion/lakeflow-connect)
+- [Connector reference (per-connector setup)](https://docs.databricks.com/aws/en/ingestion/lakeflow-connect/connectors)
+- [Pricing](https://www.databricks.com/product/pricing/lakeflow-connect)

@@ -1,6 +1,10 @@
 ---
 name: databricks-synthetic-data-gen
 description: "Generate realistic synthetic data using Spark + Faker (strongly recommended). Supports serverless execution, multiple output formats (Parquet/JSON/CSV/Delta), and scales from thousands to millions of rows. For small datasets (<10K rows), can optionally generate locally and upload to volumes. Use when user mentions 'synthetic data', 'test data', 'generate data', 'demo dataset', 'Faker', or 'sample data'."
+compatibility: Requires databricks CLI (>= v1.0.0)
+metadata:
+  version: "0.1.0"
+parent: databricks-core
 ---
 
 > Catalog and schema are **always user-supplied** — never default to any value. If the user hasn't provided them, ask. For any UC write, **always create the schema if it doesn't exist** before writing data.
@@ -126,26 +130,30 @@ Show a clear specification with **the business story and your assumptions surfac
 
 **Do NOT proceed to code generation until user approves the plan, including the catalog.**
 
-### Post-Generation Checklist
+### Post-Generation Validation
 
-After generating data, use `get_volume_folder_details` to validate the output matches requirements:
-- Row counts match the plan
-- Schema matches expected columns and types
-- Data distributions look reasonable (check column stats)
+Use `databricks experimental aitools tools query` to validate generated data (row counts, distributions, referential integrity). Query parquet files directly:
+
+```bash
+databricks experimental aitools tools query --warehouse $WAREHOUSE_ID "
+SELECT COUNT(*) FROM parquet.\`/Volumes/CATALOG/SCHEMA/raw_data/customers\`
+"
+```
+
+See [references/2-troubleshooting.md](references/2-troubleshooting.md) for full validation examples.
 
 ## Use Databricks Connect Spark + Faker Pattern
 
 ```python
-from databricks.connect import DatabricksSession, DatabricksEnv
+from databricks.connect import DatabricksSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import StringType
 import pandas as pd
 
-# Setup serverless with dependencies (MUST list all libs used in UDFs)
-env = DatabricksEnv().withDependencies("faker", "holidays")
-spark = DatabricksSession.builder.withEnvironment(env).serverless(True).getOrCreate()
+# Setup serverless Spark session
+spark = DatabricksSession.builder.serverless(True).getOrCreate()
 
-# Pandas UDF pattern - import lib INSIDE the function
+# Pandas UDF pattern - import lib INSIDE the function (libs must be installed locally)
 @F.pandas_udf(StringType())
 def fake_name(ids: pd.Series) -> pd.Series:
     from faker import Faker  # Import inside UDF
@@ -242,15 +250,13 @@ uv pip install "databricks-connect>=16.4,<17.4" faker numpy pandas holidays
 ## Related Skills
 
 - **databricks-unity-catalog** — Managing catalogs, schemas, and volumes
-- **databricks-bundles** — DABs for production deployment
+- **databricks-dabs** — DABs for production deployment
 
 ## Common Issues
 
 | Issue | Solution |
 |-------|----------|
-| `ImportError: cannot import name 'DatabricksEnv'` | Upgrade: `uv pip install "databricks-connect>=16.4"` |
-| Python 3.11 instead of 3.12 | Python 3.12 required. Use `uv` to create env with correct version |
-| `ModuleNotFoundError: faker` | Add to `withDependencies()`, import inside UDF |
+| `ModuleNotFoundError: faker` | Install locally: `uv pip install faker`, import inside UDF |
 | Faker UDF is slow | Use `pandas_udf` for batch processing |
 | Out of memory | Increase `numPartitions` in `spark.range()` |
 | Referential integrity errors | Write master table to Delta first, read back for FK joins |
