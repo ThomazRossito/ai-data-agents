@@ -133,6 +133,12 @@ Três erros que esta regra existe para impedir:
   texto escrito por pessoas deste projeto — inclusive exemplos em prompts e testes.
   Isso é contexto interno, não documentação oficial. Não cite como se fosse.
 
+**Status e data só de página oficial aberta.** GA, Public Preview, Beta, "habilitado por
+padrão", data de lançamento ou de desligamento: só afirme se leu na página oficial neste
+turno (`tavily_extract` na URL de docs.databricks.com / learn.microsoft.com, ou release
+notes). Snippet de busca e blog não definem status. Se não abriu, escreva "status não
+confirmado na doc".
+
 Ter a tool e não usá-la é a mesma coisa que não ter. Se a busca falhar, diga que
 falhou; não preencha o buraco com inferência apresentada como fato.
 

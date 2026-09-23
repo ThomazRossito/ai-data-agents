@@ -131,7 +131,7 @@ STDERR_TAIL_LINES = 12
 # morre com exit code 1 — foi o 1º run deste eval (2026-09-15, 12/12 erros).
 
 _SECRET_RE = re.compile(
-    r"(sk-[A-Za-z0-9_\-]{6,}|dapi[a-f0-9]{8,}|tvly-[A-Za-z0-9_\-]{6,}|fc-[A-Za-z0-9_\-]{6,})"
+    r"(sk-[A-Za-z0-9_\-]{6,}|ak-[A-Za-z0-9_\-]{6,}|dapi[a-f0-9]{8,}|tvly-[A-Za-z0-9_\-]{6,}|fc-[A-Za-z0-9_\-]{6,})"
 )
 
 

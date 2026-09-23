@@ -567,8 +567,12 @@ class TestSupervisorPromptUsesDOMA:
         )
 
     def test_intake_uses_doma(self):
+        """O nome da etapa é 'DOMA Intake' (não BMAD). A linha de narração
+        '📋 [DOMA Intake] Delegating to: …' saiu em 2026-09-22 — o usuário pediu
+        resposta sem narração de roteamento; a CLI já mostra o agente."""
         content = self._get_prompt()
-        assert "[DOMA Intake]" in content, "Formato de intake deve ser '[DOMA Intake]'"
+        assert "DOMA Intake" in content, "a etapa de intake deve se chamar 'DOMA Intake'"
+        assert "[DOMA Intake] Delegating to" not in content, "narração de roteamento voltou"
 
 
 # ══════════════════════════════════════════════════════════════════════════════

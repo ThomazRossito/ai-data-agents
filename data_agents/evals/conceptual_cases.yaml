@@ -63,16 +63,39 @@ cases:
       URL para conectar neles?
     fonte:
       - https://docs.databricks.com/aws/en/agents/mcp-tools/managed-mcp
-    verificado_em: "2026-09-14"
+      - https://docs.databricks.com/aws/en/agents/mcp-tools/genie-mcp
+    verificado_em: "2026-09-22"
     fato: >
-      Cinco servidores: Genie One, Genie Agent, AI Search, Databricks SQL e
-      Unity Catalog functions. URL: https://<workspace>/api/2.0/mcp/<...>.
-      Public Preview; doc atualizada em 11/set/2026.
+      Cinco servidores (página em Public Preview, atualizada 21/set/2026):
+      Genie One, Genie Agent, AI Search, Databricks SQL e Unity Catalog
+      functions. Quatro seguem https://<workspace>/api/2.0/mcp/<...>. O Genie
+      One mudou: agora é o MCP Service system.ai.genie_one_mcp (GA), em
+      https://<workspace>/ai-gateway/mcp-services/system.ai.genie_one_mcp,
+      scope OAuth ai-gateway, governado pelo Unity Gateway.
     must_include:
       - ["genie"]
       - ["sql"]
       - ["functions", "funções", "funcoes"]
       - ["/api/2.0/mcp"]
+      - ["system.ai.genie_one_mcp", "ai-gateway/mcp-services"]
+    expect_web_search: true
+    agent_hint: databricks-engineer
+
+  - id: genie-one-mcp-status
+    prompt: |
+      O Genie One MCP server da Databricks está em Beta ou GA? Qual endpoint
+      devo usar hoje?
+    fonte:
+      - https://docs.databricks.com/aws/en/agents/mcp-tools/genie-mcp
+    verificado_em: "2026-09-22"
+    fato: >
+      O novo Genie One MCP Service, system.ai.genie_one_mcp, é GA. O endpoint
+      Beta anterior, https://<workspace>/api/2.0/mcp/genie, está depreciado e
+      será desligado em 31/out/2026. Motivo do caso: em 22/09 a resposta do
+      sistema chamou o servidor de "Beta", um dia depois da mudança na doc.
+    must_include:
+      - ["system.ai.genie_one_mcp"]
+      - ["31 de outubro", "october 31", "2026-10-31", "31/10"]
     expect_web_search: true
     agent_hint: databricks-engineer
 

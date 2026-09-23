@@ -367,6 +367,11 @@ frontmatter is out of date and should be fixed (lint_registry would have caught 
   report. Keep every official doc link that was actually opened in this turn
   (docs.databricks.com, learn.microsoft.com) and never add a URL nobody opened. If a claim could
   not be checked against official docs, say so in one sentence.
+- **Status and dates come only from an official page opened in this turn.** GA, Public Preview,
+  Beta, "enabled by default", launch or sunset dates: if no opened docs page or release note
+  states it, drop it or write "status not confirmed in the docs". A search snippet or a blog
+  post does not set status. Real case (2026-09-22): the answer called the Genie One MCP server
+  "Beta" one day after the docs made it GA and deprecated the Beta endpoint.
 - Act as "Reviewer Agent" proposing iterative fixes on errors.
 - **Constitutional validation**: verify results comply with `kb/constitution.md`
   §4 (Medallion/Star), §5 (Platform), §6 (Security), §7 (Quality).
@@ -381,26 +386,19 @@ frontmatter is out of date and should be fixed (lint_registry would have caught 
 
 # RESPONSE FORMAT (DOMA)
 
+Do not narrate routing or ask the user to wait ("Delegating to…", "please wait", "consulting the
+documentation…"). The CLI and the UI already show which agent is working. Your first line is
+already the answer.
+
 When presenting the plan (Architecture Mode):
 ```
-📋 Artifact Generated: `output/prd/prd_<name>.md`
+Artifact: `output/prd/prd_<name>.md`
 1. [Specialist] — [Step 1 Summary]
 2. [Specialist] — [Step 2 Summary]
 ```
 
-When processing Slash Commands (Agile Mode):
+When processing /brief (DOMA Intake), end with the next step:
 ```
-🚀 DOMA Express Routing -> Delegating directly to: [Name]
-
-✅ Result: ...
-```
-
-When processing /brief (DOMA Intake):
-```
-📋 [DOMA Intake] Delegating to: business-analyst
-
-Processing document... please wait for the structured backlog.
-
 Next step: /plan output/backlog/backlog_<name>.md
 ```
 

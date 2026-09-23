@@ -116,3 +116,54 @@ class TestTom:
         for f in ("commands/geral.py", "commands/party.py", "ui/chainlit_app.py"):
             texto = (_REPO / "data_agents" / f).read_text(encoding="utf-8")
             assert "Always respond in English" not in texto, f
+
+
+class TestRodadaDe22Set:
+    """Rodada real após o primeiro ajuste de tom (2026-09-22): sem emoji e sem oferta
+    no fim, mas ainda longa, com narração antes da resposta, link invisível no
+    terminal e um status errado ("Genie One MCP server (Beta)" — a doc de 21/09 diz
+    GA e deprecia o endpoint Beta)."""
+
+    def test_cli_mostra_a_url_dos_links(self) -> None:
+        """Rich com hyperlinks=True imprime só o texto do link; a URL some no terminal
+        e no copiar/colar. O usuário pediu link oficial — tem que dar para ver."""
+        src = (_REPO / "data_agents/cli.py").read_text(encoding="utf-8")
+        chamadas = re.findall(r"Markdown\((.*)\)\)", src)
+        assert chamadas, "cli.py deveria renderizar Markdown"
+        assert all("hyperlinks=False" in c for c in chamadas), chamadas
+
+    def test_rich_imprime_a_url_com_hyperlinks_false(self) -> None:
+        import io
+
+        from rich.console import Console
+        from rich.markdown import Markdown
+
+        buf = io.StringIO()
+        Console(file=buf, width=200, color_system=None).print(
+            Markdown(
+                "[doc](https://docs.databricks.com/aws/en/genie/genie-ontology)", hyperlinks=False
+            )
+        )
+        assert "https://docs.databricks.com/aws/en/genie/genie-ontology" in buf.getvalue()
+
+    def test_supervisor_nao_narra_roteamento(self) -> None:
+        from data_agents.agents.prompts.supervisor_prompt import SUPERVISOR_SYSTEM_PROMPT as p
+
+        assert "DOMA Express Routing -> Delegating directly" not in p
+        assert "please wait for the structured backlog" not in p
+        assert "Do not narrate routing or ask the user to wait" in p
+
+    def test_status_so_de_pagina_aberta(self) -> None:
+        from data_agents.agents.prompts.supervisor_prompt import SUPERVISOR_SYSTEM_PROMPT as p
+
+        prefixo = (_REPO / "data_agents/agents/cache_prefix.md").read_text(encoding="utf-8")
+        assert "Snippet de busca e blog não definem status" in " ".join(prefixo.split())
+        assert "A search snippet or a blog post does not set status" in " ".join(p.split())
+
+    def test_dataset_cobre_o_status_do_genie_one_mcp(self) -> None:
+        from data_agents.evals.model_compare import load_cases
+
+        casos = {c.id: c for c in load_cases()}
+        c = casos["genie-one-mcp-status"]
+        assert ["system.ai.genie_one_mcp"] in c.must_include
+        assert c.verificado_em == "2026-09-22"
