@@ -586,7 +586,7 @@ async def _stream_response(
                         console.print("[bold blue]Agente:[/bold blue]")
                         response_started = True
                     _assistant_text_parts.append(block.text)
-                    console.print(Markdown(block.text))
+                    console.print(Markdown(block.text, hyperlinks=False))
                     console.print()
 
                 elif isinstance(block, ToolUseBlock):
@@ -752,7 +752,7 @@ async def _handle_memory_command(user_input: str) -> None:
     elif sub == "lint":
         console.print("[dim]🧠 Executando health checks...[/dim]")
         report = lint_memories(store)
-        console.print(Markdown(report.to_markdown()))
+        console.print(Markdown(report.to_markdown(), hyperlinks=False))
         console.print()
 
     elif sub == "search":
@@ -770,7 +770,7 @@ async def _handle_memory_command(user_input: str) -> None:
         memories = retrieve_relevant_memories(query_text, store)
         if memories:
             formatted = format_memories_for_injection(memories)
-            console.print(Markdown(formatted))
+            console.print(Markdown(formatted, hyperlinks=False))
         else:
             console.print("[dim]Nenhuma memória relevante encontrada.[/dim]")
         console.print()
@@ -888,7 +888,7 @@ async def _stream_geral(
 
     if response_text:
         console.print("[bold cyan]💬 Geral:[/bold cyan]")
-        console.print(Markdown(response_text))
+        console.print(Markdown(response_text, hyperlinks=False))
         console.print()
         _geral_history.append({"role": "assistant", "content": response_text})
         if session_id:
@@ -1016,7 +1016,7 @@ async def _stream_party(user_input: str, session_id: str | None = None) -> dict[
         icon = agent_icons.get(name, "🤖")
         console.print(f"[bold yellow]{icon} {name}:[/bold yellow]")
         if text.strip():
-            console.print(Markdown(text))
+            console.print(Markdown(text, hyperlinks=False))
         else:
             console.print("[dim]_Agente não retornou resposta._[/dim]")
         console.print()
@@ -1139,7 +1139,7 @@ async def _stream_analyze(user_input: str, session_id: str | None = None) -> dic
         icon = agent_icons.get(name, "🔬")
         console.print(f"[bold green]{icon} {name}:[/bold green]")
         if text.strip():
-            console.print(Markdown(text))
+            console.print(Markdown(text, hyperlinks=False))
         console.print()
 
     # Salva relatório consolidado
@@ -1875,7 +1875,7 @@ async def run_single_query(prompt: str) -> None:
         elif isinstance(message, AssistantMessage):
             for block in message.content:
                 if isinstance(block, TextBlock) and block.text.strip():
-                    console.print(Markdown(block.text))
+                    console.print(Markdown(block.text, hyperlinks=False))
 
         elif isinstance(message, ResultMessage):
             # Recalcula com preços reais Moonshot K2.6 (SDK reporta com prices Anthropic)
