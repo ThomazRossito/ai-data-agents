@@ -124,3 +124,23 @@ class ConfigurationError(DataAgentsError):
 
     def __init__(self, message: str = ""):
         super().__init__(f"Erro de configuração: {message}")
+
+
+class ProviderQuotaError(DataAgentsError):
+    """O provedor do modelo recusou por saldo ou quota da conta.
+
+    Não é erro transitório: a próxima chamada, com o mesmo provedor e a mesma
+    chave, falha igual. Quem chama deve PARAR e dizer isso ao usuário, e não
+    seguir com fallback (caso real de 2026-09-22: a Moonshot devolveu 429
+    `exceeded_current_quota_error` — "suspended due to insufficient balance" —
+    e o dispatcher carregou os 24 agentes, o que pareceu regressão de roteamento).
+    """
+
+    def __init__(self, provider_host: str, detail: str = ""):
+        self.provider_host = provider_host
+        self.detail = detail
+        super().__init__(
+            f"O provedor do modelo ({provider_host}) recusou a chamada por saldo/quota da conta. "
+            "Nada foi executado. Recarregue a conta e rode de novo."
+            + (f" Detalhe: {detail}" if detail else "")
+        )

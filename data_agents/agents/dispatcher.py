@@ -40,9 +40,11 @@ import json
 import logging
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import TYPE_CHECKING
 
+from data_agents.config.exceptions import ProviderQuotaError
 from data_agents.config.settings import settings
 
 if TYPE_CHECKING:
@@ -203,24 +205,42 @@ async def select_agents(
         with urllib.request.urlopen(req, timeout=timeout_s) as resp:  # nosec B310
             return json.loads(resp.read().decode("utf-8"))
 
-    try:
-        data = await asyncio.to_thread(_do_request)
-    except urllib.error.HTTPError as e:
-        # O corpo do erro é onde a API diz O QUE rejeitou. Sem ele, o eval de
-        # 2026-09-15 registrou 12× "HTTP 400: Bad Request" contra a Anthropic e
-        # ninguém soube qual campo do payload era o problema.
-        body = _http_error_body(e)
-        logger.warning(
-            f"Dispatcher HTTP {e.code}: {e.reason} — fallback para todos os agentes"
-            + (f" — corpo: {body}" if body else "")
-        )
-        return _all_delegatable(available), 0.0, f"http_error:{e.code}"
-    except (urllib.error.URLError, TimeoutError) as e:
-        logger.warning(f"Dispatcher network error: {e} — fallback para todos os agentes")
-        return _all_delegatable(available), 0.0, f"network_error:{type(e).__name__}"
-    except Exception as e:
-        logger.error(f"Dispatcher unexpected error: {e}", exc_info=True)
-        return _all_delegatable(available), 0.0, f"unexpected:{type(e).__name__}"
+    data = None
+    for tentativa in range(_MAX_RETRIES + 1):
+        try:
+            data = await asyncio.to_thread(_do_request)
+            break
+        except urllib.error.HTTPError as e:
+            # O corpo do erro é onde a API diz O QUE rejeitou. Sem ele, o eval de
+            # 2026-09-15 registrou 12× "HTTP 400: Bad Request" contra a Anthropic e
+            # ninguém soube qual campo do payload era o problema.
+            body = _http_error_body(e)
+            tipo = classify_http_error(e.code, body)
+            if tipo == "quota":
+                # Sem saldo: a chamada do Supervisor vai falhar igual. Carregar 24
+                # agentes e seguir só esconde a causa (caso real de 2026-09-22).
+                logger.error(f"Dispatcher HTTP {e.code}: conta sem saldo/quota — corpo: {body}")
+                host = urllib.parse.urlparse(base).netloc or base
+                raise ProviderQuotaError(host, _quota_detail(body)) from None
+            if tipo == "transitorio" and tentativa < _MAX_RETRIES:
+                espera = _retry_wait(e, tentativa)
+                logger.warning(
+                    f"Dispatcher HTTP {e.code}: transitório, nova tentativa em {espera:.0f}s "
+                    f"({tentativa + 1}/{_MAX_RETRIES})" + (f" — corpo: {body}" if body else "")
+                )
+                await _sleep(espera)
+                continue
+            logger.warning(
+                f"Dispatcher HTTP {e.code}: {e.reason} — fallback para todos os agentes"
+                + (f" — corpo: {body}" if body else "")
+            )
+            return _all_delegatable(available), 0.0, f"http_error:{e.code}"
+        except (urllib.error.URLError, TimeoutError) as e:
+            logger.warning(f"Dispatcher network error: {e} — fallback para todos os agentes")
+            return _all_delegatable(available), 0.0, f"network_error:{type(e).__name__}"
+        except Exception as e:
+            logger.error(f"Dispatcher unexpected error: {e}", exc_info=True)
+            return _all_delegatable(available), 0.0, f"unexpected:{type(e).__name__}"
 
     # Parse da resposta — NUNCA assumir que content[0] é o bloco de texto.
     #
@@ -389,8 +409,61 @@ def _all_delegatable(available: dict[str, "AgentMeta"]) -> list[str]:
     return [n for n in available if n not in _NEVER_DELEGATED]
 
 
+#: Novas tentativas para erro transitório (429 de rate limit, 5xx, 529).
+_MAX_RETRIES = 2
+_RETRY_WAIT_CAP_S = 10.0
+
+#: Tipos de erro de SALDO/QUOTA — não adianta tentar de novo. Só o que foi
+#: observado de verdade entra aqui: Moonshot, 2026-09-22, HTTP 429 com
+#: {"error": {"type": "exceeded_current_quota_error",
+#:            "message": "... suspended due to insufficient balance ..."}}
+_QUOTA_ERROR_TYPES = frozenset({"exceeded_current_quota_error"})
+_QUOTA_MARKERS = ("insufficient balance", "exceeded_current_quota")
+
+_TRANSIENT_CODES = frozenset({429, 500, 502, 503, 504, 529})
+
+#: Indireção para os testes não dormirem de verdade.
+_sleep = asyncio.sleep
+
+
+def classify_http_error(code: int, body: str) -> str:
+    """'quota' (pare), 'transitorio' (tente de novo) ou 'outro' (fallback)."""
+    texto = (body or "").lower()
+    try:
+        erro = (json.loads(body) or {}).get("error") or {}
+        tipo = str(erro.get("type") or "")
+    except (ValueError, AttributeError, TypeError):
+        tipo = ""
+    if tipo in _QUOTA_ERROR_TYPES or any(m in texto for m in _QUOTA_MARKERS):
+        return "quota"
+    if code in _TRANSIENT_CODES:
+        return "transitorio"
+    return "outro"
+
+
+def _quota_detail(body: str) -> str:
+    try:
+        erro = (json.loads(body) or {}).get("error") or {}
+        return str(erro.get("type") or "")
+    except (ValueError, AttributeError, TypeError):
+        return ""
+
+
+def _retry_wait(e: urllib.error.HTTPError, tentativa: int) -> float:
+    """Retry-After do servidor quando existe (limitado); senão backoff 2s, 4s."""
+    try:
+        ra = float((e.headers or {}).get("Retry-After", ""))
+        if ra >= 0:
+            return min(ra, _RETRY_WAIT_CAP_S)
+    except (TypeError, ValueError):
+        pass
+    return min(2.0 * (2**tentativa), _RETRY_WAIT_CAP_S)
+
+
 _HTTP_ERROR_BODY_MAX = 400
-_SECRET_RE = re.compile(r"(sk-[A-Za-z0-9_\-]{6,}|dapi[a-f0-9]{8,}|tvly-[A-Za-z0-9_\-]{6,})")
+_SECRET_RE = re.compile(
+    r"(sk-[A-Za-z0-9_\-]{6,}|ak-[A-Za-z0-9_\-]{6,}|dapi[a-f0-9]{8,}|tvly-[A-Za-z0-9_\-]{6,})"
+)
 
 
 def _http_error_body(e: urllib.error.HTTPError) -> str:

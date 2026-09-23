@@ -71,6 +71,7 @@ from data_agents.agents.dispatcher import (
 from data_agents.agents.loader import preload_registry
 from data_agents.commands.parser import parse_command, get_help_text
 from data_agents.config.exceptions import (
+    ProviderQuotaError,
     BudgetExceededError,
     DataAgentsError,
     MCPConnectionError,
@@ -1796,6 +1797,10 @@ async def run_single_query(prompt: str) -> None:
                 selected, selected_agents, confidence, reason, len(available)
             )
             console.print(f"[dim]{log_line}[/dim]")
+        except ProviderQuotaError as e:
+            # Sem saldo não há fallback que resolva: o Supervisor falharia igual.
+            console.print(f"[bold red]{e}[/bold red]")
+            return
         except Exception as e:
             logger.warning(f"Dispatcher falhou, carregando todos os agentes: {e}")
             selected_agents = None  # fallback safe

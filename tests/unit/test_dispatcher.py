@@ -292,10 +292,17 @@ class TestSelectAgents:
         assert "empty_selection" in reason
 
     @pytest.mark.asyncio
-    async def test_fallback_on_http_error(self):
-        """Falha HTTP retorna fallback safe (todos os agentes, conf=0)."""
+    async def test_fallback_on_http_error(self, monkeypatch):
+        """Falha HTTP persistente retorna fallback safe (todos os agentes, conf=0).
+        500 é transitório: tenta de novo antes de desistir (sem dormir no teste)."""
         import urllib.error
 
+        from data_agents.agents import dispatcher as disp
+
+        async def _nao_dorme(_s):
+            return None
+
+        monkeypatch.setattr(disp, "_sleep", _nao_dorme)
         available = _make_available("databricks-engineer", "fabric-engineer", "geral")
 
         with patch(
@@ -618,3 +625,177 @@ class TestDescricaoVisivelAoDispatcher:
         assert "fabric-ontology" in c.forbid, (
             "o usuário foi explícito: fabric-ontology NÃO pode ser chamado"
         )
+
+
+# ─── Saldo/quota e erro transitório (2026-09-22) ─────────────────────────────
+
+
+_QUOTA_BODY = (
+    b'{"error":{"message":"Your account org-xyz <ak-abcdef123456> is suspended due to '
+    b"insufficient balance, please recharge your account or check your plan and billing "
+    b'details","type":"exceeded_current_quota_error"}}'
+)
+
+
+def _http_err(code: int, body: bytes = b"", headers: dict | None = None):
+    import io
+    import urllib.error
+    from email.message import Message
+
+    h = Message()
+    for k, v in (headers or {}).items():
+        h[k] = v
+    return urllib.error.HTTPError(
+        url="http://x", code=code, msg="err", hdrs=h, fp=io.BytesIO(body) if body else None
+    )
+
+
+def _ok_response():
+    body = json.dumps(
+        {
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps(
+                        {"agents": ["databricks-engineer"], "confidence": 0.95, "reason": "ok"}
+                    ),
+                }
+            ]
+        }
+    ).encode()
+    resp = MagicMock()
+    resp.read.return_value = body
+    resp.__enter__ = MagicMock(return_value=resp)
+    resp.__exit__ = MagicMock(return_value=False)
+    return resp
+
+
+class TestSaldoEErroTransitorio:
+    """Caso real: Moonshot devolveu 429 exceeded_current_quota_error ("suspended due to
+    insufficient balance"). O dispatcher tratou como qualquer erro, carregou os 24
+    agentes e seguiu — pareceu regressão de roteamento. Sem saldo, o certo é parar."""
+
+    @pytest.fixture(autouse=True)
+    def _sem_dormir(self, monkeypatch):
+        from data_agents.agents import dispatcher as disp
+
+        self.esperas: list[float] = []
+
+        async def _grava(s):
+            self.esperas.append(s)
+
+        monkeypatch.setattr(disp, "_sleep", _grava)
+
+    @pytest.mark.parametrize(
+        "code,body,esperado",
+        [
+            (429, _QUOTA_BODY.decode(), "quota"),
+            (429, '{"error":{"type":"rate_limit_error","message":"slow down"}}', "transitorio"),
+            (503, "", "transitorio"),
+            (529, "", "transitorio"),
+            (400, '{"error":{"type":"invalid_request_error"}}', "outro"),
+            (401, "", "outro"),
+        ],
+    )
+    def test_classifica(self, code, body, esperado):
+        from data_agents.agents.dispatcher import classify_http_error
+
+        assert classify_http_error(code, body) == esperado
+
+    @pytest.mark.asyncio
+    async def test_sem_saldo_para_na_hora_sem_fallback(self):
+        from data_agents.config.exceptions import ProviderQuotaError
+
+        chamadas = []
+
+        def _urlopen(*a, **k):
+            chamadas.append(1)
+            raise _http_err(429, _QUOTA_BODY)
+
+        with patch("urllib.request.urlopen", side_effect=_urlopen):
+            with pytest.raises(ProviderQuotaError) as exc:
+                await select_agents("q", _make_available("databricks-engineer", "geral"))
+        assert len(chamadas) == 1, "saldo zerado não melhora tentando de novo"
+        assert self.esperas == []
+        msg = str(exc.value)
+        assert "saldo/quota" in msg and "exceeded_current_quota_error" in msg
+        assert "ak-abcdef123456" not in msg and "org-xyz" not in msg, "identificador da conta vazou"
+
+    @pytest.mark.asyncio
+    async def test_429_de_rate_limit_tenta_de_novo_e_segue(self):
+        respostas = [
+            _http_err(429, b'{"error":{"type":"rate_limit_error"}}'),
+            _ok_response(),
+        ]
+
+        def _urlopen(*a, **k):
+            r = respostas.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        with patch("urllib.request.urlopen", side_effect=_urlopen):
+            agents, conf, _ = await select_agents(
+                "q", _make_available("databricks-engineer", "geral")
+            )
+        assert agents == ["databricks-engineer"] and conf == 0.95
+        assert self.esperas == [2.0]
+
+    @pytest.mark.asyncio
+    async def test_retry_after_do_servidor_e_respeitado_com_teto(self):
+        respostas = [
+            _http_err(429, b"{}", {"Retry-After": "3"}),
+            _http_err(429, b"{}", {"Retry-After": "120"}),
+            _ok_response(),
+        ]
+
+        def _urlopen(*a, **k):
+            r = respostas.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        with patch("urllib.request.urlopen", side_effect=_urlopen):
+            await select_agents("q", _make_available("databricks-engineer", "geral"))
+        assert self.esperas == [3.0, 10.0], "Retry-After honrado, mas nunca mais que 10s"
+
+    @pytest.mark.asyncio
+    async def test_transitorio_persistente_cai_no_fallback_depois_das_tentativas(self):
+        chamadas = []
+
+        def _urlopen(*a, **k):
+            chamadas.append(1)
+            raise _http_err(503)
+
+        with patch("urllib.request.urlopen", side_effect=_urlopen):
+            agents, conf, reason = await select_agents(
+                "q", _make_available("databricks-engineer", "fabric-engineer", "geral")
+            )
+        assert len(chamadas) == 3 and self.esperas == [2.0, 4.0]
+        assert reason == "http_error:503" and conf == 0.0
+        assert sorted(agents) == ["databricks-engineer", "fabric-engineer"]
+
+    @pytest.mark.asyncio
+    async def test_400_nao_tenta_de_novo(self):
+        chamadas = []
+
+        def _urlopen(*a, **k):
+            chamadas.append(1)
+            raise _http_err(400, b'{"error":{"type":"invalid_request_error"}}')
+
+        with patch("urllib.request.urlopen", side_effect=_urlopen):
+            _, _, reason = await select_agents("q", _make_available("databricks-engineer", "geral"))
+        assert len(chamadas) == 1 and reason == "http_error:400"
+
+    def test_scrub_mascara_identificador_ak(self):
+        from data_agents.agents.dispatcher import _SECRET_RE
+
+        assert _SECRET_RE.sub("***", "conta <ak-faibitj3xufi11> ok") == "conta <***> ok"
+
+    def test_cli_para_quando_nao_tem_saldo(self):
+        from pathlib import Path
+
+        src = (Path(__file__).resolve().parents[2] / "data_agents/cli.py").read_text(
+            encoding="utf-8"
+        )
+        assert "except ProviderQuotaError" in src
