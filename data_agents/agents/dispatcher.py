@@ -242,6 +242,9 @@ async def select_agents(
             logger.error(f"Dispatcher unexpected error: {e}", exc_info=True)
             return _all_delegatable(available), 0.0, f"unexpected:{type(e).__name__}"
 
+    if data is None:  # inalcançável hoje: o laço sempre termina em break ou return
+        return _all_delegatable(available), 0.0, "unexpected:no_response"
+
     # Parse da resposta — NUNCA assumir que content[0] é o bloco de texto.
     #
     # Modelos com raciocínio estendido devolvem um bloco `thinking` PRIMEIRO, e
@@ -451,12 +454,14 @@ def _quota_detail(body: str) -> str:
 
 def _retry_wait(e: urllib.error.HTTPError, tentativa: int) -> float:
     """Retry-After do servidor quando existe (limitado); senão backoff 2s, 4s."""
-    try:
-        ra = float((e.headers or {}).get("Retry-After", ""))
-        if ra >= 0:
-            return min(ra, _RETRY_WAIT_CAP_S)
-    except (TypeError, ValueError):
-        pass
+    valor = e.headers.get("Retry-After") if e.headers is not None else None
+    if valor is not None:
+        try:
+            ra = float(valor)
+            if ra >= 0:
+                return min(ra, _RETRY_WAIT_CAP_S)
+        except (TypeError, ValueError):
+            pass
     return min(2.0 * (2**tentativa), _RETRY_WAIT_CAP_S)
 
 
