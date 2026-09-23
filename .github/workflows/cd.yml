@@ -73,7 +73,7 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_STAGING }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN_STAGING }}
         run: |
-          databricks workspace ls /Shared/data-agents/skills/databricks/databricks-spark-declarative-pipelines/
+          databricks workspace ls /Shared/data-agents/skills/databricks/databricks-pipelines/
           databricks workspace ls /Shared/data-agents/skills/fabric/
           echo "Skills sync verified."
 
@@ -127,7 +127,7 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN_PRODUCTION }}
         run: |
           echo "Verifying deployment..."
-          databricks workspace ls /Shared/data-agents/skills/databricks/databricks-spark-declarative-pipelines/
+          databricks workspace ls /Shared/data-agents/skills/databricks/databricks-pipelines/
           databricks workspace ls /Shared/data-agents/skills/fabric/
           databricks workspace ls /Shared/data-agents/skills/patterns/star-schema-design/SKILL.md
           echo "Deployment verified successfully."

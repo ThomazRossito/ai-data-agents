@@ -3,7 +3,7 @@
 # Automação de tarefas comuns de desenvolvimento e deploy
 # ═══════════════════════════════════════════════════════════════════
 
-.PHONY: help install dev bootstrap demo evals eval-routing eval-model-compare test test-fast test-int test-e2e test-all lint format type-check security clean run health-databricks health-fabric fabric-env deploy-staging deploy-prod refresh-skills refresh-skills-dry refresh-skills-force
+.PHONY: help install dev bootstrap demo evals eval-routing eval-model-compare refresh-databricks-skills check-databricks-skills test test-fast test-int test-e2e test-all lint format type-check security clean run health-databricks health-fabric fabric-env deploy-staging deploy-prod refresh-skills refresh-skills-dry refresh-skills-force
 
 # Cores para output
 CYAN := \033[36m
@@ -192,6 +192,14 @@ deploy-prod: ## Deploy para Databricks Production
 	databricks bundle deploy --target production
 
 # ─── Skill Refresh ────────────────────────────────────────────────
+
+refresh-databricks-skills: ## Sincroniza skills/databricks/ com `databricks aitools install --path $(SRC)` (grava UPSTREAM.json)
+	@test -n "$(SRC)" || (echo "uso: make refresh-databricks-skills SRC=/tmp/dbx-skills  (gerado por: databricks aitools install --path /tmp/dbx-skills)"; exit 2)
+	python scripts/sync_databricks_skills.py "$(SRC)" --versao "$$(databricks aitools version 2>/dev/null | head -1)"
+
+check-databricks-skills: ## Compara skills/databricks/ com $(SRC) sem alterar — exit 1 se divergir
+	@test -n "$(SRC)" || (echo "uso: make check-databricks-skills SRC=/tmp/dbx-skills"; exit 2)
+	python scripts/sync_databricks_skills.py "$(SRC)" --check
 
 refresh-skills: ## Atualiza Skills desatualizadas (respeita SKILL_REFRESH_INTERVAL_DAYS)
 	python scripts/refresh_skills.py

@@ -2,7 +2,7 @@
 name: fabric-eventhouse-rti
 description: "Real-Time Intelligence do Microsoft Fabric — Eventstream, Eventhouse/KQL Database e Activator. Use ao projetar pipelines de dados em tempo real no Fabric (ingestão Kafka/Event Hub/IoT Hub, queries KQL, alertas reativos)."
 updated_at: "2026-04-16"
-source: kb/fabric/concepts/rti-concepts.md + kb/fabric/patterns/rti-patterns.md + skills/fabric/kql-rti-optimizations.md
+source: kb/fabric/concepts/rti-concepts.md + kb/fabric/patterns/rti-patterns.md + skills/fabric/fabric-eventhouse-rti/references/kql-rti-optimizations.md
 ---
 
 # SKILL: Microsoft Fabric — Real-Time Intelligence (Eventhouse, KQL, Eventstreams, Activator)

@@ -81,7 +81,7 @@ Primeiro **escolha o modelo de execução** (coerente, não misturar — ver `kb
 
 Produza, por pacote:
 - **Camadas** (Bronze/Silver/Gold) no modelo escolhido — leitura (Auto Loader / **Lakeflow Connect** p/ SQL Server) → transformações → escrita Delta idempotente (`MERGE`/`replaceWhere`) → quarentena dos error outputs. **PII mascarado/tokenizado no código** (Silver). **SK estável** (IDENTITY/hash/APPLY CHANGES).
-- **Empacotamento em Declarative Automation Bundle (DAB):** `databricks.yml` + `resources/*.yml` (jobs + pipelines) + `targets` dev/staging/prod (skill `databricks-bundles`). **Toda camada representada** na orquestração (sem Bronze/Silver órfão); **uma dimensão = uma unidade**.
+- **Empacotamento em Declarative Automation Bundle (DAB):** `databricks.yml` + `resources/*.yml` (jobs + pipelines) + `targets` dev/staging/prod (skill `databricks-dabs`). **Toda camada representada** na orquestração (sem Bronze/Silver órfão); **uma dimensão = uma unidade**.
 - **Conversão de expressões** aplicada; **variáveis/params** → job params/widgets; **conexões** → secret scope; sem FK enforced.
 - Um **relatório de conversão** (`conversion_report.md`) mapeando cada executable/componente → artefato, com os **itens de revisão manual** destacados (Script C#, Fuzzy) e a nuance de reconciliação (fato legado agregado × grão atômico).
 

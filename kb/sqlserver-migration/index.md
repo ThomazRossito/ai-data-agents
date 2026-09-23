@@ -98,7 +98,4 @@ Management** · **Underestimating Governance**. Detalhe (risco + como evitar) em
   avançada → `data-quality-steward`.
 - **Idioma:** seguir o usuário (PT-BR/EN); nomes de construtos/produtos em inglês.
 
-Concepts consumidos (residem fora deste domínio, por design — ver §1): `kb/migration/concepts/
-discovery-assessment.md` · `kb/migration/concepts/reconciliation.md` · `kb/migration/concepts/
-cutover-rollback.md` · `kb/sql-patterns/concepts/tsql-conversion-catalog.md` · `kb/databricks/concepts/
-lakehouse-federation.md` · `kb/governance/concepts/uc-abac-governed-tags.md`.
+Concepts consumidos (residem fora deste domínio, por design — ver §1): `kb/migration/concepts/discovery-assessment.md` · `kb/migration/concepts/reconciliation.md` · `kb/migration/concepts/cutover-rollback.md` · `kb/sql-patterns/concepts/tsql-conversion-catalog.md` · `kb/databricks/concepts/lakehouse-federation.md` · `kb/governance/concepts/uc-abac-governed-tags.md`.

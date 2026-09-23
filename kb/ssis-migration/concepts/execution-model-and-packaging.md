@@ -45,7 +45,7 @@ por pipeline:
 
 ## 4. Packaging = Declarative Automation Bundle (DAB) — entregável padrão
 
-Entregue um **bundle**, não Jobs JSON solto. Use a skill `skills/databricks/databricks-bundles/SKILL.md`.
+Entregue um **bundle**, não Jobs JSON solto. Use a skill `skills/databricks/databricks-dabs/SKILL.md`.
 
 Estrutura mínima:
 ```

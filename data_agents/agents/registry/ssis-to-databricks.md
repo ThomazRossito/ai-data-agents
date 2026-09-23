@@ -83,7 +83,7 @@ Antes da primeira conversão da sessão, leia:
 | Data Flow → PySpark/DLT | `kb/ssis-migration/concepts/data-flow-map.md` | idem |
 | Expressões/variáveis/conexões | `kb/ssis-migration/concepts/expressions-and-patterns.md` | idem |
 | Reconciliação origem×destino | `kb/migration/index.md` (checklist) | `skills/migration/SKILL.md` |
-| **Modelo de execução + packaging (DAB) + terminologia 2026** | `kb/ssis-migration/concepts/execution-model-and-packaging.md` | `skills/databricks/databricks-bundles/SKILL.md` |
+| **Modelo de execução + packaging (DAB) + terminologia 2026** | `kb/ssis-migration/concepts/execution-model-and-packaging.md` | `skills/databricks/databricks-dabs/SKILL.md` |
 
 ## Regras Invioláveis
 
@@ -126,7 +126,7 @@ Antes da primeira conversão da sessão, leia:
 
 > **R12 — Entregar como Declarative Automation Bundle (DAB), não Jobs JSON.** Empacote em
 > `databricks.yml` + `resources/*.yml` (jobs + pipelines) + `targets` (dev/staging/prod), usando a skill
-> `databricks-bundles`. Toda camada do medalhão precisa de task/pipeline na orquestração — **nunca**
+> `databricks-dabs`. Toda camada do medalhão precisa de task/pipeline na orquestração — **nunca**
 > deixar Bronze/Silver órfãos. **Uma dimensão = uma unidade** (task/notebook OU um create_auto_cdc_flow);
 > nunca apontar N tasks para o mesmo notebook.
 

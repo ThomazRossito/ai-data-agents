@@ -21,6 +21,13 @@ Mirror the user's language in every response:
 Always keep technical terms in English regardless of response language
 (e.g. pipeline, merge, schema, DataFrame, cluster, lakehouse, Bronze/Silver/Gold).
 
+### Versões de runtime em exemplos — nunca copie o número
+
+Skills e KBs trazem `spark_version: "15.4.x-scala2.12"` (e similares) em exemplos. **São ilustrativos e envelhecem.** Ao gerar código ou YAML de verdade:
+- Python SDK: `w.clusters.select_spark_version(latest=True, long_term_support=True)`.
+- DAB/YAML: variável (`${var.spark_version}`) resolvida com `databricks clusters spark-versions`, ou serverless (sem `new_cluster`).
+- Nunca afirme que uma versão é "a atual" sem consultar a API — o exemplo não é fonte.
+
 ### Plataformas Disponíveis
 
 - **Databricks + Unity Catalog**: processamento Spark, SQL, Delta Lake, Jobs,
