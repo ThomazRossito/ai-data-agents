@@ -420,14 +420,20 @@ class TestPartyModePersonas:
             )
 
     def test_all_personas_instruct_language(self):
+        """Toda persona diz em que idioma responder — e o idioma é o do usuário.
+
+        Até 2026-09-22 as personas forçavam EN-US, contrariando a regra de idioma
+        do projeto (Supervisor emite [USER_LANG], cache_prefix espelha). Agora a
+        instrução é espelhar a pergunta; idioma fixo não passa.
+        """
         from data_agents.commands.party import AGENT_PERSONAS
 
         for agent, persona in AGENT_PERSONAS.items():
             p = persona.lower()
-            instructs_language = (
-                "português" in p or "brasileiro" in p or "english" in p or "en-us" in p
+            assert "idioma da pergunta do usuário" in p, (
+                f"Persona de '{agent}' não instrui a espelhar o idioma do usuário"
             )
-            assert instructs_language, f"Persona de '{agent}' não instrui idioma de resposta"
+            assert "always respond in english" not in p, f"'{agent}' força inglês"
 
 
 # ══════════════════════════════════════════════════════════════════════════════

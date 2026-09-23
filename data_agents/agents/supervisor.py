@@ -250,6 +250,11 @@ def build_supervisor_options(
         )
         system_prompt_full = SUPERVISOR_SYSTEM_PROMPT
 
+    # Data de hoje no FIM (prefixo do prompt continua cacheável). Ver agents/temporal.py.
+    from data_agents.agents.temporal import current_date_note
+
+    system_prompt_full += current_date_note()
+
     return ClaudeAgentOptions(
         # --- Working Directory: âncora todos os agentes na raiz do projeto ---
         cwd=project_root,
