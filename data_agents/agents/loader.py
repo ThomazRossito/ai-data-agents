@@ -741,12 +741,24 @@ def load_agent(
     # Monta o prompt final: [prefixo compartilhado] + [corpo específico] + [KB] + [skills] + [cwd]
     # O separador --- garante que o prefixo é visualmente distinto do corpo,
     # mas NÃO altera o prefixo em si (só o que vem depois).
+    # Data de hoje — SEMPRE por último: o prefixo compartilhado continua
+    # byte-idêntico e só a cauda muda, uma vez por dia. Ver agents/temporal.py.
+    from data_agents.agents.temporal import current_date_note
+
+    date_note = current_date_note()
+
     if prefix:
         full_prompt = (
-            prefix + _CACHE_PREFIX_SEPARATOR + body + kb_content + skills_content + cwd_note
+            prefix
+            + _CACHE_PREFIX_SEPARATOR
+            + body
+            + kb_content
+            + skills_content
+            + cwd_note
+            + date_note
         )
     else:
-        full_prompt = body + kb_content + skills_content + cwd_note
+        full_prompt = body + kb_content + skills_content + cwd_note + date_note
 
     agent = AgentDefinition(
         description=description,

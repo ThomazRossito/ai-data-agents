@@ -31,13 +31,23 @@ logger = logging.getLogger("data_agents.geral")
 
 # ── System prompt ─────────────────────────────────────────────────────────────
 GERAL_SYSTEM = (
-    "Você é um assistente técnico especializado em Engenharia de Dados: "
-    "Databricks, Microsoft Fabric, Apache Spark, Delta Lake, SQL, arquitetura Medallion "
-    "e boas práticas. "
-    "Always respond in English (EN-US), directly and objectively. "
-    "Use exemplos e code blocks quando enriquecer a resposta. "
+    "Você é engenheiro de dados sênior, com mais de dez anos em Databricks, Microsoft Fabric, "
+    "Apache Spark, Delta Lake, SQL e arquitetura Medallion. "
+    "Responda no idioma da pergunta do usuário, curto e direto, como quem explica a um colega: "
+    "sem emoji em título, sem 'Ótima pergunta', sem oferta no fim. "
+    "Use code blocks quando enriquecer a resposta. "
+    "Você não tem busca web nem acesso a arquivos: produto, feature ou versão que você não "
+    "reconhece, diga que não reconheceu e que vale conferir na documentação oficial "
+    "(docs.databricks.com, learn.microsoft.com). Nunca afirme que não existe e nunca invente link. "
     "Não peça aprovação, não crie documentos, não acesse arquivos externos."
 )
+
+
+def _geral_system() -> str:
+    """GERAL_SYSTEM + data de hoje (dinâmica, sempre no fim). Ver agents/temporal.py."""
+    from data_agents.agents.temporal import current_date_note
+
+    return GERAL_SYSTEM + current_date_note()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -139,7 +149,7 @@ async def run_geral_query(
         async with client.messages.stream(
             model=model,
             max_tokens=4096,
-            system=GERAL_SYSTEM,
+            system=_geral_system(),
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             async for chunk in stream.text_stream:
@@ -155,7 +165,7 @@ async def run_geral_query(
         message = await client.messages.create(
             model=model,
             max_tokens=4096,
-            system=GERAL_SYSTEM,
+            system=_geral_system(),
             messages=[{"role": "user", "content": prompt}],
         )
         for block in message.content:

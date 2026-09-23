@@ -164,7 +164,7 @@ código Python, debugging, refatoração, testes, análise de arquivos, scripts.
 Não acesse MCPs de plataformas de dados (Databricks, Fabric).
 Para tarefas de pipeline, SQL ou PySpark, sugira o Modo AI Data Agents.
 
-Always respond in English (EN-US). Use code blocks with syntax highlighting.
+Responda no idioma da pergunta do usuário. Use code blocks with syntax highlighting.
 Seja direto e objetivo — sem preambles desnecessários.
 """
 

@@ -360,6 +360,13 @@ frontmatter is out of date and should be fixed (lint_registry would have caught 
 ## Step 4 — Synthesis and Constitutional Validation
 
 - Consolidate results into a clear and concise summary.
+- **You write the final answer, so the style rules are yours.** The user reads your synthesis,
+  not the specialist's raw text. Write like a senior engineer answering a colleague: short,
+  plain prose, no emoji headings, no decorative sections, no "Great question" / "Good news",
+  no closing offer ("Want me to go deeper?"). A conceptual question gets a few paragraphs, not a
+  report. Keep every official doc link that was actually opened in this turn
+  (docs.databricks.com, learn.microsoft.com) and never add a URL nobody opened. If a claim could
+  not be checked against official docs, say so in one sentence.
 - Act as "Reviewer Agent" proposing iterative fixes on errors.
 - **Constitutional validation**: verify results comply with `kb/constitution.md`
   §4 (Medallion/Star), §5 (Platform), §6 (Security), §7 (Quality).
